@@ -28,9 +28,10 @@ type settingsOption struct {
 }
 
 type settingsField struct {
-	Name, Label, Kind, Value, Help, Class string
-	Checked, Hidden                       bool
-	Options                               []settingsOption
+	Name, Label, Kind, Value, Class string
+	Help                            template.HTML
+	Checked, Hidden                 bool
+	Options                         []settingsOption
 }
 
 type settingsPageData struct {
@@ -39,6 +40,7 @@ type settingsPageData struct {
 	IsSuperuser, EnableSharing              bool
 	EnableRefreshFavicons, HasSnapshots     bool
 	SuccessMessage, ErrorMessage            string
+	VersionInfo                             string
 	Fields                                  []settingsField
 	Global                                  settings.Global
 	Users                                   []settings.UserOption
@@ -106,7 +108,7 @@ func renderSettingsGeneral(w http.ResponseWriter, r *http.Request, cfg config.Co
 		CustomCSS: form.Get("custom_css") != "", EnableSharing: form.Get("enable_sharing") != "",
 		IsSuperuser: user.IsSuperuser, EnableRefreshFavicons: cfg.EnableRefreshFavicons,
 		HasSnapshots: cfg.EnableSnapshots, Fields: profileDisplayFields(form), Global: global, Users: options,
-		ErrorMessage: errorMessage,
+		ErrorMessage: errorMessage, VersionInfo: settingsVersionInfo(r.Context()),
 	}
 	data.ToastHTML, err = renderPageToasts(r.Context(), db, cfg, user.ID, masked, r.URL.Path)
 	if err != nil {
