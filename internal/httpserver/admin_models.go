@@ -175,7 +175,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.NextPageURL = adminListURL(r.URL.Query(), "p", strconv.Itoa(page+1))
 	}
 	data.CanAdd = permissions.Add
+	data.CanDelete = permissions.Delete
 	data.IsEditableModel = adminEditableModel(definition.Model)
+	data.IsTagList = definition.Model == "tag"
 	data.AddLabel = "toast"
 	if definition.Model == "apitoken" {
 		data.AddLabel = "API token"
@@ -209,6 +211,28 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	if err := rows.Err(); err != nil {
 		http.Error(w, "Server error", 500)
 		return
+	}
+	if data.IsTagList {
+		secret := ""
+		if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
+			secret = cookie.Value
+		}
+		if secret == "" {
+			var err error
+			secret, err = auth.NewCSRFSecret()
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			setCSRFCookie(w, cfg.URLPrefix(), secret)
+		}
+		var err error
+		data.CSRFToken, err = auth.MaskCSRF(secret)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		data.ActionMessage = takeSettingsFlash(w, r, cfg.URLPrefix(), "ld_admin_tag_action")
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

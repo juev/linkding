@@ -32,6 +32,7 @@ type adminPageData struct {
 	SearchQuery, UserFilter, AllUsersURL          string
 	UserFilterParam, UserFilterTitle, AddLabel    string
 	PreviousPageURL, NextPageURL                  string
+	CSRFToken, ActionMessage                      string
 	Tasks                                         []adminTask
 	Models                                        []adminModelLink
 	UserFilters                                   []adminUserFilter
@@ -40,7 +41,7 @@ type adminPageData struct {
 	TaskCount                                     int64
 	Page, Pages                                   int
 	IsTaskList, IsModelList, IsSearchableList     bool
-	CanAdd, IsEditableModel                       bool
+	IsTagList, CanAdd, CanDelete, IsEditableModel bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
@@ -104,6 +105,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			return
 		}
 		serveAdminBundle(w, r, cfg, db, user, permissions)
+		return
+	}
+	if r.URL.Path == root+"bookmarks/tag/" && r.Method == http.MethodPost {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "tag")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminTagAction(w, r, cfg, db, user, permissions)
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
