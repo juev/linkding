@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juev/linkding/internal/auth"
@@ -36,6 +39,13 @@ type adminListRow struct {
 	Cells []string
 	Link  string
 }
+
+type adminOwnerFilter struct {
+	Username, URL string
+	Selected      bool
+}
+
+var adminSearchSplit = regexp.MustCompile(`((?:[^\s'"]*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')[^\s'"]*)+)|\S+)`)
 
 func findAdminModel(app, model string) (adminModelDefinition, bool) {
 	for _, definition := range adminModels {
@@ -82,15 +92,44 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	if requested, err := strconv.Atoi(r.URL.Query().Get("p")); err == nil && requested > 0 {
 		page = requested
 	}
+	baseQuery := definition.Query
+	var args []any
+	if definition.Model == "toast" {
+		data.IsToastList = true
+		data.SearchQuery = r.URL.Query().Get("q")
+		data.OwnerFilter = r.URL.Query().Get("owner__username")
+		baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.OwnerFilter)
+		data.AllOwnersURL = adminListURL(r.URL.Query(), "owner__username", "")
+		ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		for ownerRows.Next() {
+			var name string
+			if err := ownerRows.Scan(&name); err != nil {
+				ownerRows.Close()
+				http.Error(w, "Server error", 500)
+				return
+			}
+			data.OwnerFilters = append(data.OwnerFilters, adminOwnerFilter{Username: name, URL: adminListURL(r.URL.Query(), "owner__username", name), Selected: name == data.OwnerFilter})
+		}
+		if err := ownerRows.Err(); err != nil {
+			ownerRows.Close()
+			http.Error(w, "Server error", 500)
+			return
+		}
+		ownerRows.Close()
+	}
 	var total int64
-	if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM (`+definition.Query+`) AS records`).Scan(&total); err != nil {
+	if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM (`+baseQuery+`) AS records`, args...).Scan(&total); err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
 	pages := max(1, int((total+99)/100))
 	page = min(page, pages)
-	query := definition.Query + ` LIMIT 100 OFFSET ` + assetMarker(cfg.DBEngine, 1)
-	rows, err := db.QueryContext(r.Context(), query, (page-1)*100)
+	query := baseQuery + ` LIMIT 100 OFFSET ` + assetMarker(cfg.DBEngine, len(args)+1)
+	rows, err := db.QueryContext(r.Context(), query, append(args, (page-1)*100)...)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
@@ -102,6 +141,12 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.ModelColumns = definition.Columns
 	data.TaskCount = total
 	data.Page, data.Pages = page, pages
+	if page > 1 {
+		data.PreviousPageURL = adminListURL(r.URL.Query(), "p", strconv.Itoa(page-1))
+	}
+	if page < pages {
+		data.NextPageURL = adminListURL(r.URL.Query(), "p", strconv.Itoa(page+1))
+	}
 	data.CanAdd = permissions.Add
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 	for rows.Next() {
@@ -132,6 +177,62 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	if r.Method != http.MethodHead {
 		_ = adminPageTemplate.Execute(w, data)
 	}
+}
+
+func adminToastListQuery(engine, search, owner string) (string, []any) {
+	query := `SELECT t.id,t.key,t.message,u.username,CASE WHEN t.acknowledged THEN 'Yes' ELSE 'No' END FROM bookmarks_toast AS t JOIN auth_user AS u ON u.id=t.owner_id`
+	var conditions []string
+	var args []any
+	bind := func(value any) string {
+		args = append(args, value)
+		return assetMarker(engine, len(args))
+	}
+	if owner != "" {
+		conditions = append(conditions, "u.username = "+bind(owner))
+	}
+	for _, term := range splitAdminSearch(search) {
+		if engine == "postgres" {
+			escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term)
+			conditions = append(conditions, "(t.key ILIKE "+bind("%"+escaped+"%")+` ESCAPE '\' OR t.message ILIKE `+bind("%"+escaped+"%")+` ESCAPE '\')`)
+		} else {
+			conditions = append(conditions, "(ld_ci_contains(t.key, "+bind(term)+") = 1 OR ld_ci_contains(t.message, "+bind(term)+") = 1)")
+		}
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	return query + " ORDER BY t.id DESC", args
+}
+
+func splitAdminSearch(search string) []string {
+	terms := adminSearchSplit.FindAllString(search, -1)
+	for i, term := range terms {
+		if len(term) > 1 && (term[0] == '\'' || term[0] == '"') && term[len(term)-1] == term[0] {
+			quote := string(term[0])
+			term = strings.ReplaceAll(term[1:len(term)-1], "\\"+quote, quote)
+			terms[i] = strings.ReplaceAll(term, `\\`, `\`)
+		}
+	}
+	return terms
+}
+
+func adminListURL(current url.Values, key, value string) string {
+	params := url.Values{}
+	for name, values := range current {
+		if name == "p" {
+			continue
+		}
+		params[name] = append([]string(nil), values...)
+	}
+	if value == "" {
+		params.Del(key)
+	} else {
+		params.Set(key, value)
+	}
+	if encoded := params.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return "?"
 }
 
 func adminValueString(value any) string {

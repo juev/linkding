@@ -29,13 +29,16 @@ type adminTask struct {
 
 type adminPageData struct {
 	Prefix, Title, Username, ModelName, ModelPath string
+	SearchQuery, OwnerFilter, AllOwnersURL        string
+	PreviousPageURL, NextPageURL                  string
 	Tasks                                         []adminTask
 	Models                                        []adminModelLink
+	OwnerFilters                                  []adminOwnerFilter
 	ModelColumns                                  []string
 	ModelRows                                     []adminListRow
 	TaskCount                                     int64
 	Page, Pages                                   int
-	IsTaskList, IsModelList, CanAdd               bool
+	IsTaskList, IsModelList, IsToastList, CanAdd  bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
