@@ -117,6 +117,23 @@ func serveBundlesAPI(w http.ResponseWriter, r *http.Request, root string, cfg co
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
+	if r.Method == http.MethodOptions {
+		if list {
+			writeAPIMetadata(w, "Bookmark Bundle List", http.MethodPost, bundleAPISchema)
+			return
+		}
+		_, lookupErr := getBundle(r, cfg, db, user.ID, id)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			writeAPIMetadata(w, "Bookmark Bundle Instance", "", "")
+			return
+		}
+		if lookupErr != nil {
+			writeDetail(w, http.StatusInternalServerError, "Server error")
+			return
+		}
+		writeAPIMetadata(w, "Bookmark Bundle Instance", http.MethodPut, bundleAPISchema)
+		return
+	}
 	if list && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 		serveBundleList(w, r, cfg, db, user.ID)
 		return

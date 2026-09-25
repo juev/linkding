@@ -85,6 +85,14 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
+	if r.Method == http.MethodOptions {
+		if list {
+			writeAPIMetadata(w, "Tag List", "POST", tagAPISchema)
+		} else {
+			writeAPIMetadata(w, "Tag Instance", "", "")
+		}
+		return
+	}
 	if list && r.Method == http.MethodPost {
 		if !present && !verifyAPICSRF(r, cfg) {
 			writeDetail(w, http.StatusForbidden, "CSRF Failed: CSRF token missing or incorrect.")

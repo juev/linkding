@@ -49,6 +49,10 @@ func serveProfile(w http.ResponseWriter, r *http.Request, path string, repo *aut
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
+	if r.Method == http.MethodOptions {
+		writeAPIMetadata(w, "Profile", "", "")
+		return
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		writeDetail(w, http.StatusMethodNotAllowed, "Method \""+r.Method+"\" not allowed.")
 		return

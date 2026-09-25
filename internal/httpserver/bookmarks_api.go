@@ -142,7 +142,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	} else {
 		err = auth.ErrInvalidCredentials
 	}
-	if errors.Is(err, auth.ErrInvalidCredentials) && shared && !present {
+	if errors.Is(err, auth.ErrInvalidCredentials) && shared && !present && r.Method != http.MethodOptions {
 		user = auth.User{}
 		err = nil
 	}
@@ -157,6 +157,55 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	}
 	if err != nil {
 		writeDetail(w, http.StatusInternalServerError, "Server error")
+		return
+	}
+	if r.Method == http.MethodOptions {
+		switch {
+		case part == "":
+			writeAPIMetadata(w, "Bookmark List", http.MethodPost, bookmarkAPISchema)
+		case archived:
+			writeAPIMetadata(w, "Archived", "", "")
+		case shared:
+			writeAPIMetadata(w, "Shared", "", "")
+		case check:
+			writeAPIMetadata(w, "Check", "", "")
+		case singlefile:
+			writeAPIMetadata(w, "Singlefile", http.MethodPost, bookmarkAPISchema)
+		case strings.Contains(part, "/assets/"):
+			switch assetPath {
+			case "":
+				writeAPIMetadata(w, "Bookmark Asset List", "", "")
+			case "upload":
+				writeAPIMetadata(w, "Upload", http.MethodPost, assetUploadAPISchema)
+			default:
+				segments := strings.Split(assetPath, "/")
+				assetID, parseErr := strconv.ParseInt(segments[0], 10, 64)
+				if parseErr != nil || assetID < 1 || len(segments) > 2 || len(segments) == 2 && segments[1] != "download" {
+					http.NotFound(w, r)
+					return
+				}
+				if len(segments) == 2 {
+					writeAPIMetadata(w, "Download", "", "")
+				} else {
+					writeAPIMetadata(w, "Bookmark Asset Instance", "", "")
+				}
+			}
+		case action == "archive":
+			writeAPIMetadata(w, "Archive", http.MethodPost, bookmarkAPISchema)
+		case action == "unarchive":
+			writeAPIMetadata(w, "Unarchive", http.MethodPost, bookmarkAPISchema)
+		default:
+			exists, lookupErr := ownedBookmarkExists(r, db, cfg.DBEngine, user.ID, id)
+			if lookupErr != nil {
+				writeDetail(w, http.StatusInternalServerError, "Server error")
+				return
+			}
+			if exists {
+				writeAPIMetadata(w, "Bookmark Instance", http.MethodPut, bookmarkAPISchema)
+			} else {
+				writeAPIMetadata(w, "Bookmark Instance", "", "")
+			}
+		}
 		return
 	}
 	if singlefile {
