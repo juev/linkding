@@ -17,6 +17,8 @@ CGO_ENABLED=0 go test ./...
 
 The frontend build writes generated JavaScript and CSS into `web/static/`; those files are not committed. The Go binary serves static files from that directory relative to its working directory.
 
+SQLite backup and restore commands are described in [Back up and restore data](docs/backups.md).
+
 ## Attribution
 
 The original linkding project is by Sascha Ißbrücker and is licensed under MIT. Its copyright and license notice are preserved in [LICENSE.txt](LICENSE.txt). Copied Django Admin assets and the common-password list are documented in [third-party notices](docs/third-party/README.md).

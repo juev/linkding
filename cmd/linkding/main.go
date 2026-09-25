@@ -26,8 +26,13 @@ func main() {
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if len(os.Args) > 1 && os.Args[1] == "migrate-from-linkding" {
-		return runMigration(ctx, os.Args[2:], os.Stdout)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "migrate-from-linkding":
+			return runMigration(ctx, os.Args[2:], os.Stdout)
+		case "full_backup", "backup":
+			return runBackup(ctx, os.Args[1], os.Args[2:], os.Stdout)
+		}
 	}
 	cfg, err := config.Load()
 	if err != nil {
