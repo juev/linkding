@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" data-api-base-url="{{.Prefix}}api/">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="{{.Prefix}}static/favicon.ico" sizes="48x48">
+  <link rel="icon" href="{{.Prefix}}static/favicon.svg" sizes="any" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{.Prefix}}static/apple-touch-icon.png">
+  <link rel="mask-icon" href="{{.Prefix}}static/safari-pinned-tab.svg" color="#5856e0">
+  <link rel="manifest" href="{{.Prefix}}manifest.json">
+  <link rel="search" type="application/opensearchdescription+xml" title="Linkding" href="{{.Prefix}}opensearch.xml">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimal-ui">
+  <meta name="description" content="Self-hosted bookmark service">
+  <meta name="robots" content="index,follow">
+  <meta name="author" content="Sascha Ißbrücker">
+  <title>Settings - Linkding</title>
+  {{if eq .Theme "light"}}<link href="{{.Prefix}}static/theme-light.css?v=1.47.0" rel="stylesheet" type="text/css"><meta name="theme-color" content="#5856e0">{{else if eq .Theme "dark"}}<link href="{{.Prefix}}static/theme-dark.css?v=1.47.0" rel="stylesheet" type="text/css"><meta name="theme-color" content="#161822">{{else}}<link href="{{.Prefix}}static/theme-dark.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: dark)"><link href="{{.Prefix}}static/theme-light.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: light)"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161822"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#5856e0">{{end}}
+  {{if .CustomCSS}}<link href="{{.Prefix}}custom_css?hash={{.CustomCSSHash}}" rel="stylesheet" type="text/css">{{end}}
+  <meta name="turbo-cache-control" content="no-preview">
+  {{if not .Global.EnableLinkPrefetch}}<meta name="turbo-prefetch" content="false">{{end}}
+  <script src="{{.Prefix}}static/bundle.js?v=1.47.0"></script>
+</head>
+<body>
+  <header class="container">{{.ToastHTML}}<div class="d-flex justify-between">
+    <a href="{{.Prefix}}" class="app-link d-flex align-center"><img class="app-logo" src="{{.Prefix}}static/logo.png" alt="Application logo"><span class="app-name">LINKDING</span></a>
+    <nav>
+      <div class="hide-md">
+        <a href="{{.Prefix}}bookmarks/new" class="btn btn-primary mr-2">Add bookmark</a>
+        <ld-dropdown class="dropdown"><button class="btn btn-link dropdown-toggle" tabindex="0">Bookmarks</button><ul class="menu" role="list" tabindex="-1">
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks" class="menu-link">Active</a></li>
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks/archived" class="menu-link">Archived</a></li>
+          {{if .EnableSharing}}<li class="menu-item"><a href="{{.Prefix}}bookmarks/shared" class="menu-link">Shared</a></li>{{end}}
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks?unread=yes" class="menu-link">Unread</a></li>
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks?q=!untagged" class="menu-link">Untagged</a></li>
+        </ul></ld-dropdown>
+        <ld-dropdown class="dropdown"><button class="btn btn-link dropdown-toggle" tabindex="0">Settings</button><ul class="menu" role="list" tabindex="-1">
+          <li class="menu-item"><a href="{{.Prefix}}settings/general" class="menu-link">General</a></li>
+          <li class="menu-item"><a href="{{.Prefix}}settings/integrations" class="menu-link">Integrations</a></li>
+          {{if .IsSuperuser}}<li class="menu-item"><a href="{{.Prefix}}admin/" class="menu-link" data-turbo="false">Admin</a></li>{{end}}
+        </ul></ld-dropdown>
+        <form class="d-inline" action="{{.Prefix}}logout/" method="post" data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit" class="btn btn-link">Logout</button></form>
+      </div>
+      <div class="show-md"><a href="{{.Prefix}}bookmarks/new" aria-label="Add bookmark" class="btn btn-primary"><svg width="24" height="24"><use href="{{.Prefix}}static/icons.svg?v=1.47.0#plus"></use></svg></a>
+        <ld-dropdown class="dropdown dropdown-right"><button class="btn btn-link dropdown-toggle" aria-label="Navigation menu" tabindex="0"><svg width="24" height="24"><use href="{{.Prefix}}static/icons.svg?v=1.47.0#menu"></use></svg></button><ul class="menu" role="list" tabindex="-1">
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks" class="menu-link">Bookmarks</a></li><li class="menu-item"><a href="{{.Prefix}}bookmarks/archived" class="menu-link">Archived bookmarks</a></li>
+          {{if .EnableSharing}}<li class="menu-item"><a href="{{.Prefix}}bookmarks/shared" class="menu-link">Shared bookmarks</a></li>{{end}}
+          <li class="menu-item"><a href="{{.Prefix}}bookmarks?unread=yes" class="menu-link">Unread</a></li><li class="menu-item"><a href="{{.Prefix}}bookmarks?q=!untagged" class="menu-link">Untagged</a></li><div class="divider"></div>
+          <li class="menu-item"><a href="{{.Prefix}}settings/general" class="menu-link">Settings</a></li><li class="menu-item"><a href="{{.Prefix}}settings/integrations" class="menu-link">Integrations</a></li>{{if .IsSuperuser}}<li class="menu-item"><a href="{{.Prefix}}admin/" class="menu-link" data-turbo="false">Admin</a></li>{{end}}<div class="divider"></div>
+          <li class="menu-item"><form class="d-inline" action="{{.Prefix}}logout/" method="post" data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit" class="btn btn-link menu-link">Logout</button></form></li>
+        </ul></ld-dropdown>
+      </div>
+    </nav>
+  </div></header>
+  <div class="content container"><main class="settings-page" aria-labelledby="main-heading">
+    <h1 id="main-heading">Settings</h1>
+    {{if .SuccessMessage}}<div class="toast toast-success mb-4">{{.SuccessMessage}}</div>{{end}}
+    {{if .ErrorMessage}}<div class="toast toast-error mb-4">{{.ErrorMessage}}</div>{{end}}
+    <section aria-labelledby="profile-heading"><h2 id="profile-heading">Profile</h2><p><a href="{{.Prefix}}change-password/">Change password</a></p>
+      <form action="{{.Prefix}}settings/update" method="post" novalidate data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+        {{range .Fields}}{{if or (ne .Name "enable_automatic_html_snapshots") $.HasSnapshots}}
+        <div class="form-group{{if .Hidden}} d-hide{{end}}">
+          {{if eq .Kind "checkbox"}}<label for="id_{{.Name}}" class="form-checkbox"><input type="checkbox" name="{{.Name}}" id="id_{{.Name}}"{{if .Checked}} checked{{end}}><i class="form-icon"></i> {{.Label}}</label>
+          {{else if eq .Kind "choice"}}<label for="id_{{.Name}}" class="form-label">{{.Label}}</label><select name="{{.Name}}" id="id_{{.Name}}" class="form-select {{.Class}}">{{range .Options}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+          {{else if eq .Kind "number"}}<label for="id_{{.Name}}" class="form-label">{{.Label}}</label><input type="number" name="{{.Name}}" id="id_{{.Name}}" value="{{.Value}}" class="form-input {{.Class}}"{{if eq .Name "items_per_page"}} min="10"{{end}}>
+          {{else}}<details{{if .Value}} open{{end}}><summary><span class="form-label d-inline-block">{{.Label}}</span></summary><label for="id_{{.Name}}" class="text-assistive">{{.Label}}</label><div><textarea name="{{.Name}}" id="id_{{.Name}}" rows="6" class="form-input {{.Class}}">{{.Value}}</textarea></div></details>{{end}}
+          {{if .Help}}<div class="form-input-hint">{{.Help}}</div>{{end}}
+          {{if and (eq .Name "enable_favicons") $.EnableRefreshFavicons .Checked}}<button class="btn mt-2" name="refresh_favicons">Refresh Favicons</button>{{end}}
+          {{if eq .Name "enable_automatic_html_snapshots"}}<button class="btn mt-2" name="create_missing_html_snapshots">Create missing HTML snapshots</button>{{end}}
+        </div>{{end}}{{end}}
+        <div class="form-group"><input type="submit" name="update_profile" value="Save" class="btn btn-primary btn-wide mt-2"></div>
+      </form>
+    </section>
+    {{if .IsSuperuser}}<section aria-labelledby="global-settings-heading"><h2 id="global-settings-heading">Global settings</h2>
+      <form action="{{.Prefix}}settings/update" method="post" novalidate data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+        <div class="form-group"><label for="id_landing_page" class="form-label">Landing page</label><select name="landing_page" id="id_landing_page" class="form-select width-25 width-sm-100"><option value="login"{{if eq .Global.LandingPage "login"}} selected{{end}}>Login</option><option value="shared_bookmarks"{{if eq .Global.LandingPage "shared_bookmarks"}} selected{{end}}>Shared bookmarks</option></select><div class="form-input-hint">The page that unauthenticated users are redirected to when accessing the root URL.</div></div>
+        <div class="form-group"><label for="id_guest_profile_user" class="form-label">Guest user profile</label><select name="guest_profile_user" id="id_guest_profile_user" class="form-select width-25 width-sm-100"><option value="">Default</option>{{range .Users}}<option value="{{.ID}}"{{if and $.Global.GuestProfileUserID.Valid (eq .ID $.Global.GuestProfileUserID.Int64)}} selected{{end}}>{{.Username}}</option>{{end}}</select><div class="form-input-hint">The user profile to use for users that are not logged in.</div></div>
+        <div class="form-group"><label for="id_enable_link_prefetch" class="form-checkbox"><input type="checkbox" name="enable_link_prefetch" id="id_enable_link_prefetch"{{if .Global.EnableLinkPrefetch}} checked{{end}}><i class="form-icon"></i> Enable prefetching links on hover</label><div class="form-input-hint">Prefetches internal links when hovering over them.</div></div>
+        <div class="form-group"><input type="submit" name="update_global_settings" value="Save" class="btn btn-primary btn-wide mt-2"></div>
+      </form>
+    </section>{{end}}
+    <section aria-labelledby="import-heading"><h2 id="import-heading">Import</h2><p>Import bookmarks and tags in the Netscape HTML format. This will execute a sync where new bookmarks are added and existing ones are updated.</p>
+      <form method="post" enctype="multipart/form-data" action="{{.Prefix}}settings/import"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+        <div class="form-group"><label for="import_map_private_flag" class="form-checkbox"><input type="checkbox" id="import_map_private_flag" name="map_private_flag" aria-describedby="import_map_private_flag_help"><i class="form-icon"></i> Import public bookmarks as shared</label><div id="import_map_private_flag_help" class="form-input-hint">When importing bookmarks from a service that supports marking bookmarks as public or private (using the <code>PRIVATE</code> attribute), enabling this option will import all bookmarks that are marked as not private as shared bookmarks. Otherwise, all bookmarks will be imported as private bookmarks.</div></div>
+        <div class="form-group"><div class="input-group width-75 width-md-100"><input class="form-input" type="file" name="import_file"><input type="submit" class="input-group-btn btn btn-primary" value="Upload"></div></div>
+      </form>
+    </section>
+    <section aria-labelledby="export-heading"><h2 id="export-heading">Export</h2><p>Export all bookmarks in Netscape HTML format.</p><a class="btn btn-primary" target="_blank" href="{{.Prefix}}settings/export">Download (.html)</a></section>
+    <section class="about" aria-labelledby="about-heading"><h2 id="about-heading">About</h2><table class="table"><tbody><tr><td>Version</td><td>1.47.0</td></tr><tr><td style="vertical-align: top">Links</td><td><div class="d-flex flex-column gap-2"><a href="https://github.com/sissbruecker/linkding/" target="_blank">GitHub</a><a href="https://linkding.link/" target="_blank">Documentation</a><a href="https://github.com/sissbruecker/linkding/blob/master/CHANGELOG.md" target="_blank">Changelog</a></div></td></tr></tbody></table></section>
+  </main></div><div class="modals"></div>
+  <script>(function init(){const sharing=document.getElementById("id_enable_sharing"),publicSharing=document.getElementById("id_enable_public_sharing"),defaultShared=document.getElementById("id_default_mark_shared"),description=document.getElementById("id_bookmark_description_display"),lines=document.getElementById("id_bookmark_description_max_lines");function updateSharing(){publicSharing.disabled=!sharing.checked;defaultShared.disabled=!sharing.checked;if(!sharing.checked){publicSharing.checked=false;defaultShared.checked=false}}function updateLines(){lines.closest(".form-group").classList.toggle("d-hide",description.value==="inline")}updateSharing();sharing.addEventListener("change",updateSharing);updateLines();description.addEventListener("change",updateLines)})();</script>
+</body>
+</html>

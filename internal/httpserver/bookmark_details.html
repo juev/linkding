@@ -1,0 +1,31 @@
+<turbo-frame id="details-modal" target="_top">{{if .ID}}
+  <ld-details-modal class="modal active bookmark-details" data-bookmark-id="{{.ID}}" data-close-url="{{.CloseURL}}" data-turbo-frame="details-modal">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-container" role="dialog" aria-modal="true">
+      <div class="modal-header"><h2 class="title">{{.Title}}</h2><button type="button" class="btn btn-noborder close" aria-label="Close dialog" data-close-modal><svg width="24" height="24"><use href="{{.Prefix}}static/icons.svg#close"></use></svg></button></div>
+      <div class="modal-body"><ld-form><form action="{{.ActionURL}}" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="update_state" value="{{.ID}}">
+        <div class="weblinks"><a class="weblink" href="{{.URL}}" rel="noopener" target="{{.LinkTarget}}">{{if .ShowLinkIcons}}<img class="favicon" src="{{.FaviconURL}}" alt="">{{end}}<span>{{.URL}}</span></a>
+          {{if .LatestSnapshotID}}<a class="weblink" href="{{.Prefix}}assets/{{.LatestSnapshotID}}/read" target="{{.LinkTarget}}"><span>Reader mode</span></a>{{end}}
+          {{if .WebArchiveURL}}<a class="weblink" href="{{.WebArchiveURL}}" target="{{.LinkTarget}}"><span>Internet Archive</span></a>{{end}}</div>
+        {{if .ShowPreview}}<div class="preview-image"><img src="{{.PreviewURL}}" alt=""></div>{{end}}
+        <div class="sections grid columns-2 columns-sm-1 gap-0">
+          {{if .Editable}}<section class="status col-2"><h3>Status</h3><div class="d-flex" style="gap: .8rem">
+            <div class="form-group"><label class="form-checkbox"><input data-submit-on-change type="checkbox" name="is_archived" {{if .Archived}}checked{{end}}><i class="form-icon"></i> Archived</label></div>
+            <div class="form-group"><label class="form-checkbox"><input data-submit-on-change type="checkbox" name="unread" {{if .Unread}}checked{{end}}><i class="form-icon"></i> Unread</label></div>
+            {{if .EnableSharing}}<div class="form-group"><label class="form-checkbox"><input data-submit-on-change type="checkbox" name="shared" {{if .Shared}}checked{{end}}><i class="form-icon"></i> Shared</label></div>{{end}}
+          </div></section>{{end}}
+          <section class="files col-2"><h3>Files</h3><div>
+            {{if .Assets}}<div class="item-list assets">{{range .Assets}}<div class="list-item" data-asset-id="{{.ID}}"><div class="list-item-icon {{.Color}}"><svg width="24" height="24"><use href="#file"></use></svg></div><div class="list-item-text"><span class="truncate">{{.Name}}{{if eq .Status "pending"}} (queued){{end}}{{if eq .Status "failure"}} (failed){{end}}</span>{{if .Size}}<span class="filesize">{{.Size}}</span>{{end}}</div><div class="list-item-actions">{{if .HasFile}}<a class="btn btn-link" href="{{$.Prefix}}assets/{{.ID}}" target="_blank">View</a>{{end}}{{if $.Editable}}<button data-confirm type="submit" name="remove_asset" value="{{.ID}}" class="btn btn-link">Remove</button>{{end}}</div></div>{{end}}</div>{{end}}
+            {{if .Editable}}<div class="assets-actions">{{if .SnapshotsEnabled}}<button type="submit" name="create_html_snapshot" value="{{.ID}}" class="btn btn-sm" {{if .PendingAssets}}disabled{{end}}>Create HTML snapshot</button>{{end}}{{if .UploadsEnabled}}<ld-upload-button><button id="upload-asset" name="upload_asset" value="{{.ID}}" type="submit" class="btn btn-sm">Upload file</button><input id="upload-asset-file" name="upload_asset_file" type="file" class="d-hide"></ld-upload-button>{{end}}</div>{{end}}
+          </div></section>
+          {{if .Tags}}<section class="tags col-1"><h3 id="details-modal-tags-title">Tags</h3><div>{{range .Tags}}<a href="{{$.Prefix}}bookmarks/?{{.Query}}">{{.Name}}</a> {{end}}</div></section>{{end}}
+          <section class="date-added col-1"><h3>Date added</h3><div><span>{{.DateAdded}}</span></div></section>
+          {{if .Description}}<section class="description col-2"><h3>Description</h3><div>{{.Description}}</div></section>{{end}}
+          {{if .NotesHTML}}<section class="notes col-2"><h3>Notes</h3><div class="markdown">{{.NotesHTML}}</div></section>{{end}}
+        </div>
+      </form></ld-form></div>
+      {{if .Editable}}<div class="modal-footer"><div class="actions"><div class="left-actions"><a class="btn btn-wide" href="{{.EditURL}}">Edit</a></div><div class="right-actions"><form action="{{.DeleteURL}}" method="post" data-turbo-action="replace"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="disable_turbo" value="true"><button data-confirm class="btn btn-error btn-wide" type="submit" name="remove" value="{{.ID}}">Delete</button></form></div></div></div>{{end}}
+    </div>
+  </ld-details-modal>{{end}}
+</turbo-frame>

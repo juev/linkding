@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <title>{{.Title}} | linkding Admin</title>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
+  <script src="{{.Prefix}}static/admin/js/theme.js"></script>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
+  {{if and (not .IsTaskList) (not .IsModelList)}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/dashboard.css">{{end}}
+  {{if .IsModelList}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/changelists.css">{{end}}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="NONE,NOARCHIVE">
+</head>
+<body class="{{if .IsTaskList}}app-huey_app{{else if .IsModelList}}change-list{{else}}dashboard{{end}}">
+<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<div id="container">
+  <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">Welcome, <strong>{{.Username}}</strong>. <a href="{{.Prefix}}">View site</a> / <a href="{{.Prefix}}change-password/">Change password</a></div></header>
+  {{if or .IsTaskList .IsModelList}}<nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; {{.Title}}</div></nav>{{end}}
+  <div class="main" id="main"><main id="content-start" class="content" tabindex="-1"><div id="content" class="{{if or .IsTaskList .IsModelList}}colM{{else}}colMS{{end}}">
+    <h1>{{.Title}}</h1>
+    {{if .IsTaskList}}
+      <table style="width: 100%"><thead><tr><th>ID</th><th>Name</th><th>Args</th><th>Retries</th></tr></thead><tbody>{{range .Tasks}}<tr><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Args}}</td><td>{{.Retries}}</td></tr>{{end}}</tbody></table>
+      <p class="paginator">{{if gt .Pages 1}}{{if gt .Page 1}}<a href="?p={{sub .Page 1}}">Previous</a>{{end}} <span class="this-page">{{.Page}}</span> of {{.Pages}} {{if lt .Page .Pages}}<a href="?p={{add .Page 1}}">Next</a>{{end}} &nbsp;{{end}}{{.TaskCount}} tasks</p>
+    {{else if .IsModelList}}
+      {{if and .CanAdd (eq .ModelName "Toasts")}}<ul class="object-tools"><li><a href="{{.ModelPath}}add/" class="addlink">Add toast</a></li></ul>{{end}}
+      <div id="changelist" class="module filtered"><div class="changelist-form-container"><div id="changelist-form"><div class="results"><table id="result_list"><thead><tr>{{range .ModelColumns}}<th scope="col"><div class="text"><span>{{.}}</span></div></th>{{end}}</tr></thead><tbody>{{range .ModelRows}}{{$row := .}}<tr>{{range $index, $cell := .Cells}}{{if eq $index 0}}<th class="field-__str__">{{if $row.Link}}<a href="{{$row.Link}}">{{$cell}}</a>{{else}}{{$cell}}{{end}}</th>{{else}}<td>{{$cell}}</td>{{end}}{{end}}</tr>{{end}}</tbody></table></div></div></div></div>
+      <p class="paginator">{{if gt .Pages 1}}{{if gt .Page 1}}<a href="?p={{sub .Page 1}}">Previous</a>{{end}} <span class="this-page">{{.Page}}</span> of {{.Pages}} {{if lt .Page .Pages}}<a href="?p={{add .Page 1}}">Next</a>{{end}} &nbsp;{{end}}{{.TaskCount}} {{.ModelName}}</p>
+    {{else}}
+      <div id="content-main" class="app-list">
+        {{if .Models}}<div class="app-bookmarks module"><table><caption><span class="section">Models</span></caption><tbody>{{range .Models}}<tr><th scope="row">{{if .Path}}<a href="{{.Path}}">{{.AppLabel}}: {{.Label}}</a>{{else}}{{.AppLabel}}: {{.Label}}{{end}}</th><td>{{if .AddPath}}<a href="{{.AddPath}}" class="addlink">Add</a>{{end}}</td></tr>{{end}}</tbody></table></div>{{end}}
+        <div class="app-huey_app module"><table><caption><span class="section">Huey</span></caption><tbody><tr class="model-background_tasks"><th scope="row"><a href="{{.Prefix}}admin/tasks/">Queued tasks</a></th><td></td></tr></tbody></table></div>
+      </div>
+    {{end}}
+    <br class="clear">
+  </div></main></div><footer id="footer"></footer>
+</div>
+</body>
+</html>

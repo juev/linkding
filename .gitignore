@@ -1,0 +1,9 @@
+/node_modules/
+/data/
+/web/static/bundle.js*
+/web/static/theme-*.css*
+/.env
+/bin/
+/output/
+/.playwright-cli/
+/plan.md

@@ -1,0 +1,185 @@
+package httpserver
+
+import (
+	"database/sql"
+	"embed"
+	"errors"
+	"html/template"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/juev/linkding/internal/auth"
+	"github.com/juev/linkding/internal/config"
+)
+
+//go:embed admin_toast.html
+var adminToastFile embed.FS
+var adminToastTemplate = template.Must(template.ParseFS(adminToastFile, "admin_toast.html"))
+
+type adminOwnerOption struct {
+	ID       int64
+	Username string
+	Selected bool
+}
+
+type adminToastData struct {
+	Prefix, Title, Username, CSRFToken, Action, ListURL string
+	Key, Message, Error                                 string
+	ID, OwnerID                                         int64
+	Acknowledged, ConfirmDelete, CanChange, CanDelete   bool
+	Owners                                              []adminOwnerOption
+}
+
+func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, permissions adminPermissions) {
+	base := cfg.URLPrefix() + "admin/bookmarks/toast/"
+	part := strings.TrimPrefix(r.URL.Path, base)
+	var action string
+	var id int64
+	if part == "add/" {
+		action = "add"
+	} else {
+		pieces := strings.Split(part, "/")
+		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
+			http.NotFound(w, r)
+			return
+		}
+		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
+		if err != nil || parsed <= 0 {
+			http.NotFound(w, r)
+			return
+		}
+		id, action = parsed, pieces[1]
+	}
+	if (action == "add" && !permissions.Add) || (action == "change" && !permissions.Change && !permissions.View) || (action == "delete" && !permissions.Delete) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, HEAD, POST")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data := adminToastData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add toast", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
+	if action == "change" {
+		data.Title = "Change toast"
+		if !permissions.Change {
+			data.Title = "View toast"
+		}
+	} else if action == "delete" {
+		data.Title = "Delete toast"
+	}
+	if id != 0 {
+		err := db.QueryRowContext(r.Context(), `SELECT key,message,acknowledged,owner_id FROM bookmarks_toast WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.Key, &data.Message, &data.Acknowledged, &data.OwnerID)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+	}
+	if r.Method == http.MethodPost {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Invalid form", 400)
+			return
+		}
+		if !verifyAPICSRF(r, cfg) {
+			http.Error(w, "CSRF verification failed", 403)
+			return
+		}
+		if action == "delete" {
+			if r.PostForm.Get("post") != "yes" {
+				http.Error(w, "Invalid form", 400)
+				return
+			}
+			if _, err := db.ExecContext(r.Context(), `DELETE FROM bookmarks_toast WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			http.Redirect(w, r, base, http.StatusFound)
+			return
+		}
+		if action == "change" && !permissions.Change {
+			http.Error(w, "Forbidden", 403)
+			return
+		}
+		data.Key = strings.TrimSpace(r.PostForm.Get("key"))
+		data.Message = strings.TrimSpace(r.PostForm.Get("message"))
+		data.OwnerID, _ = strconv.ParseInt(r.PostForm.Get("owner"), 10, 64)
+		data.Acknowledged = r.PostForm.Has("acknowledged")
+		if data.Key == "" || data.Message == "" || len([]rune(data.Key)) > 50 || data.OwnerID <= 0 {
+			data.Error = "Enter a key, message, and owner. The key must be at most 50 characters."
+		} else {
+			var exists bool
+			if err := db.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM auth_user WHERE id = `+assetMarker(cfg.DBEngine, 1)+`)`, data.OwnerID).Scan(&exists); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if !exists {
+				data.Error = "Select a valid owner."
+			}
+		}
+		if data.Error == "" {
+			var err error
+			if action == "add" {
+				_, err = db.ExecContext(r.Context(), `INSERT INTO bookmarks_toast(key,message,acknowledged,owner_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`,`+assetMarker(cfg.DBEngine, 4)+`)`, data.Key, data.Message, data.Acknowledged, data.OwnerID)
+			} else {
+				_, err = db.ExecContext(r.Context(), `UPDATE bookmarks_toast SET key = `+assetMarker(cfg.DBEngine, 1)+`, message = `+assetMarker(cfg.DBEngine, 2)+`, acknowledged = `+assetMarker(cfg.DBEngine, 3)+`, owner_id = `+assetMarker(cfg.DBEngine, 4)+` WHERE id = `+assetMarker(cfg.DBEngine, 5), data.Key, data.Message, data.Acknowledged, data.OwnerID, id)
+			}
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			http.Redirect(w, r, base, http.StatusFound)
+			return
+		}
+	}
+	secret := ""
+	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
+		secret = cookie.Value
+	}
+	if secret == "" {
+		var err error
+		secret, err = auth.NewCSRFSecret()
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		setCSRFCookie(w, cfg.URLPrefix(), secret)
+	}
+	var err error
+	data.CSRFToken, err = auth.MaskCSRF(secret)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	rows, err := db.QueryContext(r.Context(), `SELECT id,username FROM auth_user ORDER BY username`)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	for rows.Next() {
+		var option adminOwnerOption
+		if err := rows.Scan(&option.ID, &option.Username); err != nil {
+			rows.Close()
+			http.Error(w, "Server error", 500)
+			return
+		}
+		option.Selected = option.ID == data.OwnerID
+		data.Owners = append(data.Owners, option)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		http.Error(w, "Server error", 500)
+		return
+	}
+	rows.Close()
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
+	if r.Method != http.MethodHead {
+		_ = adminToastTemplate.Execute(w, data)
+	}
+}
