@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ var adminModels = []adminModelDefinition{
 }
 
 type adminModelLink struct {
-	Path, AddPath, Label, AppLabel string
+	Path, AddPath, Label, AppLabel, App, Model, ChangeLabel string
 }
 
 type adminListRow struct {
@@ -79,16 +80,30 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 		if definition.App == "auth" {
 			appLabel = "Authentication and Authorization"
 		}
-		link := adminModelLink{Label: definition.Plural, AppLabel: appLabel}
+		label := definition.Plural
+		if definition.Model == "apitoken" {
+			label = "Api tokens"
+		}
+		link := adminModelLink{Label: label, AppLabel: appLabel, App: definition.App, Model: definition.Model}
 		base := cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 		if permissions.canList() {
 			link.Path = base
+			link.ChangeLabel = "Change"
+			if !permissions.Change {
+				link.ChangeLabel = "View"
+			}
 		}
 		if canAdd {
 			link.AddPath = base + "add/"
 		}
 		links = append(links, link)
 	}
+	sort.SliceStable(links, func(i, j int) bool {
+		if links[i].AppLabel != links[j].AppLabel {
+			return links[i].AppLabel < links[j].AppLabel
+		}
+		return strings.ToLower(links[i].Label) < strings.ToLower(links[j].Label)
+	})
 	return links, nil
 }
 

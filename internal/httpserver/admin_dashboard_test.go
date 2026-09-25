@@ -1,0 +1,111 @@
+package httpserver
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/juev/linkding/internal/auth"
+	"github.com/juev/linkding/internal/config"
+	"github.com/juev/linkding/internal/store"
+)
+
+func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), DisableBackgroundTasks: true}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	users := auth.NewRepository(db, "sqlite")
+	user, err := users.CreateUser(ctx, auth.NewUser{Username: "dashboard", Password: "password", IsStaff: true, IsSuperuser: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := users.CreateSession(ctx, user.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, err := auth.NewCSRFSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := db.ExecContext(ctx, `INSERT INTO bookmarks_tag(name,date_added,owner_id) VALUES (?,?,?)`, "dashboard-tag", time.Now().UTC(), user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tagID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAdminLog(ctx, tx, "sqlite", user.ID, "bookmarks", "tag", strconv.FormatInt(tagID, 10), "dashboard-tag", 1, "[]"); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	handler := New(db, cfg, t.TempDir())
+	request := func(method, path string, form url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		var body *strings.Reader
+		if form != nil {
+			body = strings.NewReader(form.Encode())
+		} else {
+			body = strings.NewReader("")
+		}
+		r := httptest.NewRequest(method, path, body)
+		if form != nil {
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+		r.AddCookie(&http.Cookie{Name: auth.CSRFCookieName, Value: secret})
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	page := request(http.MethodGet, "/admin/", nil)
+	body := page.Body.String()
+	if page.Code != http.StatusOK ||
+		!strings.Contains(body, `href="/admin/auth/" class="section"`) ||
+		!strings.Contains(body, `href="/admin/bookmarks/" class="section"`) ||
+		!strings.Contains(body, `id="recent-actions-module"`) ||
+		!strings.Contains(body, `href="/admin/bookmarks/tag/`+strconv.FormatInt(tagID, 10)+`/change/"`) ||
+		!strings.Contains(body, `action="/admin/logout/"`) ||
+		!strings.Contains(body, `href="/admin/password_change/"`) {
+		t.Fatalf("admin dashboard: status=%d body=%q", page.Code, body)
+	}
+	for _, tc := range []struct{ path, title string }{
+		{"/admin/auth/", "Authentication and Authorization administration"},
+		{"/admin/bookmarks/", "Bookmarks administration"},
+	} {
+		got := request(http.MethodGet, tc.path, nil)
+		if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), tc.title) || strings.Contains(got.Body.String(), `id="recent-actions-module"`) {
+			t.Fatalf("app index %s: status=%d", tc.path, got.Code)
+		}
+	}
+	password := request(http.MethodGet, "/admin/password_change/", nil)
+	if password.Code != http.StatusOK || !strings.Contains(password.Body.String(), `action="/change-password/"`) {
+		t.Fatalf("admin password alias: status=%d", password.Code)
+	}
+	logout := request(http.MethodPost, "/admin/logout/", url.Values{"csrfmiddlewaretoken": {secret}})
+	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/login/" {
+		t.Fatalf("admin logout: status=%d location=%q", logout.Code, logout.Header().Get("Location"))
+	}
+	if got := request(http.MethodGet, "/admin/", nil); got.Code != http.StatusFound {
+		t.Fatalf("session survived admin logout: status=%d", got.Code)
+	}
+}

@@ -36,13 +36,16 @@ type adminPageData struct {
 	CSRFToken, ActionMessage                                   string
 	Tasks                                                      []adminTask
 	Models                                                     []adminModelLink
+	DashboardApps                                              []adminDashboardApp
+	RecentActions                                              []adminRecentAction
 	UserFilters                                                []adminUserFilter
 	ListFilters                                                []adminFilterGroup
 	ModelColumns                                               []string
 	ModelRows                                                  []adminListRow
 	TaskCount                                                  int64
 	Page, Pages                                                int
-	IsTaskList, IsModelList, IsSearchableList                  bool
+	IsTaskList, IsModelList, IsAppIndex, IsSearchableList      bool
+	AppSlug                                                    string
 	IsTagList, IsBookmarkList, IsUserList, IsDefaultActionList bool
 	CanAdd, CanDelete, IsEditableModel                         bool
 }
@@ -51,6 +54,10 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 	root := cfg.URLPrefix() + "admin/"
 	if !strings.HasPrefix(r.URL.Path, root) {
 		http.NotFound(w, r)
+		return
+	}
+	if r.URL.Path == root+"logout/" {
+		serveLogout(w, r, r.URL.Path, cfg, users)
 		return
 	}
 	var user auth.User
@@ -63,6 +70,14 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 	}
 	if !user.IsActive || !user.IsStaff {
 		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == root+"password_change/" {
+		serveChangePassword(w, r, r.URL.Path, cfg, db, users)
+		return
+	}
+	if r.URL.Path == root+"password_change/done/" {
+		servePasswordChangeDone(w, r, r.URL.Path, cfg, db, users)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, root+"bookmarks/toast/") && r.URL.Path != root+"bookmarks/toast/" {
@@ -185,7 +200,30 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		return
 	}
 	data := adminPageData{Prefix: cfg.URLPrefix(), Title: "Site administration", Username: user.Username, Page: 1}
-	if r.URL.Path != root && r.URL.Path != root+"tasks/" {
+	secret := ""
+	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
+		secret = cookie.Value
+	}
+	if secret == "" {
+		var err error
+		secret, err = auth.NewCSRFSecret()
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		setCSRFCookie(w, cfg.URLPrefix(), secret)
+	}
+	var err error
+	data.CSRFToken, err = auth.MaskCSRF(secret)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	appIndex := ""
+	if r.URL.Path == root+"auth/" || r.URL.Path == root+"bookmarks/" {
+		appIndex = strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, root), "/")
+	}
+	if r.URL.Path != root && r.URL.Path != root+"tasks/" && appIndex == "" {
 		relative := strings.TrimPrefix(r.URL.Path, root)
 		parts := strings.Split(relative, "/")
 		if len(parts) != 3 || parts[2] != "" {
@@ -243,7 +281,29 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			http.Error(w, "Server error", 500)
 			return
 		}
-		data.Models = models
+		if appIndex != "" {
+			data.IsAppIndex, data.AppSlug = true, appIndex
+			for _, model := range models {
+				if model.App == appIndex {
+					data.Models = append(data.Models, model)
+				}
+			}
+			label := "Bookmarks"
+			if appIndex == "auth" {
+				label = "Authentication and Authorization"
+			}
+			data.Title = label + " administration"
+		} else {
+			data.Models = models
+		}
+		data.DashboardApps = groupAdminDashboardApps(cfg, data.Models)
+		if !data.IsAppIndex {
+			data.RecentActions, err = loadAdminRecentActions(r.Context(), db, cfg, user.ID)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
