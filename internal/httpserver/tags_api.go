@@ -102,7 +102,7 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		}
 		validation, err := decodeDRFJSONObject(r.Body, &input, []string{"name"}, nil, nil)
 		if err != nil {
-			writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+			writeDetail(w, http.StatusBadRequest, drfJSONErrorDetail(err))
 			return
 		}
 		if validation != nil {

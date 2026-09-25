@@ -33,7 +33,7 @@ func serveBookmarkUpdate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	validation, err := decodeDRFJSONObject(r.Body, &input,
 		[]string{"url", "title", "description", "notes"}, nil, []string{"tag_names"})
 	if err != nil {
-		writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+		writeDetail(w, http.StatusBadRequest, drfJSONErrorDetail(err))
 		return
 	}
 	if validation != nil {

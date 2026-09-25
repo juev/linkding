@@ -78,6 +78,20 @@ func TestAPIScalarStringValidationMatchesPinnedDRF(t *testing.T) {
 	fieldError("/api/bookmarks/", `{"url":null}`, "url", "This field may not be null.")
 	fieldError("/api/bookmarks/", `[]`, "non_field_errors", "Invalid data. Expected a dictionary, but got list.")
 	fieldError("/api/bookmarks/", `null`, "non_field_errors", "No data provided")
+	fieldError("/api/bookmarks/", ``, "url", "This field is required.")
+	for _, tc := range []struct {
+		path, body, detail string
+	}{
+		{"/api/bookmarks/", `{`, `JSON parse error - Expecting property name enclosed in double quotes: line 1 column 2 (char 1)`},
+		{"/api/tags/", `{"name":`, `JSON parse error - Expecting value: line 1 column 9 (char 8)`},
+		{"/api/bundles/", `{"name":"x",}`, `JSON parse error - Illegal trailing comma before end of object: line 1 column 12 (char 11)`},
+		{"/api/bookmarks/", `{} {}`, `JSON parse error - Extra data: line 1 column 4 (char 3)`},
+	} {
+		result := call(http.MethodPost, tc.path, tc.body, http.StatusBadRequest)
+		if result["detail"] != tc.detail {
+			t.Errorf("%s %s: detail=%v, want %q", tc.path, tc.body, result["detail"], tc.detail)
+		}
+	}
 	created := call(http.MethodPost, "/api/bookmarks/?disable_scraping=1", `{"url":"https://example.com/scalar","title":123,"tag_names":[456]}`, http.StatusCreated)
 	if created["title"] != "123" || len(created["tag_names"].([]any)) != 1 || created["tag_names"].([]any)[0] != "456" {
 		t.Fatalf("numeric bookmark fields: %v", created)

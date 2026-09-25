@@ -98,6 +98,18 @@ func TestSharedBookmarkAPIEnforcesOwnerAndPublicSharing(t *testing.T) {
 	check(base+"?user=share-alice", "Token "+token, http.StatusOK, 1)
 	check(base+"?user=missing", "", http.StatusOK, 2)
 	check(base, "Token invalid", http.StatusUnauthorized, 0)
+	post := httptest.NewRequest(http.MethodPost, base, nil)
+	postResponse := httptest.NewRecorder()
+	handler.ServeHTTP(postResponse, post)
+	var postBody struct {
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(postResponse.Body.Bytes(), &postBody); err != nil {
+		t.Fatal(err)
+	}
+	if postResponse.Code != http.StatusUnauthorized || postBody.Detail != "Authentication credentials were not provided." {
+		t.Fatalf("anonymous POST shared: %d %s", postResponse.Code, postResponse.Body.String())
+	}
 	if _, err := db.ExecContext(ctx, "UPDATE bookmarks_userprofile SET tag_search = 'lax' WHERE user_id = ?", bob.ID); err != nil {
 		t.Fatal(err)
 	}

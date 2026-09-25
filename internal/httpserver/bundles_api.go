@@ -211,7 +211,7 @@ func decodeBundleInput(w http.ResponseWriter, r *http.Request, requireName bool)
 		[]string{"name", "search", "any_tags", "all_tags", "excluded_tags"},
 		[]string{"filter_unread", "filter_shared"}, nil)
 	if err != nil {
-		writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+		writeDetail(w, http.StatusBadRequest, drfJSONErrorDetail(err))
 		return input, false
 	}
 	if validation != nil {

@@ -143,7 +143,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	} else {
 		err = auth.ErrInvalidCredentials
 	}
-	if errors.Is(err, auth.ErrInvalidCredentials) && shared && !present && r.Method != http.MethodOptions {
+	if errors.Is(err, auth.ErrInvalidCredentials) && shared && !present && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 		user = auth.User{}
 		err = nil
 	}
