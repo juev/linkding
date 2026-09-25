@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -30,6 +31,32 @@ func (r *Repository) CreateUser(ctx context.Context, input NewUser) (User, error
 		return User{}, err
 	}
 	return r.createUserWithHash(ctx, input, encoded)
+}
+
+// CreateUnusableUser mirrors Django Admin's disabled-password option.
+func (r *Repository) CreateUnusableUser(ctx context.Context, input NewUser) (User, error) {
+	if input.Username == "" || len([]rune(input.Username)) > 150 {
+		return User{}, fmt.Errorf("username must contain 1 to 150 characters")
+	}
+	encoded, err := MakeUnusablePassword()
+	if err != nil {
+		return User{}, err
+	}
+	return r.createUserWithHash(ctx, input, encoded)
+}
+
+// MakeUnusablePassword uses Django's unusable-password prefix and suffix length.
+func MakeUnusablePassword() (string, error) {
+	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var suffix [40]byte
+	var random [40]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		return "", fmt.Errorf("generate unusable password: %w", err)
+	}
+	for index, value := range random {
+		suffix[index] = alphabet[int(value)%len(alphabet)]
+	}
+	return "!" + string(suffix[:]), nil
 }
 
 // GetOrCreateRemoteUser mirrors Django RemoteUserBackend's default behavior.

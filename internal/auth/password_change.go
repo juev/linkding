@@ -162,6 +162,11 @@ func validateNewPassword(password string, attributes []string) error {
 	return nil
 }
 
+// ValidateNewPassword applies the configured Django-compatible password rules.
+func ValidateNewPassword(password string, attributes ...string) error {
+	return validateNewPassword(password, attributes)
+}
+
 func attributeParts(value string) []string {
 	lower := strings.ToLower(value)
 	result := []string{}

@@ -28,21 +28,21 @@ type adminTask struct {
 }
 
 type adminPageData struct {
-	Prefix, Title, Username, ModelName, ModelPath                 string
-	SearchQuery, UserFilter, AllUsersURL                          string
-	UserFilterParam, UserFilterTitle, AddLabel                    string
-	PreviousPageURL, NextPageURL                                  string
-	CSRFToken, ActionMessage                                      string
-	Tasks                                                         []adminTask
-	Models                                                        []adminModelLink
-	UserFilters                                                   []adminUserFilter
-	ListFilters                                                   []adminFilterGroup
-	ModelColumns                                                  []string
-	ModelRows                                                     []adminListRow
-	TaskCount                                                     int64
-	Page, Pages                                                   int
-	IsTaskList, IsModelList, IsSearchableList                     bool
-	IsTagList, IsBookmarkList, CanAdd, CanDelete, IsEditableModel bool
+	Prefix, Title, Username, ModelName, ModelPath                             string
+	SearchQuery, UserFilter, AllUsersURL                                      string
+	UserFilterParam, UserFilterTitle, AddLabel                                string
+	PreviousPageURL, NextPageURL                                              string
+	CSRFToken, ActionMessage                                                  string
+	Tasks                                                                     []adminTask
+	Models                                                                    []adminModelLink
+	UserFilters                                                               []adminUserFilter
+	ListFilters                                                               []adminFilterGroup
+	ModelColumns                                                              []string
+	ModelRows                                                                 []adminListRow
+	TaskCount                                                                 int64
+	Page, Pages                                                               int
+	IsTaskList, IsModelList, IsSearchableList                                 bool
+	IsTagList, IsBookmarkList, IsUserList, CanAdd, CanDelete, IsEditableModel bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
@@ -70,6 +70,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			return
 		}
 		serveAdminToast(w, r, cfg, db, user, permissions)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, root+"auth/user/") && r.URL.Path != root+"auth/user/" {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "auth", "user")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminUser(w, r, cfg, db, users, user, permissions)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, root+"bookmarks/apitoken/") && r.URL.Path != root+"bookmarks/apitoken/" {
@@ -142,6 +151,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			return
 		}
 		serveAdminBookmarkAction(w, r, cfg, db, permissions)
+		return
+	}
+	if r.URL.Path == root+"auth/user/" && r.Method == http.MethodPost {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "auth", "user")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminUserAction(w, r, cfg, db, user, permissions)
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {

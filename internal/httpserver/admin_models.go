@@ -21,7 +21,7 @@ type adminModelDefinition struct {
 }
 
 var adminModels = []adminModelDefinition{
-	{App: "auth", Model: "user", Label: "User", Plural: "Users", Query: `SELECT id,username,email,is_staff,is_active FROM auth_user ORDER BY id DESC`, Columns: []string{"Username", "Email address", "Staff status", "Active"}},
+	{App: "auth", Model: "user", Label: "User", Plural: "Users", Query: `SELECT id,username,email,first_name,last_name,is_staff FROM auth_user ORDER BY username`, Columns: []string{"Username", "Email address", "First name", "Last name", "Staff status"}},
 	{App: "bookmarks", Model: "bookmark", Label: "Bookmark", Plural: "Bookmarks", Query: `SELECT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.date_added DESC,b.id DESC`, Columns: []string{"Title", "URL", "Is archived", "Owner", "Date added"}},
 	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,COALESCE(NULLIF(display_name,''),'Bookmark Asset #' || id),date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display name", "Date created", "Status"}},
 	{App: "bookmarks", Model: "tag", Label: "Tag", Plural: "Tags", Query: `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.date_added DESC,t.id DESC`, Columns: []string{"Name", "Bookmarks count", "Owner", "Date added"}},
@@ -112,7 +112,16 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	baseQuery := definition.Query
 	var args []any
-	if adminEditableModel(definition.Model) {
+	if definition.App == "auth" && definition.Model == "user" {
+		data.IsSearchableList = true
+		data.SearchQuery = r.URL.Query().Get("q")
+		data.ListFilters = adminUserListFilters(r.URL.Query())
+		baseQuery, args = adminUserListQuery(cfg.DBEngine, data.SearchQuery, r.URL.Query())
+		if err := populateAdminUserListFilters(r.Context(), db, r.URL.Query(), data.ListFilters); err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+	} else if adminEditableModel(definition.Model) {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
 		if definition.Model == "bookmarkasset" {
@@ -222,8 +231,11 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.CanDelete = permissions.Delete
 	data.IsEditableModel = adminEditableModel(definition.Model)
 	data.IsTagList = definition.Model == "tag"
+	data.IsUserList = definition.App == "auth" && definition.Model == "user"
 	data.AddLabel = "toast"
-	if definition.Model == "bookmark" {
+	if definition.App == "auth" && definition.Model == "user" {
+		data.AddLabel = "user"
+	} else if definition.Model == "bookmark" {
 		data.AddLabel = "bookmark"
 	} else if definition.Model == "apitoken" {
 		data.AddLabel = "API token"
@@ -260,7 +272,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		http.Error(w, "Server error", 500)
 		return
 	}
-	if data.IsTagList || data.IsBookmarkList {
+	if data.IsTagList || data.IsBookmarkList || data.IsUserList {
 		secret := ""
 		if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
 			secret = cookie.Value
@@ -283,6 +295,8 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		flashKey := "ld_admin_tag_action"
 		if data.IsBookmarkList {
 			flashKey = "ld_admin_bookmark_action"
+		} else if data.IsUserList {
+			flashKey = "ld_admin_user_action"
 		}
 		data.ActionMessage = takeSettingsFlash(w, r, cfg.URLPrefix(), flashKey)
 	}
@@ -323,7 +337,77 @@ func adminAssetListQuery(engine, search, status string) (string, []any) {
 }
 
 func adminEditableModel(model string) bool {
-	return model == "bookmark" || model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle" || model == "bookmarkasset"
+	return model == "user" || model == "bookmark" || model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle" || model == "bookmarkasset"
+}
+
+func adminUserListQuery(engine, search string, params url.Values) (string, []any) {
+	query := `SELECT DISTINCT u.id,u.username,u.email,u.first_name,u.last_name,u.is_staff FROM auth_user AS u LEFT JOIN auth_user_groups AS ug ON ug.user_id=u.id LEFT JOIN auth_group AS g ON g.id=ug.group_id`
+	var conditions []string
+	var args []any
+	bind := func(value any) string {
+		args = append(args, value)
+		return assetMarker(engine, len(args))
+	}
+	for _, field := range []struct{ Param, Column string }{{"is_staff__exact", "u.is_staff"}, {"is_superuser__exact", "u.is_superuser"}, {"is_active__exact", "u.is_active"}} {
+		if value := params.Get(field.Param); value == "0" || value == "1" {
+			conditions = append(conditions, field.Column+" = "+bind(value == "1"))
+		}
+	}
+	if groupID := params.Get("groups__id__exact"); groupID != "" {
+		if _, err := strconv.ParseInt(groupID, 10, 64); err == nil {
+			conditions = append(conditions, "g.id = "+bind(groupID))
+		}
+	}
+	for _, term := range splitAdminSearch(search) {
+		var alternatives []string
+		for _, field := range []string{"u.username", "u.first_name", "u.last_name", "u.email"} {
+			if engine == "postgres" {
+				escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term)
+				alternatives = append(alternatives, field+" ILIKE "+bind("%"+escaped+"%")+` ESCAPE '\'`)
+			} else {
+				alternatives = append(alternatives, "ld_ci_contains("+field+", "+bind(term)+") = 1")
+			}
+		}
+		conditions = append(conditions, "("+strings.Join(alternatives, " OR ")+")")
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	return query + " ORDER BY u.username", args
+}
+
+func adminUserListFilters(params url.Values) []adminFilterGroup {
+	groups := []adminFilterGroup{
+		{Title: "By staff status", Param: "is_staff__exact", Value: params.Get("is_staff__exact")},
+		{Title: "By superuser status", Param: "is_superuser__exact", Value: params.Get("is_superuser__exact")},
+		{Title: "By active", Param: "is_active__exact", Value: params.Get("is_active__exact")},
+		{Title: "By groups", Param: "groups__id__exact", Value: params.Get("groups__id__exact")},
+	}
+	for i := range groups {
+		groups[i].AllURL = adminListURL(params, groups[i].Param, "")
+	}
+	for i := 0; i < 3; i++ {
+		for _, option := range []adminUserFilter{{Username: "Yes", URL: "1"}, {Username: "No", URL: "0"}} {
+			groups[i].Options = append(groups[i].Options, adminUserFilter{Username: option.Username, URL: adminListURL(params, groups[i].Param, option.URL), Selected: groups[i].Value == option.URL})
+		}
+	}
+	return groups
+}
+
+func populateAdminUserListFilters(ctx context.Context, db *sql.DB, params url.Values, groups []adminFilterGroup) error {
+	rows, err := db.QueryContext(ctx, `SELECT id,name FROM auth_group ORDER BY name`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return err
+		}
+		groups[3].Options = append(groups[3].Options, adminUserFilter{Username: name, URL: adminListURL(params, groups[3].Param, id), Selected: id == groups[3].Value})
+	}
+	return rows.Err()
 }
 
 func adminBookmarkListQuery(engine, search string, params url.Values) (string, []any) {

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <title>{{.Title}} | linkding Admin</title>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
+  <script src="{{.Prefix}}static/admin/js/theme.js"></script>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/forms.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="NONE,NOARCHIVE">
+</head>
+<body class="app-auth model-user change-form">
+<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<div id="container">
+  <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">Welcome, <strong>{{.Username}}</strong>. <a href="{{.Prefix}}">View site</a></div></header>
+  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.ListURL}}">Users</a> &rsaquo; {{.Title}}</div></nav>
+  <div class="main" id="main"><main id="content-start" class="content"><div id="content" class="colM">
+    <h1>{{.Title}}</h1>
+    {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
+    <form method="post" action="{{.Action}}" id="user_form" novalidate>
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+      {{if .IsAdd}}
+        <fieldset class="module aligned wide">
+          <div class="form-row"><label class="required" for="id_username">Username:</label><input type="text" name="username" value="{{.UserName}}" maxlength="150" required id="id_username"></div>
+          <div class="form-row"><label for="id_usable_password">Password-based authentication:</label><label><input type="radio" name="usable_password" value="true"{{if .UsablePassword}} checked{{end}}> Enabled</label> <label><input type="radio" name="usable_password" value="false"{{if not .UsablePassword}} checked{{end}}> Disabled</label></div>
+          <div class="form-row"><label for="id_password1">Password:</label><input type="password" name="password1" id="id_password1" autocomplete="new-password"></div>
+          <div class="form-row"><label for="id_password2">Password confirmation:</label><input type="password" name="password2" id="id_password2" autocomplete="new-password"></div>
+        </fieldset>
+      {{else}}
+        <fieldset class="module aligned">
+          <div class="form-row"><label class="required" for="id_username">Username:</label><input type="text" name="username" value="{{.UserName}}" maxlength="150" required id="id_username"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label>Password:</label><div class="readonly">{{if .PasswordHash}}Password is set.{{else}}No password is set.{{end}} {{if .CanChange}}<a href="{{.ListURL}}{{.ID}}/password/">Change password</a>{{end}}</div></div>
+        </fieldset>
+        <fieldset class="module aligned"><h2>Personal info</h2>
+          <div class="form-row"><label for="id_first_name">First name:</label><input type="text" name="first_name" value="{{.FirstName}}" maxlength="150" id="id_first_name"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_last_name">Last name:</label><input type="text" name="last_name" value="{{.LastName}}" maxlength="150" id="id_last_name"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_email">Email address:</label><input type="email" name="email" value="{{.Email}}" maxlength="254" id="id_email"{{if not .CanChange}} readonly{{end}}></div>
+        </fieldset>
+        <fieldset class="module aligned"><h2>Permissions</h2>
+          <div class="form-row"><label for="id_is_active">Active:</label><input type="checkbox" name="is_active" id="id_is_active"{{if .IsActive}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label for="id_is_staff">Staff status:</label><input type="checkbox" name="is_staff" id="id_is_staff"{{if .IsStaff}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label for="id_is_superuser">Superuser status:</label><input type="checkbox" name="is_superuser" id="id_is_superuser"{{if .IsSuperuser}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label for="id_groups">Groups:</label><select name="groups" id="id_groups" multiple{{if not .CanChange}} disabled{{end}}>{{range .Groups}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+          <div class="form-row"><label for="id_user_permissions">User permissions:</label><select name="user_permissions" id="id_user_permissions" multiple{{if not .CanChange}} disabled{{end}}>{{range .Permissions}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+        </fieldset>
+        <fieldset class="module aligned"><h2>Important dates</h2>
+          <div class="form-row"><label for="id_last_login_0">Last login:</label><input type="text" class="vDateField" name="last_login_0" value="{{.LastLoginDate}}" id="id_last_login_0"{{if not .CanChange}} readonly{{end}}> <input type="text" class="vTimeField" name="last_login_1" value="{{.LastLoginTime}}" id="id_last_login_1"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label class="required" for="id_date_joined_0">Date joined:</label><input type="text" class="vDateField" name="date_joined_0" value="{{.DateJoinedDate}}" required id="id_date_joined_0"{{if not .CanChange}} readonly{{end}}> <input type="text" class="vTimeField" name="date_joined_1" value="{{.DateJoinedTime}}" required id="id_date_joined_1"{{if not .CanChange}} readonly{{end}}></div>
+        </fieldset>
+        <fieldset class="module aligned"><h2>Profile</h2>
+          <input type="hidden" name="profile-TOTAL_FORMS" value="1"><input type="hidden" name="profile-INITIAL_FORMS" value="1"><input type="hidden" name="profile-MIN_NUM_FORMS" value="0"><input type="hidden" name="profile-MAX_NUM_FORMS" value="1">
+          <input type="hidden" name="profile-0-id" value="{{.Profile.ID}}"><input type="hidden" name="profile-0-user" value="{{.ID}}">
+          {{range .Profile.Fields}}<div class="form-row"><label{{if .Required}} class="required"{{end}} for="id_{{.Name}}">{{.Label}}:</label>
+            {{if eq .Kind "choice"}}<select name="{{.Name}}" id="id_{{.Name}}"{{if not $.CanChange}} disabled{{end}}>{{range .Choices}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+            {{else if eq .Kind "checkbox"}}<input type="checkbox" name="{{.Name}}" id="id_{{.Name}}"{{if .Checked}} checked{{end}}{{if not $.CanChange}} disabled{{end}}>
+            {{else if eq .Kind "number"}}<input type="number" name="{{.Name}}" value="{{.Value}}" id="id_{{.Name}}"{{if not $.CanChange}} readonly{{end}}>
+            {{else}}<textarea name="{{.Name}}" id="id_{{.Name}}"{{if not $.CanChange}} readonly{{end}}>{{.Value}}</textarea>{{end}}
+          </div>{{end}}
+          <div class="form-row"><label for="id_profile-0-custom_css_hash">Custom CSS hash:</label><input type="text" name="profile-0-custom_css_hash" value="{{.Profile.CustomCSSHash}}" maxlength="32" id="id_profile-0-custom_css_hash"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label>Search preferences:</label><div class="readonly">{{.Profile.SearchPreferences}}</div></div>
+        </fieldset>
+      {{end}}
+      {{if .CanChange}}<div class="submit-row"><input type="submit" value="Save" class="default">{{if and .ID .CanDelete}}<p class="deletelink-box"><a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink">Delete</a></p>{{end}}</div>{{end}}
+    </form>
+    <br class="clear">
+  </div></main></div><footer id="footer"></footer>
+</div>
+</body>
+</html>

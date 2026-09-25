@@ -96,6 +96,19 @@ func LoadProfileForm(ctx context.Context, db *sql.DB, engine string, userID int6
 // UpdateProfile applies the same fields as UserProfileForm, preserving fields
 // that are not in the form. Checkbox omissions mean false, as in Django forms.
 func UpdateProfile(ctx context.Context, db *sql.DB, engine string, userID int64, form url.Values) error {
+	return updateProfile(ctx, db, engine, userID, form)
+}
+
+// UpdateProfileTx saves an admin inline together with its parent user and M2M rows.
+func UpdateProfileTx(ctx context.Context, tx *sql.Tx, engine string, userID int64, form url.Values) error {
+	return updateProfile(ctx, tx, engine, userID, form)
+}
+
+type profileExecutor interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func updateProfile(ctx context.Context, executor profileExecutor, engine string, userID int64, form url.Values) error {
 	columns := make([]string, 0, len(ProfileFields)+1)
 	values := make([]any, 0, len(ProfileFields)+2)
 	for _, field := range ProfileFields {
@@ -136,7 +149,7 @@ func UpdateProfile(ctx context.Context, db *sql.DB, engine string, userID int64,
 	columns = append(columns, "custom_css_hash = "+marker(engine, len(values)))
 	values = append(values, userID)
 	query := "UPDATE bookmarks_userprofile SET " + strings.Join(columns, ",") + " WHERE user_id = " + marker(engine, len(values))
-	result, err := db.ExecContext(ctx, query, values...)
+	result, err := executor.ExecContext(ctx, query, values...)
 	if err != nil {
 		return err
 	}

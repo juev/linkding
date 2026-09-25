@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <title>{{.Title}} | linkding Admin</title>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
+  <script src="{{.Prefix}}static/admin/js/theme.js"></script>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/forms.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="NONE,NOARCHIVE">
+</head>
+<body class="app-auth model-user delete-confirmation">
+<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<div id="container">
+  <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">Welcome, <strong>{{.Username}}</strong>. <a href="{{.Prefix}}">View site</a></div></header>
+  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.ListURL}}">Users</a> &rsaquo; Delete</div></nav>
+  <div class="main" id="main"><main id="content-start" class="content"><div id="content" class="colM">
+    <h1>{{.Title}}</h1>
+    <p>Are you sure you want to delete the user “{{.Target}}” and all related objects?</p>
+    <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="post" value="yes"><div class="submit-row"><input type="submit" value="Yes, I’m sure"><a href="{{.ListURL}}" class="button cancel-link">No, take me back</a></div></form>
+    <br class="clear">
+  </div></main></div><footer id="footer"></footer>
+</div>
+</body>
+</html>
