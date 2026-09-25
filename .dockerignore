@@ -1,0 +1,10 @@
+.git
+.env
+.playwright-cli
+bin
+data
+node_modules
+output
+plan.md
+web/static/bundle.js*
+web/static/theme-*.css*

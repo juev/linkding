@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: linkding_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d linkding_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      LINKDING_TEST_POSTGRES_DSN: postgres://postgres:postgres@127.0.0.1:5432/linkding_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: CGO_ENABLED=0 go test -p 1 ./...
+      - run: go vet ./...
+      - run: CGO_ENABLED=0 go build ./...
+
+  images:
+    needs: go
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [linkding, linkding-plus]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.target }}
+        run: docker buildx build --target '${{ matrix.target }}' -t linkding-smoke:local --load .
+      - name: Start ${{ matrix.target }}
+        run: |
+          docker volume create linkding-smoke-data
+          docker run -d --name linkding-smoke -p 9090:9090 \
+            -v linkding-smoke-data:/etc/linkding/data \
+            -e LD_CONTEXT_PATH=linkding/ \
+            -e LD_SUPERUSER_NAME=admin \
+            -e LD_SUPERUSER_PASSWORD=smoke-pass \
+            linkding-smoke:local
+      - name: Check HTTP and persistent data
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:9090/linkding/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:9090/linkding/health
+          curl -fsS -o /dev/null http://127.0.0.1:9090/linkding/static/bundle.js
+          docker exec linkding-smoke sh -c 'test -s data/db.sqlite3 && test -s data/secretkey.txt'
+          docker stop linkding-smoke
+          docker start linkding-smoke
+          docker exec linkding-smoke sh -c 'test -s data/db.sqlite3 && test -s data/secretkey.txt'
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:9090/linkding/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs linkding-smoke
+          exit 1
+      - name: Check HTML snapshot tool
+        if: matrix.target == 'linkding-plus'
+        run: |
+          docker exec linkding-smoke sh -c 'timeout 60 single-file \
+            --browser-arg="--headless=new" \
+            --browser-arg="--user-data-dir=./chromium-profile" \
+            --browser-arg="--no-sandbox" \
+            --browser-arg="--load-extension=uBOLite.chromium.mv3" \
+            http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'
+          docker exec linkding-smoke sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"
