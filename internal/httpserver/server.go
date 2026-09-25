@@ -8,6 +8,7 @@ import (
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/bookmarks"
 	"github.com/juev/linkding/internal/config"
+	"github.com/juev/linkding/internal/metadata"
 )
 
 const UpstreamVersion = "1.47.0"
@@ -18,6 +19,7 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	mux := http.NewServeMux()
 	prefix := cfg.URLPrefix()
 	authRepo := auth.NewRepository(db, cfg.DBEngine)
+	metadataCache := metadata.NewCache(10)
 	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 		serveRoot(w, r, prefix, cfg, db, authRepo)
 	})
@@ -84,7 +86,7 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 		serveBookmarkClose(w, r, bookmarkClosePath, cfg, authRepo, db)
 	})
 	mux.HandleFunc(bookmarkRoot, func(w http.ResponseWriter, r *http.Request) {
-		serveBookmarksAPI(w, r, bookmarkRoot, cfg, db, authRepo, bookmarkRepo)
+		serveBookmarksAPI(w, r, bookmarkRoot, cfg, db, authRepo, bookmarkRepo, metadataCache)
 	})
 	tagRoot := prefix + "api/tags/"
 	mux.HandleFunc(tagRoot, func(w http.ResponseWriter, r *http.Request) {

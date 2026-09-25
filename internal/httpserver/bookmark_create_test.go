@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -132,5 +134,62 @@ func TestBookmarkAPICheckReturnsExistingBookmarkMetadataAndAutoTags(t *testing.T
 	tags, ok := withURL["auto_tags"].([]any)
 	if !ok || len(tags) != 1 || tags[0] != "reviewed" {
 		t.Fatalf("auto tags: %#v", withURL)
+	}
+}
+
+func TestBookmarkAPIMetadataPreviewCacheAndBypass(t *testing.T) {
+	var fetches atomic.Int32
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := fetches.Add(1)
+		_, _ = w.Write([]byte("<html><head><title>Title " + strconv.Itoa(int(count)) + "</title></head></html>"))
+	}))
+	defer page.Close()
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), AllowedInternalHosts: "127.0.0.1", DisableBackgroundTasks: true}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	user, err := auth.NewRepository(db, "sqlite").CreateUser(ctx, auth.NewUser{Username: "cache", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const token = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	if _, err := db.ExecContext(ctx, `INSERT INTO bookmarks_apitoken (key, name, created, user_id) VALUES (?, 'fixture', ?, ?)`, token, time.Now().UTC(), user.ID); err != nil {
+		t.Fatal(err)
+	}
+	handler := New(db, cfg, t.TempDir())
+	request := func(method, path string, body string, wantStatus int) map[string]any {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Token "+token)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		if response.Code != wantStatus {
+			t.Fatalf("%s %s: status %d, body %s", method, path, response.Code, response.Body.String())
+		}
+		var value map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	checkPath := "/api/bookmarks/check/?url=" + url.QueryEscape(page.URL)
+	first := request(http.MethodGet, checkPath, "", http.StatusOK)
+	second := request(http.MethodGet, checkPath, "", http.StatusOK)
+	if first["metadata"].(map[string]any)["title"] != "Title 1" || second["metadata"].(map[string]any)["title"] != "Title 1" || fetches.Load() != 1 {
+		t.Fatalf("preview cache: first=%v second=%v fetches=%d", first["metadata"], second["metadata"], fetches.Load())
+	}
+	bypassed := request(http.MethodGet, checkPath+"&ignore_cache=true", "", http.StatusOK)
+	if bypassed["metadata"].(map[string]any)["title"] != "Title 2" || fetches.Load() != 2 {
+		t.Fatalf("preview bypass: metadata=%v fetches=%d", bypassed["metadata"], fetches.Load())
+	}
+	created := request(http.MethodPost, "/api/bookmarks/", `{"url":"`+page.URL+`"}`, http.StatusCreated)
+	if created["title"] != "Title 1" || fetches.Load() != 2 {
+		t.Fatalf("create after preview: title=%v fetches=%d", created["title"], fetches.Load())
 	}
 }

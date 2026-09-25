@@ -11,6 +11,7 @@ import (
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/bookmarks"
 	"github.com/juev/linkding/internal/config"
+	"github.com/juev/linkding/internal/metadata"
 )
 
 type apiBookmark struct {
@@ -62,7 +63,7 @@ func serializeBookmark(r *http.Request, cfg config.Config, b bookmarks.Bookmark)
 	return result
 }
 
-func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
+func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository, metadataCache *metadata.Cache) {
 	if !strings.HasPrefix(r.URL.Path, root) {
 		http.NotFound(w, r)
 		return
@@ -209,7 +210,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 		return
 	}
 	if singlefile {
-		serveSingleFileUpload(w, r, cfg, db, user, repo, present)
+		serveSingleFileUpload(w, r, cfg, db, user, repo, present, metadataCache)
 		return
 	}
 	if assetPath != "" || strings.Contains(part, "/assets/") {
@@ -244,7 +245,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 			writeDetail(w, http.StatusForbidden, "CSRF Failed: CSRF token missing or incorrect.")
 			return
 		}
-		serveBookmarkCreate(w, r, cfg, user, repo)
+		serveBookmarkCreate(w, r, cfg, user, repo, metadataCache)
 		return
 	}
 	if !list && (r.Method == http.MethodPut || r.Method == http.MethodPatch) {
@@ -268,7 +269,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 		return
 	}
 	if check {
-		serveBookmarkCheck(w, r, cfg, user, repo)
+		serveBookmarkCheck(w, r, cfg, user, repo, metadataCache)
 		return
 	}
 	if list {

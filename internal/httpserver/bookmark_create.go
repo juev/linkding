@@ -27,7 +27,7 @@ type bookmarkCreateRequest struct {
 	DateModified *time.Time `json:"date_modified"`
 }
 
-func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Config, user auth.User, repo *bookmarks.Repository) {
+func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Config, user auth.User, repo *bookmarks.Repository, metadataCache *metadata.Cache) {
 	limit := cfg.RequestMaxContentLength
 	if limit <= 0 {
 		limit = 1 << 20
@@ -71,7 +71,7 @@ func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	if _, disabled := r.URL.Query()["disable_scraping"]; !disabled {
 		client := httpclient.New(cfg.AllowedInternalHosts, 10*time.Second)
-		meta := metadata.Load(r.Context(), client, bookmark.URL)
+		meta := metadataCache.Load(r.Context(), client, bookmark.URL, false)
 		bookmark, err = repo.EnhanceMetadata(r.Context(), user.ID, bookmark.ID, meta.Title, meta.Description)
 		if err != nil {
 			writeDetail(w, http.StatusInternalServerError, "Server error")

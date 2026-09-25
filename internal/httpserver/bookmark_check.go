@@ -26,7 +26,7 @@ type apiCheckResult struct {
 	AutoTags []string     `json:"auto_tags"`
 }
 
-func serveBookmarkCheck(w http.ResponseWriter, r *http.Request, cfg config.Config, user auth.User, repo *bookmarks.Repository) {
+func serveBookmarkCheck(w http.ResponseWriter, r *http.Request, cfg config.Config, user auth.User, repo *bookmarks.Repository, metadataCache *metadata.Cache) {
 	values, hasURL := r.URL.Query()["url"]
 	var requestedURL string
 	if hasURL && len(values) > 0 {
@@ -47,7 +47,7 @@ func serveBookmarkCheck(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	if hasURL {
 		metaURL = &requestedURL
 		client := httpclient.New(cfg.AllowedInternalHosts, 10*time.Second)
-		meta := metadata.Load(r.Context(), client, requestedURL)
+		meta := metadataCache.Load(r.Context(), client, requestedURL, r.URL.Query().Get("ignore_cache") == "true")
 		if meta.Title != "" {
 			title = &meta.Title
 		}

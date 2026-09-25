@@ -19,7 +19,7 @@ import (
 	"github.com/juev/linkding/internal/metadata"
 )
 
-func serveSingleFileUpload(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, repo *bookmarks.Repository, tokenAuth bool) {
+func serveSingleFileUpload(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, repo *bookmarks.Repository, tokenAuth bool, metadataCache *metadata.Cache) {
 	if r.Method != http.MethodPost {
 		writeDetail(w, http.StatusMethodNotAllowed, "Method \""+r.Method+"\" not allowed.")
 		return
@@ -49,7 +49,7 @@ func serveSingleFileUpload(w http.ResponseWriter, r *http.Request, cfg config.Co
 		bookmark, _, err = repo.CreateOrUpdateData(r.Context(), user.ID, bookmarks.CreateInput{URL: pageURL, DisableHTMLSnapshot: true})
 		if err == nil {
 			client := httpclient.New(cfg.AllowedInternalHosts, 10*time.Second)
-			meta := metadata.Load(r.Context(), client, bookmark.URL)
+			meta := metadataCache.Load(r.Context(), client, bookmark.URL, false)
 			bookmark, err = repo.EnhanceMetadata(r.Context(), user.ID, bookmark.ID, meta.Title, meta.Description)
 		}
 	}
