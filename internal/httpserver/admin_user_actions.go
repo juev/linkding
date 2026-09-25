@@ -111,7 +111,7 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 	for i, selectedUser := range users {
 		ids[i] = selectedUser.ID
 	}
-	files, err := deleteAdminUsersData(r, cfg, db, ids)
+	files, err := deleteAdminUsersData(r, cfg, db, actor.ID, ids)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return

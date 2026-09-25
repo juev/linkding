@@ -129,6 +129,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			http.Error(w, "Forbidden", 403)
 			return
 		}
+		previous := data
 		data.readPost(r, action)
 		if err := data.validate(r, cfg, db, location, action); err != nil {
 			http.Error(w, "Server error", 500)
@@ -137,13 +138,22 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 		if data.Error == "" {
 			if action == "add" {
 				input := auth.NewUser{Username: data.UserName, Password: data.Password1}
-				if data.UsablePassword {
-					_, err = users.CreateUser(r.Context(), input)
-				} else {
-					_, err = users.CreateUnusableUser(r.Context(), input)
+				tx, txErr := db.BeginTx(r.Context(), nil)
+				if txErr != nil {
+					http.Error(w, "Server error", 500)
+					return
+				}
+				defer tx.Rollback()
+				var created auth.User
+				created, err = users.CreateUserTx(r.Context(), tx, input, data.UsablePassword)
+				if err == nil {
+					err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "auth", "user", strconv.FormatInt(created.ID, 10), created.Username, 1, adminAdditionMessage)
+				}
+				if err == nil {
+					err = tx.Commit()
 				}
 			} else {
-				err = data.saveChange(r, cfg, db, location)
+				err = data.saveChange(r, cfg, db, location, user.ID, &previous)
 			}
 			if err != nil {
 				var profileError settings.ValidationError
@@ -338,7 +348,7 @@ func (data *adminUserData) validate(r *http.Request, cfg config.Config, db *sql.
 	return nil
 }
 
-func (data *adminUserData) saveChange(r *http.Request, cfg config.Config, db *sql.DB, location *time.Location) error {
+func (data *adminUserData) saveChange(r *http.Request, cfg config.Config, db *sql.DB, location *time.Location, actorID int64, previous *adminUserData) error {
 	joined, _ := parseAdminTagDateTime(data.DateJoinedDate, data.DateJoinedTime, location)
 	var lastLogin any
 	if data.LastLoginDate != "" {
@@ -375,6 +385,9 @@ func (data *adminUserData) saveChange(r *http.Request, cfg config.Config, db *sq
 		}
 	}
 	if err := settings.UpdateProfileTx(r.Context(), tx, cfg.DBEngine, data.ID, data.Profile.Form); err != nil {
+		return err
+	}
+	if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, actorID, "auth", "user", strconv.FormatInt(data.ID, 10), data.UserName, 2, adminUserChangeMessage(*previous, *data)); err != nil {
 		return err
 	}
 	return tx.Commit()

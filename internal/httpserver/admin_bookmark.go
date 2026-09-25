@@ -143,9 +143,23 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 				http.Error(w, "Invalid form", 400)
 				return
 			}
-			repo := bookmarks.NewRepository(db, cfg.DBEngine)
-			files, err := repo.DeleteData(r.Context(), data.OwnerID, id)
+			tx, err := db.BeginTx(r.Context(), nil)
 			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "bookmark", strconv.FormatInt(id, 10), adminBookmarkRepr(data.BookmarkTitle, data.URL), 3, ""); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			repo := bookmarks.NewRepository(db, cfg.DBEngine)
+			files, err := repo.DeleteDataTx(r.Context(), tx, data.OwnerID, id)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -160,6 +174,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			http.Error(w, "Forbidden", 403)
 			return
 		}
+		previous := data
 		data.readPost(r)
 		added, modified, accessed, validationErr := data.validate(r, cfg, db, location)
 		if validationErr != nil {
@@ -167,7 +182,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			return
 		}
 		if data.Error == "" {
-			if err := saveAdminBookmark(r, cfg, db, &data, action, added, modified, accessed); err != nil {
+			if err := saveAdminBookmark(r, cfg, db, user.ID, &data, &previous, action, added, modified, accessed); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -310,7 +325,7 @@ func (data *adminBookmarkData) validate(r *http.Request, cfg config.Config, db *
 	return added.UTC(), modified.UTC(), accessed, nil
 }
 
-func saveAdminBookmark(r *http.Request, cfg config.Config, db *sql.DB, data *adminBookmarkData, action string, added, modified time.Time, accessed sql.NullTime) error {
+func saveAdminBookmark(r *http.Request, cfg config.Config, db *sql.DB, actorID int64, data, previous *adminBookmarkData, action string, added, modified time.Time, accessed sql.NullTime) error {
 	tx, err := db.BeginTx(r.Context(), nil)
 	if err != nil {
 		return err
@@ -352,6 +367,13 @@ func saveAdminBookmark(r *http.Request, cfg config.Config, db *sql.DB, data *adm
 		if _, err := tx.ExecContext(r.Context(), query, data.ID, tagID); err != nil {
 			return err
 		}
+	}
+	flag, message := 1, adminAdditionMessage
+	if action == "change" {
+		flag, message = 2, adminChangeMessage(adminBookmarkChangedFields(*previous, *data))
+	}
+	if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, actorID, "bookmarks", "bookmark", strconv.FormatInt(data.ID, 10), adminBookmarkRepr(data.BookmarkTitle, data.URL), flag, message); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

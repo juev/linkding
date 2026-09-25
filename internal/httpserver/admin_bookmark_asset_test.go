@@ -44,15 +44,7 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (511,'bookmarks','bookmarkasset')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (511,'Can view bookmark asset',511,'view_bookmarkasset')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,511)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "bookmarkasset", "view_bookmarkasset")
 	adminSession, err := users.CreateSession(ctx, admin.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -180,6 +172,33 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	if _, err := os.Stat(assetPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("asset file remains: %v", err)
 	}
+	rows, err := db.QueryContext(ctx, `SELECT action_flag,object_repr,change_message FROM django_admin_log ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var gotLogs []struct {
+		flag    int
+		repr    string
+		message string
+	}
+	for rows.Next() {
+		var entry struct {
+			flag    int
+			repr    string
+			message string
+		}
+		if err := rows.Scan(&entry.flag, &entry.repr, &entry.message); err != nil {
+			t.Fatal(err)
+		}
+		gotLogs = append(gotLogs, entry)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotLogs) != 3 || gotLogs[0].flag != 1 || gotLogs[0].repr != "Snapshot" || gotLogs[0].message != adminAdditionMessage || gotLogs[1].flag != 2 || gotLogs[1].repr != "Renamed" || gotLogs[1].message != adminChangeMessage([]string{"File size", "Display name", "Status", "Gzip"}) || gotLogs[2].flag != 3 || gotLogs[2].repr != "Renamed" || gotLogs[2].message != "" {
+		t.Fatalf("asset admin logs: %+v", gotLogs)
+	}
 }
 
 func TestAdminBookmarkAssetPostgres(t *testing.T) {
@@ -203,6 +222,7 @@ func TestAdminBookmarkAssetPostgres(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		for _, query := range []string{
+			`DELETE FROM django_admin_log WHERE user_id = $1`,
 			`DELETE FROM bookmarks_bookmark WHERE owner_id = $1`,
 			`DELETE FROM bookmarks_userprofile WHERE user_id = $1`,
 			`DELETE FROM auth_user WHERE id = $1`,

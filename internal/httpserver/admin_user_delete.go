@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/config"
@@ -56,7 +57,7 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 			http.Error(w, "Invalid form", 400)
 			return
 		}
-		files, err := deleteAdminUserData(r, cfg, db, id)
+		files, err := deleteAdminUserData(r, cfg, db, actor.ID, id)
 		if err != nil {
 			http.Error(w, "Server error", 500)
 			return
@@ -100,17 +101,26 @@ type adminUserDeletedFiles struct {
 	Assets   []string
 }
 
-func deleteAdminUserData(r *http.Request, cfg config.Config, db *sql.DB, id int64) (adminUserDeletedFiles, error) {
-	return deleteAdminUsersData(r, cfg, db, []int64{id})
+func deleteAdminUserData(r *http.Request, cfg config.Config, db *sql.DB, actorID, id int64) (adminUserDeletedFiles, error) {
+	return deleteAdminUsersData(r, cfg, db, actorID, []int64{id})
 }
 
-func deleteAdminUsersData(r *http.Request, cfg config.Config, db *sql.DB, ids []int64) (adminUserDeletedFiles, error) {
+func deleteAdminUsersData(r *http.Request, cfg config.Config, db *sql.DB, actorID int64, ids []int64) (adminUserDeletedFiles, error) {
 	tx, err := db.BeginTx(r.Context(), nil)
 	if err != nil {
 		return adminUserDeletedFiles{}, err
 	}
 	defer tx.Rollback()
 	var files adminUserDeletedFiles
+	for _, id := range ids {
+		var username string
+		if err := tx.QueryRowContext(r.Context(), `SELECT username FROM auth_user WHERE id=`+assetMarker(cfg.DBEngine, 1), id).Scan(&username); err != nil {
+			return files, err
+		}
+		if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, actorID, "auth", "user", strconv.FormatInt(id, 10), username, 3, ""); err != nil {
+			return files, err
+		}
+	}
 	for _, id := range ids {
 		item, err := deleteAdminUserDataTx(r, cfg, tx, id)
 		if err != nil {

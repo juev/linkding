@@ -57,14 +57,12 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, query := range []string{`INSERT INTO django_content_type(id,app_label,model) VALUES (801,'auth','user')`, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (801,'Can view user',801,'view_user')`, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (802,'Can change user',801,'change_user')`, `INSERT INTO auth_group(id,name) VALUES (801,'Editors')`} {
+	for _, query := range []string{`INSERT INTO auth_group(id,name) VALUES (801,'Editors')`} {
 		if _, err := db.ExecContext(ctx, query); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,801)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "auth", "user", "view_user")
 	adminSession, err := users.CreateSession(ctx, admin.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +149,7 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	changeForm.Set("date_joined_0", "2020-01-02")
 	changeForm.Set("date_joined_1", "03:04:05")
 	changeForm.Set("groups", "801")
-	changeForm.Set("user_permissions", "802")
+	changeForm.Set("user_permissions", strconv.FormatInt(testPermissionID(t, db, "auth", "user", "change_user"), 10))
 	changeForm.Set("profile-0-theme", "dark")
 	changeForm.Set("profile-0-enable_sharing", "on")
 	changeForm.Set("profile-0-items_per_page", "50")
@@ -180,7 +178,7 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	for _, relation := range []struct {
 		query string
 		id    int64
-	}{{`SELECT COUNT(*) FROM auth_user_groups WHERE user_id=? AND group_id=?`, 801}, {`SELECT COUNT(*) FROM auth_user_user_permissions WHERE user_id=? AND permission_id=?`, 802}} {
+	}{{`SELECT COUNT(*) FROM auth_user_groups WHERE user_id=? AND group_id=?`, 801}, {`SELECT COUNT(*) FROM auth_user_user_permissions WHERE user_id=? AND permission_id=?`, testPermissionID(t, db, "auth", "user", "change_user")}} {
 		if err := db.QueryRowContext(ctx, relation.query, id, relation.id).Scan(&profileCount); err != nil || profileCount != 1 {
 			t.Fatalf("missing relation: %d %v", profileCount, err)
 		}
@@ -192,6 +190,27 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	}
 	if err := db.QueryRowContext(ctx, `SELECT username FROM auth_user WHERE id=?`, id).Scan(&username); err != nil || username != "renameduser" {
 		t.Fatalf("user update escaped failed profile transaction: %q %v", username, err)
+	}
+	rows, err := db.QueryContext(ctx, `SELECT action_flag,object_repr,change_message FROM django_admin_log ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var flags []int
+	var reprs, messages []string
+	for rows.Next() {
+		var flag int
+		var repr, message string
+		if err := rows.Scan(&flag, &repr, &message); err != nil {
+			t.Fatal(err)
+		}
+		flags, reprs, messages = append(flags, flag), append(reprs, repr), append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(flags) != 3 || flags[0] != 1 || flags[1] != 1 || flags[2] != 2 || reprs[0] != "newuser" || reprs[1] != "passworduser" || reprs[2] != "renameduser" || messages[0] != adminAdditionMessage || messages[1] != adminAdditionMessage || !strings.Contains(messages[2], `"fields": ["Username", "First name", "Last name", "Email address", "Staff status", "Groups", "User permissions", "Date joined"]`) || !strings.Contains(messages[2], `"name": "user profile"`) || !strings.Contains(messages[2], `"Custom css hash"`) {
+		t.Fatalf("user admin logs: flags=%v reprs=%v messages=%v", flags, reprs, messages)
 	}
 }
 
@@ -215,7 +234,7 @@ func TestAdminUserPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		for _, query := range []string{`DELETE FROM auth_user_user_permissions WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM auth_user_groups WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM bookmarks_userprofile WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM auth_user WHERE id=$1 OR username='postgres_new_user'`} {
+		for _, query := range []string{`DELETE FROM django_admin_log WHERE user_id=$1`, `DELETE FROM auth_user_user_permissions WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM auth_user_groups WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM bookmarks_userprofile WHERE user_id IN (SELECT id FROM auth_user WHERE id=$1 OR username='postgres_new_user')`, `DELETE FROM auth_user WHERE id=$1 OR username='postgres_new_user'`} {
 			if _, err := db.ExecContext(context.Background(), query, admin.ID); err != nil {
 				t.Errorf("fixture cleanup: %v", err)
 			}
@@ -389,6 +408,10 @@ func TestAdminUserPasswordChange(t *testing.T) {
 	if _, err := users.AuthenticateSession(ctx, adminSession); err == nil {
 		t.Fatal("old session survived own password change")
 	}
+	var passwordLogs int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM django_admin_log WHERE action_flag=2 AND change_message=?`, adminChangeMessage([]string{"password"})).Scan(&passwordLogs); err != nil || passwordLogs != 3 {
+		t.Fatalf("password admin logs: count=%d err=%v", passwordLogs, err)
+	}
 }
 
 func TestAdminUserDeleteCascade(t *testing.T) {
@@ -523,5 +546,10 @@ func TestAdminUserDeleteCascade(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(cfg.DataDir, item.directory, item.name)); !os.IsNotExist(err) {
 			t.Fatalf("deleted file remains: %s/%s: %v", item.directory, item.name, err)
 		}
+	}
+	var flag int
+	var repr, message string
+	if err := db.QueryRowContext(ctx, `SELECT action_flag,object_repr,change_message FROM django_admin_log ORDER BY id DESC LIMIT 1`).Scan(&flag, &repr, &message); err != nil || flag != 3 || repr != target.Username || message != "" {
+		t.Fatalf("user delete log: flag=%d repr=%q message=%q err=%v", flag, repr, message, err)
 	}
 }

@@ -150,6 +150,12 @@ func serveAdminTagDeleteSelected(w http.ResponseWriter, r *http.Request, cfg con
 		return
 	}
 	defer tx.Rollback()
+	for _, tag := range tags {
+		if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "tag", strconv.FormatInt(tag.ID, 10), tag.Name, 3, ""); err != nil {
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+	}
 	if _, err := tx.ExecContext(r.Context(), `DELETE FROM bookmarks_bookmark_tags WHERE tag_id IN `+selected, values...); err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return

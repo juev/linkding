@@ -92,6 +92,10 @@ func TestAdminUserBulkDeleteFiltered(t *testing.T) {
 			t.Fatalf("user %d count=%d want=%d err=%v", item.id, count, item.want, err)
 		}
 	}
+	var logCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM django_admin_log WHERE action_flag=3 AND object_repr='match-user'`).Scan(&logCount); err != nil || logCount != 1 {
+		t.Fatalf("filtered user delete log: count=%d err=%v", logCount, err)
+	}
 }
 
 func TestAdminUserBulkDeletePostgres(t *testing.T) {
@@ -123,6 +127,9 @@ func TestAdminUserBulkDeletePostgres(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		for _, id := range []int64{admin.ID, match.ID, other.ID} {
+			if _, err := db.ExecContext(context.Background(), `DELETE FROM django_admin_log WHERE user_id=$1`, id); err != nil {
+				t.Errorf("admin log cleanup: %v", err)
+			}
 			if _, err := db.ExecContext(context.Background(), `DELETE FROM bookmarks_userprofile WHERE user_id=$1`, id); err != nil {
 				t.Errorf("profile cleanup: %v", err)
 			}

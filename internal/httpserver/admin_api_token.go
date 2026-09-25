@@ -1,17 +1,19 @@
 package httpserver
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/config"
-	"github.com/juev/linkding/internal/settings"
 )
 
 //go:embed admin_api_token.html
@@ -22,6 +24,8 @@ type adminAPITokenData struct {
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, OwnerName, Error                              string
 	ID, OwnerID                                         int64
+	OriginalName                                        string
+	OriginalOwnerID                                     int64
 	ConfirmDelete, CanChange, CanDelete                 bool
 	Users                                               []adminOwnerOption
 }
@@ -74,6 +78,7 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			http.Error(w, "Server error", 500)
 			return
 		}
+		data.OriginalName, data.OriginalOwnerID = data.Name, data.OwnerID
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -90,7 +95,22 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 				http.Error(w, "Invalid form", 400)
 				return
 			}
-			if _, err := db.ExecContext(r.Context(), `DELETE FROM bookmarks_apitoken WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			repr := data.Name + " (" + data.OwnerName + ")"
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "apitoken", strconv.FormatInt(id, 10), repr, 3, ""); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if _, err := tx.ExecContext(r.Context(), `DELETE FROM bookmarks_apitoken WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -116,17 +136,56 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			}
 		}
 		if data.Error == "" {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			var tokenID int64
 			if action == "add" {
-				_, _, err := settings.CreateAPIToken(r.Context(), db, cfg.DBEngine, data.OwnerID, data.Name)
+				var random [20]byte
+				if _, err := rand.Read(random[:]); err != nil {
+					http.Error(w, "Server error", 500)
+					return
+				}
+				key := hex.EncodeToString(random[:])
+				err = tx.QueryRowContext(r.Context(), `INSERT INTO bookmarks_apitoken (key,name,created,user_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`,`+assetMarker(cfg.DBEngine, 4)+`) RETURNING id`, key, data.Name, time.Now().UTC(), data.OwnerID).Scan(&tokenID)
 				if err != nil {
 					http.Error(w, "Server error", 500)
 					return
 				}
 			} else {
-				if _, err := db.ExecContext(r.Context(), `UPDATE bookmarks_apitoken SET name = `+assetMarker(cfg.DBEngine, 1)+`, user_id = `+assetMarker(cfg.DBEngine, 2)+` WHERE id = `+assetMarker(cfg.DBEngine, 3), data.Name, data.OwnerID, id); err != nil {
+				tokenID = id
+				if _, err := tx.ExecContext(r.Context(), `UPDATE bookmarks_apitoken SET name = `+assetMarker(cfg.DBEngine, 1)+`, user_id = `+assetMarker(cfg.DBEngine, 2)+` WHERE id = `+assetMarker(cfg.DBEngine, 3), data.Name, data.OwnerID, id); err != nil {
 					http.Error(w, "Server error", 500)
 					return
 				}
+			}
+			var ownerName string
+			if err := tx.QueryRowContext(r.Context(), `SELECT username FROM auth_user WHERE id = `+assetMarker(cfg.DBEngine, 1), data.OwnerID).Scan(&ownerName); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			repr := data.Name + " (" + ownerName + ")"
+			message, flag := adminAdditionMessage, 1
+			if action == "change" {
+				fields := make([]string, 0, 2)
+				if data.Name != data.OriginalName {
+					fields = append(fields, "Name")
+				}
+				if data.OwnerID != data.OriginalOwnerID {
+					fields = append(fields, "User")
+				}
+				message, flag = adminChangeMessage(fields), 2
+			}
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "apitoken", strconv.FormatInt(tokenID, 10), repr, flag, message); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
+				http.Error(w, "Server error", 500)
+				return
 			}
 			http.Redirect(w, r, base, http.StatusFound)
 			return

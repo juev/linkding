@@ -48,15 +48,7 @@ func TestAdminBookmarkActionsRespectChangelistAndFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (601,'bookmarks','bookmark')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (601,'Can view bookmark',601,'view_bookmark')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,601)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "bookmark", "view_bookmark")
 	adminSession, err := users.CreateSession(ctx, admin.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)

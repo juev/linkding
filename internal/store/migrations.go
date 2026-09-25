@@ -61,5 +61,8 @@ func migrate(ctx context.Context, db *sql.DB, engine string, imported bool) erro
 	if _, err := provider.Up(ctx); err != nil {
 		return fmt.Errorf("apply %s migrations: %w", engine, err)
 	}
+	if err := seedDjangoMetadata(ctx, db, engine); err != nil {
+		return fmt.Errorf("seed Django metadata: %w", err)
+	}
 	return nil
 }

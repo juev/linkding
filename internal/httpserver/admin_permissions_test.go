@@ -33,24 +33,14 @@ func TestAdminPermissionsDirectGroupAndSuperuser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (101,'bookmarks','tag')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (101,'Can view tag',101,'view_tag'),(102,'Can add tag',101,'add_tag')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,101)`, staff.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, staff.ID, "bookmarks", "tag", "view_tag")
 	if _, err := db.ExecContext(ctx, `INSERT INTO auth_group(id,name) VALUES (101,'Editors')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_groups(user_id,group_id) VALUES (?,101)`, staff.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_group_permissions(group_id,permission_id) VALUES (101,102)`); err != nil {
-		t.Fatal(err)
-	}
+	grantTestGroupPermission(t, db, 101, "bookmarks", "tag", "add_tag")
 	got, err := loadAdminPermissions(ctx, db, "sqlite", staff, "bookmarks", "tag")
 	if err != nil || !got.View || !got.Add || got.Change || got.Delete || !got.canList() {
 		t.Fatalf("staff tag permissions: %+v %v", got, err)

@@ -80,8 +80,22 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 			}
 		}
 		if data.Error == "" {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
 			query := `UPDATE auth_user SET password = ` + assetMarker(cfg.DBEngine, 1) + ` WHERE id = ` + assetMarker(cfg.DBEngine, 2)
-			if _, err := db.ExecContext(r.Context(), query, encoded, id); err != nil {
+			if _, err := tx.ExecContext(r.Context(), query, encoded, id); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, actor.ID, "auth", "user", strconv.FormatInt(id, 10), target, 2, adminChangeMessage([]string{"password"})); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}

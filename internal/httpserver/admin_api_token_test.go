@@ -105,18 +105,7 @@ func TestAdminAPITokenCRUDSearchAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (201,'bookmarks','apitoken')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (201,'Can view API token',201,'view_apitoken')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (202,'Can add API token',201,'add_apitoken')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,201)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "apitoken", "view_apitoken")
 	viewerSession, err := users.CreateSession(ctx, viewer.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -131,9 +120,7 @@ func TestAdminAPITokenCRUDSearchAndPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,202)`, adder.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, adder.ID, "bookmarks", "apitoken", "add_apitoken")
 	adderSession, err := users.CreateSession(ctx, adder.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)

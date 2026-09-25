@@ -66,15 +66,7 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (711,'bookmarks','bookmark')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (711,'Can view bookmark',711,'view_bookmark')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,711)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "bookmark", "view_bookmark")
 	adminSession, err := users.CreateSession(ctx, admin.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -231,6 +223,29 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 			t.Fatalf("file remains: %s/%s: %v", item.directory, item.name, err)
 		}
 	}
+	rows, err := db.QueryContext(ctx, `SELECT action_flag,object_repr,change_message FROM django_admin_log ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var logFlags []int
+	var logReprs, logMessages []string
+	for rows.Next() {
+		var flag int
+		var repr, message string
+		if err := rows.Scan(&flag, &repr, &message); err != nil {
+			t.Fatal(err)
+		}
+		logFlags = append(logFlags, flag)
+		logReprs = append(logReprs, repr)
+		logMessages = append(logMessages, message)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(logFlags) != 3 || logFlags[0] != 1 || logFlags[1] != 2 || logFlags[2] != 3 || logMessages[0] != adminAdditionMessage || logMessages[1] != adminChangeMessage([]string{"Url", "Url normalized", "Preview image file", "Is archived", "Tags", "Latest snapshot"}) || logMessages[2] != "" || logReprs[0] != adminBookmarkRepr("Admin title", "https://example.test/admin") || logReprs[1] != adminBookmarkRepr("Admin title", "https://example.test/changed") || logReprs[2] != logReprs[1] {
+		t.Fatalf("bookmark admin logs: flags=%v reprs=%v messages=%v", logFlags, logReprs, logMessages)
+	}
 }
 
 func TestAdminBookmarkPostgres(t *testing.T) {
@@ -253,7 +268,7 @@ func TestAdminBookmarkPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		for _, query := range []string{`DELETE FROM bookmarks_bookmark_tags WHERE bookmark_id IN (SELECT id FROM bookmarks_bookmark WHERE owner_id=$1)`, `DELETE FROM bookmarks_bookmark WHERE owner_id=$1`, `DELETE FROM bookmarks_tag WHERE owner_id=$1`, `DELETE FROM bookmarks_userprofile WHERE user_id=$1`, `DELETE FROM auth_user WHERE id=$1`} {
+		for _, query := range []string{`DELETE FROM django_admin_log WHERE user_id=$1`, `DELETE FROM bookmarks_bookmark_tags WHERE bookmark_id IN (SELECT id FROM bookmarks_bookmark WHERE owner_id=$1)`, `DELETE FROM bookmarks_bookmark WHERE owner_id=$1`, `DELETE FROM bookmarks_tag WHERE owner_id=$1`, `DELETE FROM bookmarks_userprofile WHERE user_id=$1`, `DELETE FROM auth_user WHERE id=$1`} {
 			if _, err := db.ExecContext(context.Background(), query, admin.ID); err != nil {
 				t.Errorf("fixture cleanup: %v", err)
 			}

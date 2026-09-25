@@ -93,25 +93,12 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (101,'bookmarks','toast')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (101,'Can view toast',101,'view_toast')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (102,'Can add toast',101,'add_toast')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,101)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "toast", "view_toast")
 	adder, err := users.CreateUser(ctx, auth.NewUser{Username: "adder", Password: "password", IsStaff: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,102)`, adder.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, adder.ID, "bookmarks", "toast", "add_toast")
 	adderKey, err := users.CreateSession(ctx, adder.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)

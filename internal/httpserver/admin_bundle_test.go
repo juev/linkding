@@ -129,23 +129,12 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 	if got := request(http.MethodGet, change, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="search" value="golang"`) {
 		t.Fatalf("change form: %d %q", got.Code, got.Body.String())
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (111,'bookmarks','bookmarkbundle')`); err != nil {
-		t.Fatal(err)
-	}
-	for _, grant := range []struct {
-		id   int
-		code string
-	}{{111, "view_bookmarkbundle"}, {112, "add_bookmarkbundle"}, {113, "delete_bookmarkbundle"}} {
-		if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (?,?,111,?)`, grant.id, grant.code, grant.code); err != nil {
-			t.Fatal(err)
-		}
-	}
 	for _, role := range []struct {
-		name         string
-		permissionID int
-		check        func(string)
+		name       string
+		permission string
+		check      func(string)
 	}{
-		{"viewer", 111, func(session string) {
+		{"viewer", "view_bookmarkbundle", func(session string) {
 			if got := request(http.MethodGet, change, session, nil, false); got.Code != 200 || strings.Contains(got.Body.String(), `value="Save"`) || strings.Contains(got.Body.String(), `class="deletelink"`) {
 				t.Fatalf("view-only form: %d %q", got.Code, got.Body.String())
 			}
@@ -153,7 +142,7 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 				t.Fatalf("view-only change: %d", got.Code)
 			}
 		}},
-		{"adder", 112, func(session string) {
+		{"adder", "add_bookmarkbundle", func(session string) {
 			if got := request(http.MethodGet, base, session, nil, false); got.Code != 403 {
 				t.Fatalf("add-only list: %d", got.Code)
 			}
@@ -164,7 +153,7 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 				t.Fatalf("add-only change: %d", got.Code)
 			}
 		}},
-		{"deleter", 113, func(session string) {
+		{"deleter", "delete_bookmarkbundle", func(session string) {
 			if got := request(http.MethodGet, change, session, nil, false); got.Code != 403 {
 				t.Fatalf("delete-only change: %d", got.Code)
 			}
@@ -177,9 +166,7 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,?)`, staff.ID, role.permissionID); err != nil {
-			t.Fatal(err)
-		}
+		grantTestUserPermission(t, db, staff.ID, "bookmarks", "bookmarkbundle", role.permission)
 		session, err := users.CreateSession(ctx, staff.ID, time.Hour)
 		if err != nil {
 			t.Fatal(err)

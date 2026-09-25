@@ -93,7 +93,21 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 				http.Error(w, "Invalid form", 400)
 				return
 			}
-			if _, err := db.ExecContext(r.Context(), `DELETE FROM bookmarks_bookmarkbundle WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "bookmarkbundle", strconv.FormatInt(id, 10), data.Name, 3, ""); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if _, err := tx.ExecContext(r.Context(), `DELETE FROM bookmarks_bookmarkbundle WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -104,6 +118,7 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 			http.Error(w, "Forbidden", 403)
 			return
 		}
+		previous := data
 		data.Name = strings.TrimSpace(r.PostForm.Get("name"))
 		data.Search = strings.TrimSpace(r.PostForm.Get("search"))
 		data.AnyTags = strings.TrimSpace(r.PostForm.Get("any_tags"))
@@ -138,11 +153,55 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 		}
 		if data.Error == "" {
 			now := time.Now().UTC()
-			var err error
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
 			if action == "add" {
-				_, err = db.ExecContext(r.Context(), `INSERT INTO bookmarks_bookmarkbundle(name,search,any_tags,all_tags,excluded_tags,filter_unread,filter_shared,"order",date_created,date_modified,owner_id) VALUES (`+adminBundleMarkers(cfg.DBEngine, 11)+`)`, data.Name, data.Search, data.AnyTags, data.AllTags, data.ExcludedTags, data.FilterUnread, data.FilterShared, order, now, now, data.OwnerID)
+				err = tx.QueryRowContext(r.Context(), `INSERT INTO bookmarks_bookmarkbundle(name,search,any_tags,all_tags,excluded_tags,filter_unread,filter_shared,"order",date_created,date_modified,owner_id) VALUES (`+adminBundleMarkers(cfg.DBEngine, 11)+`) RETURNING id`, data.Name, data.Search, data.AnyTags, data.AllTags, data.ExcludedTags, data.FilterUnread, data.FilterShared, order, now, now, data.OwnerID).Scan(&id)
 			} else {
-				_, err = db.ExecContext(r.Context(), `UPDATE bookmarks_bookmarkbundle SET name = `+assetMarker(cfg.DBEngine, 1)+`,search = `+assetMarker(cfg.DBEngine, 2)+`,any_tags = `+assetMarker(cfg.DBEngine, 3)+`,all_tags = `+assetMarker(cfg.DBEngine, 4)+`,excluded_tags = `+assetMarker(cfg.DBEngine, 5)+`,filter_unread = `+assetMarker(cfg.DBEngine, 6)+`,filter_shared = `+assetMarker(cfg.DBEngine, 7)+`,"order" = `+assetMarker(cfg.DBEngine, 8)+`,date_modified = `+assetMarker(cfg.DBEngine, 9)+`,owner_id = `+assetMarker(cfg.DBEngine, 10)+` WHERE id = `+assetMarker(cfg.DBEngine, 11), data.Name, data.Search, data.AnyTags, data.AllTags, data.ExcludedTags, data.FilterUnread, data.FilterShared, order, now, data.OwnerID, id)
+				_, err = tx.ExecContext(r.Context(), `UPDATE bookmarks_bookmarkbundle SET name = `+assetMarker(cfg.DBEngine, 1)+`,search = `+assetMarker(cfg.DBEngine, 2)+`,any_tags = `+assetMarker(cfg.DBEngine, 3)+`,all_tags = `+assetMarker(cfg.DBEngine, 4)+`,excluded_tags = `+assetMarker(cfg.DBEngine, 5)+`,filter_unread = `+assetMarker(cfg.DBEngine, 6)+`,filter_shared = `+assetMarker(cfg.DBEngine, 7)+`,"order" = `+assetMarker(cfg.DBEngine, 8)+`,date_modified = `+assetMarker(cfg.DBEngine, 9)+`,owner_id = `+assetMarker(cfg.DBEngine, 10)+` WHERE id = `+assetMarker(cfg.DBEngine, 11), data.Name, data.Search, data.AnyTags, data.AllTags, data.ExcludedTags, data.FilterUnread, data.FilterShared, order, now, data.OwnerID, id)
+			}
+			if err == nil {
+				message, flag := adminAdditionMessage, 1
+				if action == "change" {
+					changed := make([]string, 0, 9)
+					previousOrder, _ := strconv.ParseInt(previous.Order, 10, 32)
+					if previous.Name != data.Name {
+						changed = append(changed, "Name")
+					}
+					if previous.Search != data.Search {
+						changed = append(changed, "Search")
+					}
+					if previous.AnyTags != data.AnyTags {
+						changed = append(changed, "Any tags")
+					}
+					if previous.AllTags != data.AllTags {
+						changed = append(changed, "All tags")
+					}
+					if previous.ExcludedTags != data.ExcludedTags {
+						changed = append(changed, "Excluded tags")
+					}
+					if previous.FilterUnread != data.FilterUnread {
+						changed = append(changed, "Filter unread")
+					}
+					if previous.FilterShared != data.FilterShared {
+						changed = append(changed, "Filter shared")
+					}
+					if previousOrder != order {
+						changed = append(changed, "Order")
+					}
+					if previous.OwnerID != data.OwnerID {
+						changed = append(changed, "Owner")
+					}
+					message, flag = adminChangeMessage(changed), 2
+				}
+				err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "bookmarkbundle", strconv.FormatInt(id, 10), data.Name, flag, message)
+			}
+			if err == nil {
+				err = tx.Commit()
 			}
 			if err != nil {
 				http.Error(w, "Server error", 500)

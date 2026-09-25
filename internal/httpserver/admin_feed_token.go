@@ -24,6 +24,7 @@ type adminFeedTokenData struct {
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Key, KeyPath, OwnerName, Error                      string
 	OwnerID                                             int64
+	OriginalOwnerID                                     int64
 	ConfirmDelete, CanChange, CanDelete                 bool
 	Users                                               []adminOwnerOption
 }
@@ -81,6 +82,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
+		data.OriginalOwnerID = data.OwnerID
 	}
 
 	if r.Method == http.MethodPost {
@@ -98,7 +100,21 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				http.Error(w, "Invalid form", http.StatusBadRequest)
 				return
 			}
-			if _, err := db.ExecContext(r.Context(), `DELETE FROM bookmarks_feedtoken WHERE key = `+assetMarker(cfg.DBEngine, 1), key); err != nil {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback()
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "feedtoken", key, key, 3, ""); err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			if _, err := tx.ExecContext(r.Context(), `DELETE FROM bookmarks_feedtoken WHERE key = `+assetMarker(cfg.DBEngine, 1), key); err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
@@ -156,22 +172,48 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			}
 		}
 		if data.Error == "" {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback()
 			if action == "add" {
-				_, err := db.ExecContext(r.Context(), `INSERT INTO bookmarks_feedtoken (key,created,user_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`)`, data.Key, time.Now().UTC(), data.OwnerID)
+				_, err := tx.ExecContext(r.Context(), `INSERT INTO bookmarks_feedtoken (key,created,user_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`)`, data.Key, time.Now().UTC(), data.OwnerID)
 				if err != nil {
 					http.Error(w, "Server error", http.StatusInternalServerError)
 					return
 				}
 			} else if keyChanged {
-				if _, err := db.ExecContext(r.Context(), `INSERT INTO bookmarks_feedtoken (key,created,user_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`)`, data.Key, time.Now().UTC(), data.OwnerID); err != nil {
+				if _, err := tx.ExecContext(r.Context(), `INSERT INTO bookmarks_feedtoken (key,created,user_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`)`, data.Key, time.Now().UTC(), data.OwnerID); err != nil {
 					http.Error(w, "Server error", http.StatusInternalServerError)
 					return
 				}
 			} else {
-				if _, err := db.ExecContext(r.Context(), `UPDATE bookmarks_feedtoken SET user_id = `+assetMarker(cfg.DBEngine, 1)+` WHERE key = `+assetMarker(cfg.DBEngine, 2), data.OwnerID, originalKey); err != nil {
+				if _, err := tx.ExecContext(r.Context(), `UPDATE bookmarks_feedtoken SET user_id = `+assetMarker(cfg.DBEngine, 1)+` WHERE key = `+assetMarker(cfg.DBEngine, 2), data.OwnerID, originalKey); err != nil {
 					http.Error(w, "Server error", http.StatusInternalServerError)
 					return
 				}
+			}
+			message, flag := adminAdditionMessage, 1
+			objectID, repr := data.Key, data.Key
+			if action == "change" {
+				fields := make([]string, 0, 2)
+				if keyChanged {
+					fields = append(fields, "Key")
+				}
+				if data.OwnerID != data.OriginalOwnerID {
+					fields = append(fields, "User")
+				}
+				message, flag = adminChangeMessage(fields), 2
+			}
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "feedtoken", objectID, repr, flag, message); err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			if err := tx.Commit(); err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
 			}
 			http.Redirect(w, r, base, http.StatusFound)
 			return

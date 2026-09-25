@@ -42,15 +42,7 @@ func TestAdminDeleteUnusedTagsRespectsFilteredSelectionAndViewPermission(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO django_content_type(id,app_label,model) VALUES (401,'bookmarks','tag')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (401,'Can view tag',401,'view_tag')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,401)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "tag", "view_tag")
 	viewerSession, err := users.CreateSession(ctx, viewer.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -153,12 +145,7 @@ func TestAdminDeleteUnusedTagsRespectsFilteredSelectionAndViewPermission(t *test
 	if strings.Contains(list.Body.String(), `value="delete_selected"`) {
 		t.Fatal("view-only staff saw the delete action")
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_permission(id,name,content_type_id,codename) VALUES (402,'Can delete tag',401,'delete_tag')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO auth_user_user_permissions(user_id,permission_id) VALUES (?,402)`, viewer.ID); err != nil {
-		t.Fatal(err)
-	}
+	grantTestUserPermission(t, db, viewer.ID, "bookmarks", "tag", "delete_tag")
 	list = request(http.MethodGet, path, viewerSession, nil, true)
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `value="delete_selected"`) {
 		t.Fatalf("delete-permitted action list: %d", list.Code)
@@ -211,6 +198,7 @@ func TestAdminTagActionsPostgres(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		for _, query := range []string{
+			`DELETE FROM django_admin_log WHERE user_id = $1`,
 			`DELETE FROM bookmarks_tag WHERE owner_id = $1`,
 			`DELETE FROM bookmarks_userprofile WHERE user_id = $1`,
 			`DELETE FROM auth_user WHERE id = $1`,

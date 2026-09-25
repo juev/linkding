@@ -69,6 +69,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 	} else if action == "delete" {
 		data.Title = "Delete tag"
 	}
+	var previousAdded time.Time
 	if id != 0 {
 		var added time.Time
 		var ownerName string
@@ -83,6 +84,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		}
 		data.DateAddedDate = added.In(location).Format("2006-01-02")
 		data.DateAddedTime = added.In(location).Format("15:04:05")
+		previousAdded = added
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -105,6 +107,10 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 				return
 			}
 			defer tx.Rollback()
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "tag", strconv.FormatInt(id, 10), data.Name, 3, ""); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
 			if _, err = tx.ExecContext(r.Context(), `DELETE FROM bookmarks_bookmark_tags WHERE tag_id = `+assetMarker(cfg.DBEngine, 1), id); err == nil {
 				_, err = tx.ExecContext(r.Context(), `DELETE FROM bookmarks_tag WHERE id = `+assetMarker(cfg.DBEngine, 1), id)
 			}
@@ -122,6 +128,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			http.Error(w, "Forbidden", 403)
 			return
 		}
+		previousName, previousOwnerID := data.Name, data.OwnerID
 		data.Name = r.PostForm.Get("name")
 		data.Name = strings.TrimSpace(data.Name)
 		data.OwnerID, _ = strconv.ParseInt(r.PostForm.Get("owner"), 10, 64)
@@ -154,11 +161,36 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			}
 		}
 		if data.Error == "" {
-			var err error
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			var changedFields []string
 			if action == "add" {
-				_, err = db.ExecContext(r.Context(), `INSERT INTO bookmarks_tag(name,date_added,owner_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`)`, data.Name, added.UTC(), data.OwnerID)
+				err = tx.QueryRowContext(r.Context(), `INSERT INTO bookmarks_tag(name,date_added,owner_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`) RETURNING id`, data.Name, added.UTC(), data.OwnerID).Scan(&id)
 			} else {
-				_, err = db.ExecContext(r.Context(), `UPDATE bookmarks_tag SET name = `+assetMarker(cfg.DBEngine, 1)+`, date_added = `+assetMarker(cfg.DBEngine, 2)+`, owner_id = `+assetMarker(cfg.DBEngine, 3)+` WHERE id = `+assetMarker(cfg.DBEngine, 4), data.Name, added.UTC(), data.OwnerID, id)
+				if previousName != data.Name {
+					changedFields = append(changedFields, "Name")
+				}
+				if !previousAdded.Equal(added) {
+					changedFields = append(changedFields, "Date added")
+				}
+				if previousOwnerID != data.OwnerID {
+					changedFields = append(changedFields, "Owner")
+				}
+				_, err = tx.ExecContext(r.Context(), `UPDATE bookmarks_tag SET name = `+assetMarker(cfg.DBEngine, 1)+`, date_added = `+assetMarker(cfg.DBEngine, 2)+`, owner_id = `+assetMarker(cfg.DBEngine, 3)+` WHERE id = `+assetMarker(cfg.DBEngine, 4), data.Name, added.UTC(), data.OwnerID, id)
+			}
+			if err == nil {
+				message, flag := adminAdditionMessage, 1
+				if action == "change" {
+					message, flag = adminChangeMessage(changedFields), 2
+				}
+				err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "tag", strconv.FormatInt(id, 10), data.Name, flag, message)
+			}
+			if err == nil {
+				err = tx.Commit()
 			}
 			if err != nil {
 				http.Error(w, "Server error", 500)

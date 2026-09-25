@@ -103,7 +103,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 				http.Error(w, "Invalid form", http.StatusBadRequest)
 				return
 			}
-			if err := deleteAdminBookmarkAsset(r, cfg, db, id, data.File); err != nil {
+			if err := deleteAdminBookmarkAsset(r, cfg, db, user.ID, id, data.File, adminBookmarkAssetRepr(id, data.DisplayName)); err != nil {
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
@@ -114,6 +114,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		previous := data
 		data.BookmarkID, _ = strconv.ParseInt(r.PostForm.Get("bookmark"), 10, 64)
 		data.File = strings.TrimSpace(r.PostForm.Get("file"))
 		data.FileSize = strings.TrimSpace(r.PostForm.Get("file_size"))
@@ -150,16 +151,51 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 			}
 		}
 		if data.Error == "" {
+			var changedFields []string
+			if action == "change" {
+				for _, field := range []struct {
+					label   string
+					changed bool
+				}{
+					{"Bookmark", previous.BookmarkID != data.BookmarkID},
+					{"File", previous.File != data.File},
+					{"File size", previous.FileSize != data.FileSize},
+					{"Asset type", previous.AssetType != data.AssetType},
+					{"Content type", previous.ContentType != data.ContentType},
+					{"Display name", previous.DisplayName != data.DisplayName},
+					{"Status", previous.Status != data.Status},
+					{"Gzip", previous.Gzip != data.Gzip},
+				} {
+					if field.changed {
+						changedFields = append(changedFields, field.label)
+					}
+				}
+			}
 			if info, err := adminAssetFileInfo(cfg.DataDir, data.File); err == nil && info.Mode().IsRegular() {
 				size = sql.NullInt64{Int64: info.Size(), Valid: true}
 			}
-			var err error
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
 			if action == "add" {
-				query := `INSERT INTO bookmarks_bookmarkasset(date_created,bookmark_id,file,file_size,asset_type,content_type,display_name,status,gzip) VALUES (` + strings.Join([]string{assetMarker(cfg.DBEngine, 1), assetMarker(cfg.DBEngine, 2), assetMarker(cfg.DBEngine, 3), assetMarker(cfg.DBEngine, 4), assetMarker(cfg.DBEngine, 5), assetMarker(cfg.DBEngine, 6), assetMarker(cfg.DBEngine, 7), assetMarker(cfg.DBEngine, 8), assetMarker(cfg.DBEngine, 9)}, ",") + `)`
-				_, err = db.ExecContext(r.Context(), query, time.Now().UTC(), data.BookmarkID, data.File, size, data.AssetType, data.ContentType, data.DisplayName, data.Status, data.Gzip)
+				query := `INSERT INTO bookmarks_bookmarkasset(date_created,bookmark_id,file,file_size,asset_type,content_type,display_name,status,gzip) VALUES (` + strings.Join([]string{assetMarker(cfg.DBEngine, 1), assetMarker(cfg.DBEngine, 2), assetMarker(cfg.DBEngine, 3), assetMarker(cfg.DBEngine, 4), assetMarker(cfg.DBEngine, 5), assetMarker(cfg.DBEngine, 6), assetMarker(cfg.DBEngine, 7), assetMarker(cfg.DBEngine, 8), assetMarker(cfg.DBEngine, 9)}, ",") + `) RETURNING id`
+				err = tx.QueryRowContext(r.Context(), query, time.Now().UTC(), data.BookmarkID, data.File, size, data.AssetType, data.ContentType, data.DisplayName, data.Status, data.Gzip).Scan(&id)
 			} else {
 				query := `UPDATE bookmarks_bookmarkasset SET bookmark_id = ` + assetMarker(cfg.DBEngine, 1) + `, file = ` + assetMarker(cfg.DBEngine, 2) + `, file_size = ` + assetMarker(cfg.DBEngine, 3) + `, asset_type = ` + assetMarker(cfg.DBEngine, 4) + `, content_type = ` + assetMarker(cfg.DBEngine, 5) + `, display_name = ` + assetMarker(cfg.DBEngine, 6) + `, status = ` + assetMarker(cfg.DBEngine, 7) + `, gzip = ` + assetMarker(cfg.DBEngine, 8) + ` WHERE id = ` + assetMarker(cfg.DBEngine, 9)
-				_, err = db.ExecContext(r.Context(), query, data.BookmarkID, data.File, size, data.AssetType, data.ContentType, data.DisplayName, data.Status, data.Gzip, id)
+				_, err = tx.ExecContext(r.Context(), query, data.BookmarkID, data.File, size, data.AssetType, data.ContentType, data.DisplayName, data.Status, data.Gzip, id)
+			}
+			if err == nil {
+				flag, message := 1, adminAdditionMessage
+				if action == "change" {
+					flag, message = 2, adminChangeMessage(changedFields)
+				}
+				err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "bookmarkasset", strconv.FormatInt(id, 10), adminBookmarkAssetRepr(id, data.DisplayName), flag, message)
+			}
+			if err == nil {
+				err = tx.Commit()
 			}
 			if err != nil {
 				http.Error(w, "Server error", 500)
@@ -237,12 +273,22 @@ func adminAssetFileInfo(dataDir, name string) (os.FileInfo, error) {
 	return root.Stat(name)
 }
 
-func deleteAdminBookmarkAsset(r *http.Request, cfg config.Config, db *sql.DB, id int64, name string) error {
+func adminBookmarkAssetRepr(id int64, displayName string) string {
+	if displayName != "" {
+		return displayName
+	}
+	return "Bookmark Asset #" + strconv.FormatInt(id, 10)
+}
+
+func deleteAdminBookmarkAsset(r *http.Request, cfg config.Config, db *sql.DB, actorID, id int64, name, repr string) error {
 	tx, err := db.BeginTx(r.Context(), nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, actorID, "bookmarks", "bookmarkasset", strconv.FormatInt(id, 10), repr, 3, ""); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(r.Context(), `UPDATE bookmarks_bookmark SET latest_snapshot_id = NULL WHERE latest_snapshot_id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
 		return err
 	}

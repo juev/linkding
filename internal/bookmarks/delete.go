@@ -19,6 +19,19 @@ func (r *Repository) DeleteData(ctx context.Context, ownerID, id int64) (Deleted
 		return DeletedFiles{}, err
 	}
 	defer tx.Rollback()
+	files, err := r.DeleteDataTx(ctx, tx, ownerID, id)
+	if err != nil {
+		return DeletedFiles{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return DeletedFiles{}, err
+	}
+	return files, nil
+}
+
+// DeleteDataTx removes a bookmark in the caller's transaction. The caller
+// removes returned files only after committing.
+func (r *Repository) DeleteDataTx(ctx context.Context, tx *sql.Tx, ownerID, id int64) (DeletedFiles, error) {
 	var files DeletedFiles
 	query := `SELECT preview_image_file FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) + ` AND id = ` + r.marker(2)
 	if r.engine == "postgres" {
@@ -67,9 +80,6 @@ func (r *Repository) DeleteData(ctx context.Context, ownerID, id int64) (Deleted
 	}
 	if count != 1 {
 		return DeletedFiles{}, sql.ErrNoRows
-	}
-	if err := tx.Commit(); err != nil {
-		return DeletedFiles{}, err
 	}
 	return files, nil
 }

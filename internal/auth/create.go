@@ -45,6 +45,28 @@ func (r *Repository) CreateUnusableUser(ctx context.Context, input NewUser) (Use
 	return r.createUserWithHash(ctx, input, encoded)
 }
 
+// CreateUserTx creates a user and profile in the caller's transaction so an
+// administrative action can commit its audit entry with the new account.
+func (r *Repository) CreateUserTx(ctx context.Context, tx *sql.Tx, input NewUser, usablePassword bool) (User, error) {
+	if input.Username == "" || len([]rune(input.Username)) > 150 {
+		return User{}, fmt.Errorf("username must contain 1 to 150 characters")
+	}
+	var encoded string
+	var err error
+	if usablePassword {
+		if input.Password == "" {
+			return User{}, fmt.Errorf("password must not be empty")
+		}
+		encoded, err = HashPassword(input.Password)
+	} else {
+		encoded, err = MakeUnusablePassword()
+	}
+	if err != nil {
+		return User{}, err
+	}
+	return r.createUserWithHashTx(ctx, tx, input, encoded)
+}
+
 // MakeUnusablePassword uses Django's unusable-password prefix and suffix length.
 func MakeUnusablePassword() (string, error) {
 	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -138,10 +160,21 @@ func (r *Repository) createUserWithHash(ctx context.Context, input NewUser, enco
 		return User{}, fmt.Errorf("begin user creation: %w", err)
 	}
 	defer tx.Rollback()
+	user, err := r.createUserWithHashTx(ctx, tx, input, encoded)
+	if err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, fmt.Errorf("commit user creation: %w", err)
+	}
+	return user, nil
+}
+
+func (r *Repository) createUserWithHashTx(ctx context.Context, tx *sql.Tx, input NewUser, encoded string) (User, error) {
 	user := User{Username: input.Username, Email: input.Email, IsActive: true, IsStaff: input.IsStaff, IsSuperuser: input.IsSuperuser}
 	query := `INSERT INTO auth_user (password, is_superuser, username, last_name, email, is_staff, is_active, date_joined, first_name)
 		VALUES (` + markers(r.engine, 9) + `) RETURNING id`
-	err = tx.QueryRowContext(ctx, query, encoded, user.IsSuperuser, user.Username, "", user.Email, user.IsStaff,
+	err := tx.QueryRowContext(ctx, query, encoded, user.IsSuperuser, user.Username, "", user.Email, user.IsStaff,
 		user.IsActive, time.Now().UTC(), "").Scan(&user.ID)
 	if err != nil {
 		return User{}, fmt.Errorf("insert user: %w", err)
@@ -163,9 +196,6 @@ func (r *Repository) createUserWithHash(ctx context.Context, input NewUser, enco
 	query = `INSERT INTO bookmarks_userprofile (` + strings.Join(columns, ", ") + `) VALUES (` + markers(r.engine, len(values)) + `)`
 	if _, err := tx.ExecContext(ctx, query, values...); err != nil {
 		return User{}, fmt.Errorf("insert user profile: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return User{}, fmt.Errorf("commit user creation: %w", err)
 	}
 	return user, nil
 }

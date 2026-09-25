@@ -95,7 +95,21 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 				http.Error(w, "Invalid form", 400)
 				return
 			}
-			if _, err := db.ExecContext(r.Context(), `DELETE FROM bookmarks_toast WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "toast", strconv.FormatInt(id, 10), "Toast object ("+strconv.FormatInt(id, 10)+")", 3, ""); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if _, err := tx.ExecContext(r.Context(), `DELETE FROM bookmarks_toast WHERE id = `+assetMarker(cfg.DBEngine, 1), id); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -106,6 +120,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 			http.Error(w, "Forbidden", 403)
 			return
 		}
+		previousKey, previousMessage, previousAcknowledged, previousOwnerID := data.Key, data.Message, data.Acknowledged, data.OwnerID
 		data.Key = strings.TrimSpace(r.PostForm.Get("key"))
 		data.Message = strings.TrimSpace(r.PostForm.Get("message"))
 		data.OwnerID, _ = strconv.ParseInt(r.PostForm.Get("owner"), 10, 64)
@@ -123,11 +138,40 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 			}
 		}
 		if data.Error == "" {
-			var err error
+			tx, err := db.BeginTx(r.Context(), nil)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			defer tx.Rollback()
+			var changedFields []string
 			if action == "add" {
-				_, err = db.ExecContext(r.Context(), `INSERT INTO bookmarks_toast(key,message,acknowledged,owner_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`,`+assetMarker(cfg.DBEngine, 4)+`)`, data.Key, data.Message, data.Acknowledged, data.OwnerID)
+				err = tx.QueryRowContext(r.Context(), `INSERT INTO bookmarks_toast(key,message,acknowledged,owner_id) VALUES (`+assetMarker(cfg.DBEngine, 1)+`,`+assetMarker(cfg.DBEngine, 2)+`,`+assetMarker(cfg.DBEngine, 3)+`,`+assetMarker(cfg.DBEngine, 4)+`) RETURNING id`, data.Key, data.Message, data.Acknowledged, data.OwnerID).Scan(&id)
 			} else {
-				_, err = db.ExecContext(r.Context(), `UPDATE bookmarks_toast SET key = `+assetMarker(cfg.DBEngine, 1)+`, message = `+assetMarker(cfg.DBEngine, 2)+`, acknowledged = `+assetMarker(cfg.DBEngine, 3)+`, owner_id = `+assetMarker(cfg.DBEngine, 4)+` WHERE id = `+assetMarker(cfg.DBEngine, 5), data.Key, data.Message, data.Acknowledged, data.OwnerID, id)
+				if previousKey != data.Key {
+					changedFields = append(changedFields, "Key")
+				}
+				if previousMessage != data.Message {
+					changedFields = append(changedFields, "Message")
+				}
+				if previousAcknowledged != data.Acknowledged {
+					changedFields = append(changedFields, "Acknowledged")
+				}
+				if previousOwnerID != data.OwnerID {
+					changedFields = append(changedFields, "Owner")
+				}
+				_, err = tx.ExecContext(r.Context(), `UPDATE bookmarks_toast SET key = `+assetMarker(cfg.DBEngine, 1)+`, message = `+assetMarker(cfg.DBEngine, 2)+`, acknowledged = `+assetMarker(cfg.DBEngine, 3)+`, owner_id = `+assetMarker(cfg.DBEngine, 4)+` WHERE id = `+assetMarker(cfg.DBEngine, 5), data.Key, data.Message, data.Acknowledged, data.OwnerID, id)
+			}
+			if err == nil {
+				repr := "Toast object (" + strconv.FormatInt(id, 10) + ")"
+				message, flag := adminAdditionMessage, 1
+				if action == "change" {
+					message, flag = adminChangeMessage(changedFields), 2
+				}
+				err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "toast", strconv.FormatInt(id, 10), repr, flag, message)
+			}
+			if err == nil {
+				err = tx.Commit()
 			}
 			if err != nil {
 				http.Error(w, "Server error", 500)
