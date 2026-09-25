@@ -63,7 +63,7 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 		if err != nil {
 			return nil, err
 		}
-		canAdd := (definition.Model == "toast" || definition.Model == "apitoken") && permissions.Add
+		canAdd := adminEditableModel(definition.Model) && permissions.Add
 		if !permissions.canList() && !canAdd {
 			continue
 		}
@@ -95,20 +95,25 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	baseQuery := definition.Query
 	var args []any
-	if definition.Model == "toast" || definition.Model == "apitoken" {
+	if adminEditableModel(definition.Model) || definition.Model == "tag" {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
 		data.UserFilterParam = "owner__username"
 		data.UserFilterTitle = "By owner username"
-		if definition.Model == "apitoken" {
+		if definition.Model == "apitoken" || definition.Model == "feedtoken" {
 			data.UserFilterParam = "user__username"
 			data.UserFilterTitle = "By user username"
 		}
 		data.UserFilter = r.URL.Query().Get(data.UserFilterParam)
-		if definition.Model == "toast" {
+		switch definition.Model {
+		case "toast":
 			baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		} else {
+		case "apitoken":
 			baseQuery, args = adminAPITokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+		case "feedtoken":
+			baseQuery, args = adminFeedTokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+		case "tag":
+			baseQuery, args = adminTagListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
 		}
 		data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
 		ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
@@ -159,10 +164,12 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.NextPageURL = adminListURL(r.URL.Query(), "p", strconv.Itoa(page+1))
 	}
 	data.CanAdd = permissions.Add
-	data.IsEditableModel = definition.Model == "toast" || definition.Model == "apitoken"
+	data.IsEditableModel = adminEditableModel(definition.Model)
 	data.AddLabel = "toast"
 	if definition.Model == "apitoken" {
 		data.AddLabel = "API token"
+	} else if definition.Model == "feedtoken" {
+		data.AddLabel = "feed token"
 	}
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 	for rows.Next() {
@@ -177,7 +184,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		}
 		row := adminListRow{ID: adminValueString(values[0])}
 		if data.IsEditableModel && (permissions.View || permissions.Change) {
-			row.Link = data.ModelPath + row.ID + "/change/"
+			row.Link = data.ModelPath + url.PathEscape(row.ID) + "/change/"
 		}
 		for _, value := range values[1:] {
 			row.Cells = append(row.Cells, adminValueString(value))
@@ -201,6 +208,18 @@ func adminToastListQuery(engine, search, owner string) (string, []any) {
 
 func adminAPITokenListQuery(engine, search, user string) (string, []any) {
 	return adminFilteredListQuery(engine, `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC,t.id DESC`, search, user, "t.name", "u.username")
+}
+
+func adminFeedTokenListQuery(engine, search, user string) (string, []any) {
+	return adminFilteredListQuery(engine, `SELECT t.key,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC`, search, user, "t.key")
+}
+
+func adminTagListQuery(engine, search, owner string) (string, []any) {
+	return adminFilteredListQuery(engine, `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id`, `t.date_added DESC,t.id DESC`, search, owner, "t.name", "u.username")
+}
+
+func adminEditableModel(model string) bool {
+	return model == "toast" || model == "apitoken" || model == "feedtoken"
 }
 
 func adminFilteredListQuery(engine, query, order, search, user string, searchFields ...string) (string, []any) {

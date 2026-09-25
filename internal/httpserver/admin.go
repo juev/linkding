@@ -79,6 +79,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		serveAdminAPIToken(w, r, cfg, db, user, permissions)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, root+"bookmarks/feedtoken/") && r.URL.Path != root+"bookmarks/feedtoken/" {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "feedtoken")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminFeedToken(w, r, cfg, db, user, permissions)
+		return
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
