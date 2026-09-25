@@ -41,6 +41,9 @@ func run() error {
 	if err := store.Migrate(ctx, db, cfg.DBEngine); err != nil {
 		return err
 	}
+	if err := ensureInitialSuperuser(ctx, db, cfg); err != nil {
+		return err
+	}
 	if !cfg.DisableBackgroundTasks {
 		if cfg.EnableSnapshots {
 			count, err := media.RequeuePendingSnapshots(ctx, db, cfg.DBEngine)
