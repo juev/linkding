@@ -232,6 +232,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.IsEditableModel = adminEditableModel(definition.Model)
 	data.IsTagList = definition.Model == "tag"
 	data.IsUserList = definition.App == "auth" && definition.Model == "user"
+	data.IsDefaultActionList = definition.Model == "bookmarkasset" || definition.Model == "bookmarkbundle" || definition.Model == "toast" || definition.Model == "apitoken" || definition.Model == "feedtoken"
 	data.AddLabel = "toast"
 	if definition.App == "auth" && definition.Model == "user" {
 		data.AddLabel = "user"
@@ -272,7 +273,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		http.Error(w, "Server error", 500)
 		return
 	}
-	if data.IsTagList || data.IsBookmarkList || data.IsUserList {
+	if data.IsTagList || data.IsBookmarkList || data.IsUserList || data.IsDefaultActionList && permissions.Delete {
 		secret := ""
 		if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
 			secret = cookie.Value
@@ -297,6 +298,8 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			flashKey = "ld_admin_bookmark_action"
 		} else if data.IsUserList {
 			flashKey = "ld_admin_user_action"
+		} else if data.IsDefaultActionList {
+			flashKey = "ld_admin_default_action"
 		}
 		data.ActionMessage = takeSettingsFlash(w, r, cfg.URLPrefix(), flashKey)
 	}
@@ -316,7 +319,7 @@ func adminAPITokenListQuery(engine, search, user string) (string, []any) {
 }
 
 func adminFeedTokenListQuery(engine, search, user string) (string, []any) {
-	return adminFilteredListQuery(engine, `SELECT t.key,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC`, search, user, "t.key")
+	return adminFilteredListQuery(engine, `SELECT t.key AS id,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC`, search, user, "t.key")
 }
 
 func adminTagListQuery(engine, search, owner string) (string, []any) {

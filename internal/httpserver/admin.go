@@ -16,8 +16,9 @@ import (
 //go:embed admin_page.html
 var adminPageFile embed.FS
 var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(template.FuncMap{
-	"add": func(a, b int) int { return a + b },
-	"sub": func(a, b int) int { return a - b },
+	"add":   func(a, b int) int { return a + b },
+	"sub":   func(a, b int) int { return a - b },
+	"lower": strings.ToLower,
 }).ParseFS(adminPageFile, "admin_page.html"))
 
 type adminTask struct {
@@ -28,21 +29,22 @@ type adminTask struct {
 }
 
 type adminPageData struct {
-	Prefix, Title, Username, ModelName, ModelPath                             string
-	SearchQuery, UserFilter, AllUsersURL                                      string
-	UserFilterParam, UserFilterTitle, AddLabel                                string
-	PreviousPageURL, NextPageURL                                              string
-	CSRFToken, ActionMessage                                                  string
-	Tasks                                                                     []adminTask
-	Models                                                                    []adminModelLink
-	UserFilters                                                               []adminUserFilter
-	ListFilters                                                               []adminFilterGroup
-	ModelColumns                                                              []string
-	ModelRows                                                                 []adminListRow
-	TaskCount                                                                 int64
-	Page, Pages                                                               int
-	IsTaskList, IsModelList, IsSearchableList                                 bool
-	IsTagList, IsBookmarkList, IsUserList, CanAdd, CanDelete, IsEditableModel bool
+	Prefix, Title, Username, ModelName, ModelPath              string
+	SearchQuery, UserFilter, AllUsersURL                       string
+	UserFilterParam, UserFilterTitle, AddLabel                 string
+	PreviousPageURL, NextPageURL                               string
+	CSRFToken, ActionMessage                                   string
+	Tasks                                                      []adminTask
+	Models                                                     []adminModelLink
+	UserFilters                                                []adminUserFilter
+	ListFilters                                                []adminFilterGroup
+	ModelColumns                                               []string
+	ModelRows                                                  []adminListRow
+	TaskCount                                                  int64
+	Page, Pages                                                int
+	IsTaskList, IsModelList, IsSearchableList                  bool
+	IsTagList, IsBookmarkList, IsUserList, IsDefaultActionList bool
+	CanAdd, CanDelete, IsEditableModel                         bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
@@ -161,6 +163,21 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		}
 		serveAdminUserAction(w, r, cfg, db, user, permissions)
 		return
+	}
+	if r.Method == http.MethodPost {
+		for _, model := range []string{"bookmarkasset", "bookmarkbundle", "toast", "apitoken", "feedtoken"} {
+			if r.URL.Path != root+"bookmarks/"+model+"/" {
+				continue
+			}
+			definition, _ := findAdminModel("bookmarks", model)
+			permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, definition.App, definition.Model)
+			if err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
+			serveAdminDefaultAction(w, r, cfg, db, user, definition, permissions)
+			return
+		}
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
