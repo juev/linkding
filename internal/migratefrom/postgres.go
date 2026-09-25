@@ -18,6 +18,7 @@ type PostgresPreflight struct {
 	BookmarkCount  int64
 	UserCount      int64
 	AssetCount     int64
+	LegacyTasks    int64
 	PendingTasks   int64
 	ScheduledTasks int64
 }
@@ -59,6 +60,10 @@ func InspectPostgres(ctx context.Context, sourceDSN, sourceDir string) (Postgres
 			return PostgresPreflight{}, fmt.Errorf("inspect source PostgreSQL: %w", err)
 		}
 	}
+	report.LegacyTasks, _, err = CountLegacyTasks(ctx, db, "postgres")
+	if err != nil {
+		return PostgresPreflight{}, err
+	}
 	if err := verifyReferencedFiles(ctx, db, abs); err != nil {
 		return PostgresPreflight{}, err
 	}
@@ -75,6 +80,9 @@ func MigratePostgres(ctx context.Context, sourceDSN, targetDSN, sourceDir, targe
 	report, err := InspectPostgres(ctx, sourceDSN, sourceDir)
 	if err != nil {
 		return PostgresMigration{}, err
+	}
+	if report.LegacyTasks != 0 {
+		return PostgresMigration{}, LegacyTasksError(report.LegacyTasks)
 	}
 	if report.PendingTasks != 0 || report.ScheduledTasks != 0 {
 		return PostgresMigration{}, fmt.Errorf("Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)

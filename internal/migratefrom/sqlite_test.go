@@ -138,3 +138,32 @@ func TestMigratePinnedUpstreamSQLiteFixture(t *testing.T) {
 		t.Fatalf("normal startup after migration: %v", err)
 	}
 }
+
+func TestMigrateSQLiteRejectsLegacyBackgroundTasksBeforeWriting(t *testing.T) {
+	ctx := context.Background()
+	sourceDir := t.TempDir()
+	db, err := store.Open(ctx, config.Config{DBEngine: "sqlite", DataDir: sourceDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`INSERT INTO django_migrations (app, name, applied) VALUES ('bookmarks', '0054_bookmarkbundle_filter_shared_and_more', CURRENT_TIMESTAMP)`,
+		`CREATE TABLE background_task (id integer primary key, task_name text not null, task_params text not null)`,
+		`INSERT INTO background_task (id, task_name, task_params) VALUES (1, 'bookmarks.services.tasks.update_bookmark_metadata', '[[]]')`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(t.TempDir(), "migrated")
+	if _, err := MigrateSQLite(ctx, sourceDir, target); err == nil || !strings.Contains(err.Error(), "legacy background tasks") {
+		t.Fatalf("migration with legacy task: %v", err)
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("migration created target before legacy tasks were drained: %v", err)
+	}
+}

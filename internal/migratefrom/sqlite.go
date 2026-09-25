@@ -26,6 +26,7 @@ type SQLitePreflight struct {
 	BookmarkCount  int64
 	UserCount      int64
 	AssetCount     int64
+	LegacyTasks    int64
 	PendingTasks   int64
 	ScheduledTasks int64
 }
@@ -43,6 +44,9 @@ func MigrateSQLite(ctx context.Context, sourceDir, targetDir string) (SQLiteMigr
 	report, err := InspectSQLite(ctx, sourceDir)
 	if err != nil {
 		return SQLiteMigration{}, err
+	}
+	if report.LegacyTasks != 0 {
+		return SQLiteMigration{}, LegacyTasksError(report.LegacyTasks)
 	}
 	if report.PendingTasks != 0 || report.ScheduledTasks != 0 {
 		return SQLiteMigration{}, fmt.Errorf("Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)
@@ -239,6 +243,10 @@ func InspectSQLite(ctx context.Context, sourceDir string) (SQLitePreflight, erro
 		if err := db.QueryRowContext(ctx, check.query).Scan(check.count); err != nil {
 			return SQLitePreflight{}, fmt.Errorf("inspect source table: %w", err)
 		}
+	}
+	report.LegacyTasks, _, err = CountLegacyTasks(ctx, db, "sqlite")
+	if err != nil {
+		return SQLitePreflight{}, err
 	}
 	if err := verifyReferencedFiles(ctx, db, abs); err != nil {
 		return SQLitePreflight{}, err

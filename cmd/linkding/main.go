@@ -15,6 +15,7 @@ import (
 	"github.com/juev/linkding/internal/httpserver"
 	"github.com/juev/linkding/internal/jobs"
 	"github.com/juev/linkding/internal/media"
+	"github.com/juev/linkding/internal/migratefrom"
 	"github.com/juev/linkding/internal/store"
 )
 
@@ -54,6 +55,8 @@ func run() error {
 				return err
 			}
 			return ensureSecretKey(cfg.DataDir)
+		case "migrate_tasks":
+			return runMigrateTasks(ctx, os.Args[2:], os.Stdout)
 		default:
 			return fmt.Errorf("unknown command %q", os.Args[1])
 		}
@@ -69,6 +72,13 @@ func run() error {
 	defer db.Close()
 	if err := store.Migrate(ctx, db, cfg.DBEngine); err != nil {
 		return err
+	}
+	legacyTasks, _, err := migratefrom.CountLegacyTasks(ctx, db, cfg.DBEngine)
+	if err != nil {
+		return err
+	}
+	if legacyTasks != 0 {
+		return migratefrom.LegacyTasksError(legacyTasks)
 	}
 	if err := enableWAL(ctx, db, cfg.DBEngine); err != nil {
 		return err
