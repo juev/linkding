@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -43,6 +44,13 @@ type adminListRow struct {
 type adminUserFilter struct {
 	Username, URL string
 	Selected      bool
+}
+
+type adminFilterGroup struct {
+	Title, Param, Value, AllURL string
+	ExtraParam, ExtraValue      string
+	IsNull                      bool
+	Options                     []adminUserFilter
 }
 
 var adminSearchSplit = regexp.MustCompile(`((?:[^\s'"]*(?:(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')[^\s'"]*)+)|\S+)`)
@@ -133,6 +141,14 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				return
 			}
 			statusRows.Close()
+		} else if definition.Model == "bookmark" {
+			data.IsBookmarkList = true
+			baseQuery, args = adminBookmarkListQuery(cfg.DBEngine, data.SearchQuery, r.URL.Query())
+			data.ListFilters = adminBookmarkListFilters(r.URL.Query())
+			if err := populateBookmarkListFilters(r.Context(), db, r.URL.Query(), data.ListFilters); err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
 		} else {
 			data.UserFilterParam = "owner__username"
 			data.UserFilterTitle = "By owner username"
@@ -207,7 +223,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.IsEditableModel = adminEditableModel(definition.Model)
 	data.IsTagList = definition.Model == "tag"
 	data.AddLabel = "toast"
-	if definition.Model == "apitoken" {
+	if definition.Model == "bookmark" {
+		data.AddLabel = "bookmark"
+	} else if definition.Model == "apitoken" {
 		data.AddLabel = "API token"
 	} else if definition.Model == "feedtoken" {
 		data.AddLabel = "feed token"
@@ -242,7 +260,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		http.Error(w, "Server error", 500)
 		return
 	}
-	if data.IsTagList {
+	if data.IsTagList || data.IsBookmarkList {
 		secret := ""
 		if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
 			secret = cookie.Value
@@ -262,7 +280,11 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			http.Error(w, "Server error", 500)
 			return
 		}
-		data.ActionMessage = takeSettingsFlash(w, r, cfg.URLPrefix(), "ld_admin_tag_action")
+		flashKey := "ld_admin_tag_action"
+		if data.IsBookmarkList {
+			flashKey = "ld_admin_bookmark_action"
+		}
+		data.ActionMessage = takeSettingsFlash(w, r, cfg.URLPrefix(), flashKey)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
@@ -301,7 +323,105 @@ func adminAssetListQuery(engine, search, status string) (string, []any) {
 }
 
 func adminEditableModel(model string) bool {
-	return model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle" || model == "bookmarkasset"
+	return model == "bookmark" || model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle" || model == "bookmarkasset"
+}
+
+func adminBookmarkListQuery(engine, search string, params url.Values) (string, []any) {
+	query := `SELECT DISTINCT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id LEFT JOIN bookmarks_bookmark_tags AS bt ON bt.bookmark_id=b.id LEFT JOIN bookmarks_tag AS t ON t.id=bt.tag_id`
+	var conditions []string
+	var args []any
+	bind := func(value any) string {
+		args = append(args, value)
+		return assetMarker(engine, len(args))
+	}
+	if owner := params.Get("owner__username"); owner != "" {
+		conditions = append(conditions, "u.username = "+bind(owner))
+	}
+	for _, field := range []struct{ Param, Column string }{{"is_archived__exact", "is_archived"}, {"unread__exact", "unread"}} {
+		if value := params.Get(field.Param); value == "0" || value == "1" {
+			conditions = append(conditions, "b."+field.Column+" = "+bind(value == "1"))
+		}
+	}
+	if tagID := params.Get("tags__id__exact"); tagID != "" {
+		if _, err := strconv.ParseInt(tagID, 10, 64); err == nil {
+			conditions = append(conditions, "t.id = "+bind(tagID))
+		}
+	} else if params.Get("tags__isnull") == "True" {
+		conditions = append(conditions, "t.id IS NULL")
+	}
+	for _, term := range splitAdminSearch(search) {
+		var alternatives []string
+		for _, field := range []string{"b.title", "b.description", "b.website_title", "b.website_description", "b.url", "t.name"} {
+			if engine == "postgres" {
+				escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term)
+				alternatives = append(alternatives, field+" ILIKE "+bind("%"+escaped+"%")+` ESCAPE '\'`)
+			} else {
+				alternatives = append(alternatives, "ld_ci_contains("+field+", "+bind(term)+") = 1")
+			}
+		}
+		conditions = append(conditions, "("+strings.Join(alternatives, " OR ")+")")
+	}
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	return query + " ORDER BY b.date_added DESC", args
+}
+
+func adminBookmarkListFilters(params url.Values) []adminFilterGroup {
+	groups := []adminFilterGroup{
+		{Title: "By owner username", Param: "owner__username", Value: params.Get("owner__username")},
+		{Title: "By archived", Param: "is_archived__exact", Value: params.Get("is_archived__exact")},
+		{Title: "By unread", Param: "unread__exact", Value: params.Get("unread__exact")},
+		{Title: "By tags", Param: "tags__id__exact", Value: params.Get("tags__id__exact"), ExtraParam: "tags__isnull", ExtraValue: params.Get("tags__isnull"), IsNull: params.Get("tags__isnull") == "True"},
+	}
+	// Owner and tag options are populated by the list handler from their tables.
+	for i := range groups {
+		groups[i].AllURL = adminListURL(params, groups[i].Param, "")
+	}
+	groups[3].AllURL = adminBookmarkTagListURL(params, "", "")
+	for i := 1; i <= 2; i++ {
+		for _, option := range []adminUserFilter{{Username: "Yes", URL: "1"}, {Username: "No", URL: "0"}} {
+			groups[i].Options = append(groups[i].Options, adminUserFilter{Username: option.Username, URL: adminListURL(params, groups[i].Param, option.URL), Selected: groups[i].Value == option.URL})
+		}
+	}
+	return groups
+}
+
+func populateBookmarkListFilters(ctx context.Context, db *sql.DB, params url.Values, groups []adminFilterGroup) error {
+	ownerRows, err := db.QueryContext(ctx, `SELECT username FROM auth_user ORDER BY username`)
+	if err != nil {
+		return err
+	}
+	defer ownerRows.Close()
+	for ownerRows.Next() {
+		var username string
+		if err := ownerRows.Scan(&username); err != nil {
+			return err
+		}
+		groups[0].Options = append(groups[0].Options, adminUserFilter{Username: username, URL: adminListURL(params, groups[0].Param, username), Selected: username == groups[0].Value})
+	}
+	if err := ownerRows.Err(); err != nil {
+		return err
+	}
+	tagRows, err := db.QueryContext(ctx, `SELECT id,name FROM bookmarks_tag ORDER BY name`)
+	if err != nil {
+		return err
+	}
+	defer tagRows.Close()
+	for tagRows.Next() {
+		var id, name string
+		if err := tagRows.Scan(&id, &name); err != nil {
+			return err
+		}
+		url := adminBookmarkTagListURL(params, id, "")
+		groups[3].Options = append(groups[3].Options, adminUserFilter{Username: name, URL: url, Selected: id == groups[3].Value})
+	}
+	if err := tagRows.Err(); err != nil {
+		return err
+	}
+	untaggedURL := adminBookmarkTagListURL(params, "", "True")
+	groups[3].Options = append(groups[3].Options, adminUserFilter{Username: "-", URL: untaggedURL, Selected: params.Get("tags__isnull") == "True"})
+	return nil
 }
 
 func adminFilteredListQuery(engine, query, order, search, user string, searchFields ...string) (string, []any) {
@@ -348,6 +468,25 @@ func splitAdminSearch(search string) []string {
 		}
 	}
 	return terms
+}
+
+func adminBookmarkTagListURL(current url.Values, tagID, isNull string) string {
+	params := url.Values{}
+	for name, values := range current {
+		if name != "p" && name != "tags__id__exact" && name != "tags__isnull" {
+			params[name] = append([]string(nil), values...)
+		}
+	}
+	if tagID != "" {
+		params.Set("tags__id__exact", tagID)
+	}
+	if isNull != "" {
+		params.Set("tags__isnull", isNull)
+	}
+	if encoded := params.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return "?"
 }
 
 func adminListURL(current url.Values, key, value string) string {

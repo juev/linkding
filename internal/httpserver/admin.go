@@ -28,20 +28,21 @@ type adminTask struct {
 }
 
 type adminPageData struct {
-	Prefix, Title, Username, ModelName, ModelPath string
-	SearchQuery, UserFilter, AllUsersURL          string
-	UserFilterParam, UserFilterTitle, AddLabel    string
-	PreviousPageURL, NextPageURL                  string
-	CSRFToken, ActionMessage                      string
-	Tasks                                         []adminTask
-	Models                                        []adminModelLink
-	UserFilters                                   []adminUserFilter
-	ModelColumns                                  []string
-	ModelRows                                     []adminListRow
-	TaskCount                                     int64
-	Page, Pages                                   int
-	IsTaskList, IsModelList, IsSearchableList     bool
-	IsTagList, CanAdd, CanDelete, IsEditableModel bool
+	Prefix, Title, Username, ModelName, ModelPath                 string
+	SearchQuery, UserFilter, AllUsersURL                          string
+	UserFilterParam, UserFilterTitle, AddLabel                    string
+	PreviousPageURL, NextPageURL                                  string
+	CSRFToken, ActionMessage                                      string
+	Tasks                                                         []adminTask
+	Models                                                        []adminModelLink
+	UserFilters                                                   []adminUserFilter
+	ListFilters                                                   []adminFilterGroup
+	ModelColumns                                                  []string
+	ModelRows                                                     []adminListRow
+	TaskCount                                                     int64
+	Page, Pages                                                   int
+	IsTaskList, IsModelList, IsSearchableList                     bool
+	IsTagList, IsBookmarkList, CanAdd, CanDelete, IsEditableModel bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
@@ -123,6 +124,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			return
 		}
 		serveAdminTagAction(w, r, cfg, db, user, permissions)
+		return
+	}
+	if r.URL.Path == root+"bookmarks/bookmark/" && r.Method == http.MethodPost {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "bookmark")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminBookmarkAction(w, r, cfg, db, permissions)
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
