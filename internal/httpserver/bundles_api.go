@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -208,8 +207,15 @@ func serveBundlesAPI(w http.ResponseWriter, r *http.Request, root string, cfg co
 
 func decodeBundleInput(w http.ResponseWriter, r *http.Request, requireName bool) (bundleInput, bool) {
 	var input bundleInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	validation, err := decodeDRFJSONObject(r.Body, &input,
+		[]string{"name", "search", "any_tags", "all_tags", "excluded_tags"},
+		[]string{"filter_unread", "filter_shared"}, nil)
+	if err != nil {
 		writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+		return input, false
+	}
+	if validation != nil {
+		writeFieldError(w, validation.field, validation.message)
 		return input, false
 	}
 	for _, value := range []*string{input.Name, input.Search, input.AnyTags, input.AllTags, input.ExcludedTags, input.FilterUnread, input.FilterShared} {

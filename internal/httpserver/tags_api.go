@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -101,8 +100,13 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		var input struct {
 			Name *string `json:"name"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		validation, err := decodeDRFJSONObject(r.Body, &input, []string{"name"}, nil, nil)
+		if err != nil {
 			writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+			return
+		}
+		if validation != nil {
+			writeFieldError(w, validation.field, validation.message)
 			return
 		}
 		if input.Name == nil {

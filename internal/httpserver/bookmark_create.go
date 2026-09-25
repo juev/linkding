@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,9 +33,15 @@ func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	var input bookmarkCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	validation, err := decodeDRFJSONObject(r.Body, &input,
+		[]string{"url", "title", "description", "notes"}, nil, []string{"tag_names"})
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = writeJSON(w, map[string][]string{"detail": {"JSON parse error."}})
+		return
+	}
+	if validation != nil {
+		writeFieldError(w, validation.field, validation.message)
 		return
 	}
 	if input.URL == nil {

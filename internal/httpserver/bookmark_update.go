@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -31,8 +30,14 @@ func serveBookmarkUpdate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	var input bookmarkUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	validation, err := decodeDRFJSONObject(r.Body, &input,
+		[]string{"url", "title", "description", "notes"}, nil, []string{"tag_names"})
+	if err != nil {
 		writeDetail(w, http.StatusBadRequest, "JSON parse error.")
+		return
+	}
+	if validation != nil {
+		writeFieldError(w, validation.field, validation.message)
 		return
 	}
 	if r.Method == http.MethodPut && input.URL == nil {
