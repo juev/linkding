@@ -88,6 +88,24 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		serveAdminFeedToken(w, r, cfg, db, user, permissions)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, root+"bookmarks/tag/") && r.URL.Path != root+"bookmarks/tag/" {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "tag")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminTag(w, r, cfg, db, user, permissions)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, root+"bookmarks/bookmarkbundle/") && r.URL.Path != root+"bookmarks/bookmarkbundle/" {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "bookmarkbundle")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminBundle(w, r, cfg, db, user, permissions)
+		return
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

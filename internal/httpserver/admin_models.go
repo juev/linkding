@@ -24,7 +24,7 @@ var adminModels = []adminModelDefinition{
 	{App: "bookmarks", Model: "bookmark", Label: "Bookmark", Plural: "Bookmarks", Query: `SELECT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.date_added DESC,b.id DESC`, Columns: []string{"Title", "URL", "Is archived", "Owner", "Date added"}},
 	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,display_name,date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display name", "Date created", "Status"}},
 	{App: "bookmarks", Model: "tag", Label: "Tag", Plural: "Tags", Query: `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.date_added DESC,t.id DESC`, Columns: []string{"Name", "Bookmarks count", "Owner", "Date added"}},
-	{App: "bookmarks", Model: "bookmarkbundle", Label: "Bookmark bundle", Plural: "Bookmark bundles", Query: `SELECT b.id,b.name,u.username,b."order",b.search,b.date_created FROM bookmarks_bookmarkbundle AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.id DESC`, Columns: []string{"Name", "Owner", "Order", "Search", "Date created"}},
+	{App: "bookmarks", Model: "bookmarkbundle", Label: "Bookmark bundle", Plural: "Bookmark bundles", Query: `SELECT b.id,b.name,u.username,b."order",b.search,b.any_tags,b.all_tags,b.excluded_tags,b.filter_shared,b.filter_unread,b.date_created FROM bookmarks_bookmarkbundle AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.id DESC`, Columns: []string{"Name", "Owner", "Order", "Search", "Any tags", "All tags", "Excluded tags", "Filter shared", "Filter unread", "Date created"}},
 	{App: "bookmarks", Model: "apitoken", Label: "API token", Plural: "API tokens", Query: `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC,t.id DESC`, Columns: []string{"Name", "User", "Created"}},
 	{App: "bookmarks", Model: "toast", Label: "Toast", Plural: "Toasts", Query: `SELECT t.id,t.key,t.message,u.username,t.acknowledged FROM bookmarks_toast AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.id DESC`, Columns: []string{"Key", "Message", "Owner", "Acknowledged"}},
 	{App: "bookmarks", Model: "feedtoken", Label: "Feed token", Plural: "Feed tokens", Query: `SELECT t.key,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC`, Columns: []string{"Key", "User"}},
@@ -89,13 +89,22 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+	location := time.UTC
+	if cfg.TimeZone != "" {
+		var err error
+		location, err = time.LoadLocation(cfg.TimeZone)
+		if err != nil {
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+	}
 	page := 1
 	if requested, err := strconv.Atoi(r.URL.Query().Get("p")); err == nil && requested > 0 {
 		page = requested
 	}
 	baseQuery := definition.Query
 	var args []any
-	if adminEditableModel(definition.Model) || definition.Model == "tag" {
+	if adminEditableModel(definition.Model) {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
 		data.UserFilterParam = "owner__username"
@@ -114,6 +123,8 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			baseQuery, args = adminFeedTokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
 		case "tag":
 			baseQuery, args = adminTagListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+		case "bookmarkbundle":
+			baseQuery, args = adminBundleListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
 		}
 		data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
 		ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
@@ -170,6 +181,10 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.AddLabel = "API token"
 	} else if definition.Model == "feedtoken" {
 		data.AddLabel = "feed token"
+	} else if definition.Model == "tag" {
+		data.AddLabel = "tag"
+	} else if definition.Model == "bookmarkbundle" {
+		data.AddLabel = "bookmark bundle"
 	}
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 	for rows.Next() {
@@ -182,12 +197,12 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			http.Error(w, "Server error", 500)
 			return
 		}
-		row := adminListRow{ID: adminValueString(values[0])}
+		row := adminListRow{ID: adminValueString(values[0], location)}
 		if data.IsEditableModel && (permissions.View || permissions.Change) {
 			row.Link = data.ModelPath + url.PathEscape(row.ID) + "/change/"
 		}
 		for _, value := range values[1:] {
-			row.Cells = append(row.Cells, adminValueString(value))
+			row.Cells = append(row.Cells, adminValueString(value, location))
 		}
 		data.ModelRows = append(data.ModelRows, row)
 	}
@@ -218,8 +233,16 @@ func adminTagListQuery(engine, search, owner string) (string, []any) {
 	return adminFilteredListQuery(engine, `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id`, `t.date_added DESC,t.id DESC`, search, owner, "t.name", "u.username")
 }
 
+func adminBundleListQuery(engine, search, owner string) (string, []any) {
+	query := `SELECT t.id,t.name,u.username,t."order",t.search,t.any_tags,t.all_tags,t.excluded_tags,` +
+		`CASE t.filter_shared WHEN 'off' THEN 'All' WHEN 'yes' THEN 'Shared' ELSE 'Unshared' END,` +
+		`CASE t.filter_unread WHEN 'off' THEN 'All' WHEN 'yes' THEN 'Unread' ELSE 'Read' END,t.date_created ` +
+		`FROM bookmarks_bookmarkbundle AS t JOIN auth_user AS u ON u.id=t.owner_id`
+	return adminFilteredListQuery(engine, query, `t.id DESC`, search, owner, "t.name", "t.search", "t.any_tags", "t.all_tags", "t.excluded_tags")
+}
+
 func adminEditableModel(model string) bool {
-	return model == "toast" || model == "apitoken" || model == "feedtoken"
+	return model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle"
 }
 
 func adminFilteredListQuery(engine, query, order, search, user string, searchFields ...string) (string, []any) {
@@ -283,14 +306,27 @@ func adminListURL(current url.Values, key, value string) string {
 	return "?"
 }
 
-func adminValueString(value any) string {
+func adminValueString(value any, location *time.Location) string {
 	switch typed := value.(type) {
 	case nil:
 		return ""
 	case []byte:
 		return string(typed)
 	case time.Time:
-		return typed.Format("Jan 2, 2006, 3:04 p.m.")
+		value := typed.In(location)
+		months := [...]string{"Jan.", "Feb.", "March", "April", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec."}
+		date := fmt.Sprintf("%s %d, %d, ", months[value.Month()-1], value.Day(), value.Year())
+		if value.Hour() == 0 && value.Minute() == 0 {
+			return date + "midnight"
+		}
+		if value.Hour() == 12 && value.Minute() == 0 {
+			return date + "noon"
+		}
+		period := "a.m."
+		if value.Hour() >= 12 {
+			period = "p.m."
+		}
+		return date + fmt.Sprintf("%d:%02d %s", (value.Hour()+11)%12+1, value.Minute(), period)
 	case bool:
 		if typed {
 			return "Yes"
