@@ -51,6 +51,10 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	mux.HandleFunc(assetPagePrefix, func(w http.ResponseWriter, r *http.Request) {
 		serveAssetPage(w, r, assetPagePrefix, cfg, db, authRepo)
 	})
+	apiRoot := prefix + "api/"
+	mux.HandleFunc(apiRoot, func(w http.ResponseWriter, r *http.Request) {
+		serveAPIRoot(w, r, apiRoot, authRepo)
+	})
 	profilePath := prefix + "api/user/profile/"
 	mux.HandleFunc(profilePath, func(w http.ResponseWriter, r *http.Request) {
 		serveProfile(w, r, profilePath, authRepo)
