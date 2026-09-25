@@ -33,6 +33,12 @@ type listBundle struct {
 	Name     string
 	Selected bool
 }
+type listPageLink struct {
+	Number   int
+	URL      string
+	Active   bool
+	Ellipsis bool
+}
 type bookmarkListItem struct {
 	ID                                                                                                         int64
 	URL, Title, Description, Notes, Owner, Date, SnapshotURL, DetailsURL, EditURL, FaviconURL, PreviewURL, CSS string
@@ -46,6 +52,7 @@ type bookmarkListPage struct {
 	DescriptionMaxLines, Page, Pages                                                                                                                                                                                                         int
 	Total                                                                                                                                                                                                                                    int64
 	Items                                                                                                                                                                                                                                    []bookmarkListItem
+	PageLinks                                                                                                                                                                                                                                []listPageLink
 	Tags                                                                                                                                                                                                                                     []listTag
 	Bundles                                                                                                                                                                                                                                  []listBundle
 	Global                                                                                                                                                                                                                                   settings.Global
@@ -152,18 +159,44 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		data.Heading = "Archived bookmarks"
 		data.SearchMode = "archived"
 	}
-	data.ReturnURL = r.URL.RequestURI()
+	returnParams := cloneQuery(r.URL.Query())
+	returnParams.Del("details")
+	data.ReturnURL = path
+	if encoded := returnParams.Encode(); encoded != "" {
+		data.ReturnURL += "?" + encoded
+	}
 	data.Pages = int((total + int64(limit) - 1) / int64(limit))
 	if data.Pages < 1 {
 		data.Pages = 1
 	}
+	if page > data.Pages {
+		page = data.Pages
+		data.Page = page
+		opts.Offset = (page - 1) * limit
+		if shared {
+			items, _, err = repo.ListShared(r.Context(), user.ID, user.ID != 0, opts)
+		} else {
+			items, _, err = repo.ListFiltered(r.Context(), user.ID, opts)
+		}
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+	}
 	data.HasPrevious = page > 1
 	data.HasNext = page < data.Pages
 	if data.HasPrevious {
-		data.PreviousURL = path + "?" + pageQuery(values, page-1)
+		data.PreviousURL = path + "?" + pageQuery(r.URL.Query(), page-1)
 	}
 	if data.HasNext {
-		data.NextURL = path + "?" + pageQuery(values, page+1)
+		data.NextURL = path + "?" + pageQuery(r.URL.Query(), page+1)
+	}
+	for _, number := range visiblePageNumbers(page, data.Pages) {
+		if number == -1 {
+			data.PageLinks = append(data.PageLinks, listPageLink{Ellipsis: true})
+		} else {
+			data.PageLinks = append(data.PageLinks, listPageLink{Number: number, URL: path + "?" + pageQuery(r.URL.Query(), number), Active: number == page})
+		}
 	}
 	if profile.Get("legacy_search") == "" && data.Query != "" {
 		if _, parseErr := search.Parse(data.Query); parseErr != nil {
@@ -191,9 +224,9 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		switch profile.Get("bookmark_date_display") {
 		case "hidden":
 		case "absolute":
-			entry.Date = item.DateAdded.Format("Jan 02, 2006")
+			entry.Date = absoluteBookmarkDate(item.DateAdded, time.Now())
 		default:
-			entry.Date = relativeBookmarkDate(item.DateAdded)
+			entry.Date = relativeBookmarkDate(item.DateAdded, time.Now())
 		}
 		entry.SnapshotURL = item.WebArchiveSnapshotURL
 		if entry.SnapshotURL == "" {
@@ -203,7 +236,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		detailValues.Del("page")
 		detailValues.Set("details", strconv.FormatInt(item.ID, 10))
 		entry.DetailsURL = path + "?" + detailValues.Encode()
-		entry.EditURL = cfg.URLPrefix() + "bookmarks/" + strconv.FormatInt(item.ID, 10) + "/edit?return_url=" + url.QueryEscape(data.ReturnURL)
+		entry.EditURL = cfg.URLPrefix() + "bookmarks/" + strconv.FormatInt(item.ID, 10) + "/edit?return_url=" + djangoURLQuote(data.ReturnURL)
 		if item.FaviconFile != "" {
 			entry.FaviconURL = cfg.URLPrefix() + "static/" + strings.TrimPrefix(item.FaviconFile, "/")
 		}
@@ -295,18 +328,83 @@ func pageQuery(input url.Values, page int) string {
 	copy.Del("details")
 	return copy.Encode()
 }
-func relativeBookmarkDate(added time.Time) string {
-	days := int(time.Since(added).Hours() / 24)
-	if days < 1 {
-		return "today"
+func djangoURLQuote(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(url.QueryEscape(value), "%2F", "/"), "+", "%20")
+}
+
+func visiblePageNumbers(current, pages int) []int {
+	visible := map[int]bool{1: true, pages: true}
+	for number := max(1, current-2); number <= min(pages, current+2); number++ {
+		visible[number] = true
 	}
-	if days == 1 {
-		return "yesterday"
+	numbers := make([]int, 0, len(visible))
+	for number := range visible {
+		numbers = append(numbers, number)
 	}
-	if days < 30 {
-		return strconv.Itoa(days) + " days ago"
+	sort.Ints(numbers)
+	result := make([]int, 0, len(numbers)+2)
+	for _, number := range numbers {
+		if len(result) > 0 && result[len(result)-1] < number-1 {
+			result = append(result, -1)
+		}
+		result = append(result, number)
 	}
-	return added.Format("Jan 02, 2006")
+	return result
+}
+
+func bookmarkDateDelta(value, now time.Time) (years, months, weeks int) {
+	value, now = value.UTC(), now.UTC()
+	years = now.Year() - value.Year()
+	if now.Month() < value.Month() || now.Month() == value.Month() && now.Day() < value.Day() {
+		years--
+	}
+	months = (now.Year()-value.Year())*12 + int(now.Month()-value.Month())
+	if now.Day() < value.Day() {
+		months--
+	}
+	weeks = int(now.Sub(value).Hours()/24) / 7
+	return max(0, years), max(0, months), max(0, weeks)
+}
+
+func relativeBookmarkDate(value, now time.Time) string {
+	value, now = value.UTC(), now.UTC()
+	years, months, weeks := bookmarkDateDelta(value, now)
+	switch {
+	case years > 0:
+		return strconv.Itoa(years) + pluralizedDateUnit(years, "year")
+	case months > 0:
+		return strconv.Itoa(months) + pluralizedDateUnit(months, "month")
+	case weeks > 0:
+		return strconv.Itoa(weeks) + pluralizedDateUnit(weeks, "week")
+	default:
+		return recentBookmarkDate(value, now)
+	}
+}
+
+func absoluteBookmarkDate(value, now time.Time) string {
+	value, now = value.UTC(), now.UTC()
+	years, months, weeks := bookmarkDateDelta(value, now)
+	if years > 0 || months > 0 || weeks > 0 {
+		return value.Format("01/02/2006")
+	}
+	return recentBookmarkDate(value, now)
+}
+
+func pluralizedDateUnit(count int, unit string) string {
+	if count == 1 {
+		return " " + unit + " ago"
+	}
+	return " " + unit + "s ago"
+}
+
+func recentBookmarkDate(value, now time.Time) string {
+	if value.Day() == now.Day() {
+		return "Today"
+	}
+	if value.Day() == now.AddDate(0, 0, -1).Day() {
+		return "Yesterday"
+	}
+	return value.Weekday().String()
 }
 func loadListBundles(r *http.Request, db *sql.DB, cfg config.Config, userID int64, selected string) ([]listBundle, error) {
 	rows, err := db.QueryContext(r.Context(), `SELECT id,name FROM bookmarks_bookmarkbundle WHERE owner_id = `+assetMarker(cfg.DBEngine, 1)+` ORDER BY "order", id`, userID)

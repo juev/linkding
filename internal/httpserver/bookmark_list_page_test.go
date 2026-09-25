@@ -67,6 +67,16 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	if !strings.Contains(active.Body.String(), "details="+strconv.FormatInt(first.ID, 10)) {
 		t.Fatal("bookmark View link must include details query")
 	}
+	if !strings.Contains(active.Body.String(), `href="/bookmarks/`+strconv.FormatInt(first.ID, 10)+`/edit?return_url=/bookmarks"`) {
+		t.Fatal("bookmark edit link must preserve the original return URL")
+	}
+	if !strings.Contains(active.Body.String(), `<ul class="pagination">`) || !strings.Contains(active.Body.String(), `href="/bookmarks?page=1"`) || !strings.Contains(active.Body.String(), `href="#" tabindex="-1">Previous</a>`) || !strings.Contains(active.Body.String(), `href="#" tabindex="-1">Next</a>`) {
+		t.Fatal("bookmark list must render the pinned pagination controls")
+	}
+	beyondLast := get("/bookmarks?page=999", true)
+	if beyondLast.Code != 200 || !strings.Contains(beyondLast.Body.String(), `data-bookmark-id="`+strconv.FormatInt(first.ID, 10)+`"`) || !strings.Contains(beyondLast.Body.String(), `page=1" data-turbo-frame="_top">1</a>`) {
+		t.Fatalf("page beyond last must show the last page: %d %q", beyondLast.Code, beyondLast.Body.String())
+	}
 	ownerDetails := get("/bookmarks?details="+strconv.FormatInt(first.ID, 10), true)
 	if ownerDetails.Code != 200 || !strings.Contains(ownerDetails.Body.String(), `class="modal active bookmark-details"`) || !strings.Contains(ownerDetails.Body.String(), `name="update_state"`) {
 		t.Fatalf("owner details: %d %q", ownerDetails.Code, ownerDetails.Body.String())
