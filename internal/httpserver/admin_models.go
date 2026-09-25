@@ -22,7 +22,7 @@ type adminModelDefinition struct {
 var adminModels = []adminModelDefinition{
 	{App: "auth", Model: "user", Label: "User", Plural: "Users", Query: `SELECT id,username,email,is_staff,is_active FROM auth_user ORDER BY id DESC`, Columns: []string{"Username", "Email address", "Staff status", "Active"}},
 	{App: "bookmarks", Model: "bookmark", Label: "Bookmark", Plural: "Bookmarks", Query: `SELECT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.date_added DESC,b.id DESC`, Columns: []string{"Title", "URL", "Is archived", "Owner", "Date added"}},
-	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,display_name,date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display name", "Date created", "Status"}},
+	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,COALESCE(NULLIF(display_name,''),'Bookmark Asset #' || id),date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display name", "Date created", "Status"}},
 	{App: "bookmarks", Model: "tag", Label: "Tag", Plural: "Tags", Query: `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.date_added DESC,t.id DESC`, Columns: []string{"Name", "Bookmarks count", "Owner", "Date added"}},
 	{App: "bookmarks", Model: "bookmarkbundle", Label: "Bookmark bundle", Plural: "Bookmark bundles", Query: `SELECT b.id,b.name,u.username,b."order",b.search,b.any_tags,b.all_tags,b.excluded_tags,b.filter_shared,b.filter_unread,b.date_created FROM bookmarks_bookmarkbundle AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.id DESC`, Columns: []string{"Name", "Owner", "Order", "Search", "Any tags", "All tags", "Excluded tags", "Filter shared", "Filter unread", "Date created"}},
 	{App: "bookmarks", Model: "apitoken", Label: "API token", Plural: "API tokens", Query: `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC,t.id DESC`, Columns: []string{"Name", "User", "Created"}},
@@ -107,46 +107,74 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	if adminEditableModel(definition.Model) {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
-		data.UserFilterParam = "owner__username"
-		data.UserFilterTitle = "By owner username"
-		if definition.Model == "apitoken" || definition.Model == "feedtoken" {
-			data.UserFilterParam = "user__username"
-			data.UserFilterTitle = "By user username"
-		}
-		data.UserFilter = r.URL.Query().Get(data.UserFilterParam)
-		switch definition.Model {
-		case "toast":
-			baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		case "apitoken":
-			baseQuery, args = adminAPITokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		case "feedtoken":
-			baseQuery, args = adminFeedTokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		case "tag":
-			baseQuery, args = adminTagListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		case "bookmarkbundle":
-			baseQuery, args = adminBundleListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
-		}
-		data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
-		ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
-		if err != nil {
-			http.Error(w, "Server error", 500)
-			return
-		}
-		for ownerRows.Next() {
-			var name string
-			if err := ownerRows.Scan(&name); err != nil {
+		if definition.Model == "bookmarkasset" {
+			data.UserFilterParam = "status"
+			data.UserFilterTitle = "By status"
+			data.UserFilter = r.URL.Query().Get("status")
+			baseQuery, args = adminAssetListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
+			statusRows, err := db.QueryContext(r.Context(), `SELECT DISTINCT status FROM bookmarks_bookmarkasset ORDER BY status`)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			for statusRows.Next() {
+				var status string
+				if err := statusRows.Scan(&status); err != nil {
+					statusRows.Close()
+					http.Error(w, "Server error", 500)
+					return
+				}
+				data.UserFilters = append(data.UserFilters, adminUserFilter{Username: status, URL: adminListURL(r.URL.Query(), data.UserFilterParam, status), Selected: status == data.UserFilter})
+			}
+			if err := statusRows.Err(); err != nil {
+				statusRows.Close()
+				http.Error(w, "Server error", 500)
+				return
+			}
+			statusRows.Close()
+		} else {
+			data.UserFilterParam = "owner__username"
+			data.UserFilterTitle = "By owner username"
+			if definition.Model == "apitoken" || definition.Model == "feedtoken" {
+				data.UserFilterParam = "user__username"
+				data.UserFilterTitle = "By user username"
+			}
+			data.UserFilter = r.URL.Query().Get(data.UserFilterParam)
+			switch definition.Model {
+			case "toast":
+				baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			case "apitoken":
+				baseQuery, args = adminAPITokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			case "feedtoken":
+				baseQuery, args = adminFeedTokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			case "tag":
+				baseQuery, args = adminTagListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			case "bookmarkbundle":
+				baseQuery, args = adminBundleListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+			}
+			data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
+			ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
+			if err != nil {
+				http.Error(w, "Server error", 500)
+				return
+			}
+			for ownerRows.Next() {
+				var name string
+				if err := ownerRows.Scan(&name); err != nil {
+					ownerRows.Close()
+					http.Error(w, "Server error", 500)
+					return
+				}
+				data.UserFilters = append(data.UserFilters, adminUserFilter{Username: name, URL: adminListURL(r.URL.Query(), data.UserFilterParam, name), Selected: name == data.UserFilter})
+			}
+			if err := ownerRows.Err(); err != nil {
 				ownerRows.Close()
 				http.Error(w, "Server error", 500)
 				return
 			}
-			data.UserFilters = append(data.UserFilters, adminUserFilter{Username: name, URL: adminListURL(r.URL.Query(), data.UserFilterParam, name), Selected: name == data.UserFilter})
-		}
-		if err := ownerRows.Err(); err != nil {
 			ownerRows.Close()
-			http.Error(w, "Server error", 500)
-			return
 		}
-		ownerRows.Close()
 	}
 	var total int64
 	if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM (`+baseQuery+`) AS records`, args...).Scan(&total); err != nil {
@@ -187,6 +215,8 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.AddLabel = "tag"
 	} else if definition.Model == "bookmarkbundle" {
 		data.AddLabel = "bookmark bundle"
+	} else if definition.Model == "bookmarkasset" {
+		data.AddLabel = "bookmark asset"
 	}
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 	for rows.Next() {
@@ -265,19 +295,28 @@ func adminBundleListQuery(engine, search, owner string) (string, []any) {
 	return adminFilteredListQuery(engine, query, `t.id DESC`, search, owner, "t.name", "t.search", "t.any_tags", "t.all_tags", "t.excluded_tags")
 }
 
+func adminAssetListQuery(engine, search, status string) (string, []any) {
+	base := `SELECT id,COALESCE(NULLIF(display_name,''),'Bookmark Asset #' || id),date_created,status FROM bookmarks_bookmarkasset`
+	return adminFilteredListQueryBy(engine, base, `id DESC`, search, status, "status", "display_name", "file")
+}
+
 func adminEditableModel(model string) bool {
-	return model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle"
+	return model == "toast" || model == "apitoken" || model == "feedtoken" || model == "tag" || model == "bookmarkbundle" || model == "bookmarkasset"
 }
 
 func adminFilteredListQuery(engine, query, order, search, user string, searchFields ...string) (string, []any) {
+	return adminFilteredListQueryBy(engine, query, order, search, user, "u.username", searchFields...)
+}
+
+func adminFilteredListQueryBy(engine, query, order, search, filterValue, filterField string, searchFields ...string) (string, []any) {
 	var conditions []string
 	var args []any
 	bind := func(value any) string {
 		args = append(args, value)
 		return assetMarker(engine, len(args))
 	}
-	if user != "" {
-		conditions = append(conditions, "u.username = "+bind(user))
+	if filterValue != "" {
+		conditions = append(conditions, filterField+" = "+bind(filterValue))
 	}
 	for _, term := range splitAdminSearch(search) {
 		var fieldConditions []string
