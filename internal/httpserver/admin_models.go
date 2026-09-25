@@ -40,7 +40,7 @@ type adminListRow struct {
 	Link  string
 }
 
-type adminOwnerFilter struct {
+type adminUserFilter struct {
 	Username, URL string
 	Selected      bool
 }
@@ -63,7 +63,8 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 		if err != nil {
 			return nil, err
 		}
-		if !permissions.canList() && !(definition.Model == "toast" && permissions.Add) {
+		canAdd := (definition.Model == "toast" || definition.Model == "apitoken") && permissions.Add
+		if !permissions.canList() && !canAdd {
 			continue
 		}
 		appLabel := "Bookmarks"
@@ -75,7 +76,7 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 		if permissions.canList() {
 			link.Path = base
 		}
-		if definition.Model == "toast" && permissions.Add {
+		if canAdd {
 			link.AddPath = base + "add/"
 		}
 		links = append(links, link)
@@ -94,12 +95,22 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	baseQuery := definition.Query
 	var args []any
-	if definition.Model == "toast" {
-		data.IsToastList = true
+	if definition.Model == "toast" || definition.Model == "apitoken" {
+		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
-		data.OwnerFilter = r.URL.Query().Get("owner__username")
-		baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.OwnerFilter)
-		data.AllOwnersURL = adminListURL(r.URL.Query(), "owner__username", "")
+		data.UserFilterParam = "owner__username"
+		data.UserFilterTitle = "By owner username"
+		if definition.Model == "apitoken" {
+			data.UserFilterParam = "user__username"
+			data.UserFilterTitle = "By user username"
+		}
+		data.UserFilter = r.URL.Query().Get(data.UserFilterParam)
+		if definition.Model == "toast" {
+			baseQuery, args = adminToastListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+		} else {
+			baseQuery, args = adminAPITokenListQuery(cfg.DBEngine, data.SearchQuery, data.UserFilter)
+		}
+		data.AllUsersURL = adminListURL(r.URL.Query(), data.UserFilterParam, "")
 		ownerRows, err := db.QueryContext(r.Context(), `SELECT username FROM auth_user ORDER BY username`)
 		if err != nil {
 			http.Error(w, "Server error", 500)
@@ -112,7 +123,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				http.Error(w, "Server error", 500)
 				return
 			}
-			data.OwnerFilters = append(data.OwnerFilters, adminOwnerFilter{Username: name, URL: adminListURL(r.URL.Query(), "owner__username", name), Selected: name == data.OwnerFilter})
+			data.UserFilters = append(data.UserFilters, adminUserFilter{Username: name, URL: adminListURL(r.URL.Query(), data.UserFilterParam, name), Selected: name == data.UserFilter})
 		}
 		if err := ownerRows.Err(); err != nil {
 			ownerRows.Close()
@@ -148,6 +159,11 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.NextPageURL = adminListURL(r.URL.Query(), "p", strconv.Itoa(page+1))
 	}
 	data.CanAdd = permissions.Add
+	data.IsEditableModel = definition.Model == "toast" || definition.Model == "apitoken"
+	data.AddLabel = "toast"
+	if definition.Model == "apitoken" {
+		data.AddLabel = "API token"
+	}
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
 	for rows.Next() {
 		values := make([]any, len(definition.Columns)+1)
@@ -160,7 +176,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			return
 		}
 		row := adminListRow{ID: adminValueString(values[0])}
-		if definition.Model == "toast" && (permissions.View || permissions.Change) {
+		if data.IsEditableModel && (permissions.View || permissions.Change) {
 			row.Link = data.ModelPath + row.ID + "/change/"
 		}
 		for _, value := range values[1:] {
@@ -180,28 +196,41 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 }
 
 func adminToastListQuery(engine, search, owner string) (string, []any) {
-	query := `SELECT t.id,t.key,t.message,u.username,CASE WHEN t.acknowledged THEN 'Yes' ELSE 'No' END FROM bookmarks_toast AS t JOIN auth_user AS u ON u.id=t.owner_id`
+	return adminFilteredListQuery(engine, `SELECT t.id,t.key,t.message,u.username,CASE WHEN t.acknowledged THEN 'Yes' ELSE 'No' END FROM bookmarks_toast AS t JOIN auth_user AS u ON u.id=t.owner_id`, `t.id DESC`, search, owner, "t.key", "t.message")
+}
+
+func adminAPITokenListQuery(engine, search, user string) (string, []any) {
+	return adminFilteredListQuery(engine, `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC,t.id DESC`, search, user, "t.name", "u.username")
+}
+
+func adminFilteredListQuery(engine, query, order, search, user string, searchFields ...string) (string, []any) {
 	var conditions []string
 	var args []any
 	bind := func(value any) string {
 		args = append(args, value)
 		return assetMarker(engine, len(args))
 	}
-	if owner != "" {
-		conditions = append(conditions, "u.username = "+bind(owner))
+	if user != "" {
+		conditions = append(conditions, "u.username = "+bind(user))
 	}
 	for _, term := range splitAdminSearch(search) {
+		var fieldConditions []string
 		if engine == "postgres" {
 			escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term)
-			conditions = append(conditions, "(t.key ILIKE "+bind("%"+escaped+"%")+` ESCAPE '\' OR t.message ILIKE `+bind("%"+escaped+"%")+` ESCAPE '\')`)
+			for _, field := range searchFields {
+				fieldConditions = append(fieldConditions, field+" ILIKE "+bind("%"+escaped+"%")+` ESCAPE '\'`)
+			}
 		} else {
-			conditions = append(conditions, "(ld_ci_contains(t.key, "+bind(term)+") = 1 OR ld_ci_contains(t.message, "+bind(term)+") = 1)")
+			for _, field := range searchFields {
+				fieldConditions = append(fieldConditions, "ld_ci_contains("+field+", "+bind(term)+") = 1")
+			}
 		}
+		conditions = append(conditions, "("+strings.Join(fieldConditions, " OR ")+")")
 	}
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
-	return query + " ORDER BY t.id DESC", args
+	return query + " ORDER BY " + order, args
 }
 
 func splitAdminSearch(search string) []string {
