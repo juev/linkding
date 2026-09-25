@@ -137,6 +137,9 @@ func TestMigratePinnedUpstreamSQLiteFixture(t *testing.T) {
 	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
 		t.Fatalf("normal startup after migration: %v", err)
 	}
+	if username, password := os.Getenv("LINKDING_TEST_SOURCE_SQLITE_USERNAME"), os.Getenv("LINKDING_TEST_SOURCE_SQLITE_PASSWORD"); username != "" && password != "" {
+		verifyMigratedHTTP(t, db, "sqlite", target, username, password)
+	}
 }
 
 func TestMigrateSQLiteRejectsLegacyBackgroundTasksBeforeWriting(t *testing.T) {

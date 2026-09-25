@@ -42,6 +42,7 @@ docker buildx build --target linkding-plus -t linkding-go:plus --load .
 Run it with the same port, volume, and `LD_*` settings. Plus enables snapshots by default and includes Chromium, SingleFile CLI, and uBlock Origin Lite. The basic image leaves automatic snapshots disabled. For PostgreSQL, set `LD_DB_ENGINE=postgres`, `LD_DB_HOST`, `LD_DB_PORT`, `LD_DB_DATABASE`, `LD_DB_USER`, and `LD_DB_PASSWORD`; keep `/etc/linkding/data` persistent for the secret key and stored files.
 
 SQLite backup and restore commands are described in [Back up and restore data](docs/backups.md).
+Migration from Python linkding v1.47.0 is described in [Migrate an existing installation](docs/migration.md).
 
 ## Attribution
 

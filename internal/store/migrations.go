@@ -16,16 +16,22 @@ var migrationFiles embed.FS
 // Migrate applies the schema for a new Go installation. The initial SQLite
 // migration mirrors a fresh linkding v1.47.0 database for data import.
 func Migrate(ctx context.Context, db *sql.DB, engine string) error {
-	return migrate(ctx, db, engine, false)
+	return migrate(ctx, db, engine, false, true)
 }
 
 // MigrateImported applies only Go-specific migrations to a database that
 // already has the pinned upstream schema and data.
 func MigrateImported(ctx context.Context, db *sql.DB, engine string) error {
-	return migrate(ctx, db, engine, true)
+	return migrate(ctx, db, engine, true, true)
 }
 
-func migrate(ctx context.Context, db *sql.DB, engine string, imported bool) error {
+// PrepareImportTarget creates an empty schema before copying upstream rows.
+// Django content types and permissions must be copied with their original IDs.
+func PrepareImportTarget(ctx context.Context, db *sql.DB, engine string) error {
+	return migrate(ctx, db, engine, false, false)
+}
+
+func migrate(ctx context.Context, db *sql.DB, engine string, imported, seedMetadata bool) error {
 	var dialect goose.Dialect
 	switch engine {
 	case "sqlite":
@@ -61,8 +67,10 @@ func migrate(ctx context.Context, db *sql.DB, engine string, imported bool) erro
 	if _, err := provider.Up(ctx); err != nil {
 		return fmt.Errorf("apply %s migrations: %w", engine, err)
 	}
-	if err := seedDjangoMetadata(ctx, db, engine); err != nil {
-		return fmt.Errorf("seed Django metadata: %w", err)
+	if seedMetadata {
+		if err := seedDjangoMetadata(ctx, db, engine); err != nil {
+			return fmt.Errorf("seed Django metadata: %w", err)
+		}
 	}
 	return nil
 }

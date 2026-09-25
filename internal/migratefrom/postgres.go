@@ -118,7 +118,7 @@ func MigratePostgres(ctx context.Context, sourceDSN, targetDSN, sourceDir, targe
 	if err != nil {
 		return result, err
 	}
-	if err := store.Migrate(ctx, db, "postgres"); err != nil {
+	if err := store.PrepareImportTarget(ctx, db, "postgres"); err != nil {
 		return result, fmt.Errorf("prepare target PostgreSQL schema: %w", err)
 	}
 	sourceConn, err := pgx.Connect(ctx, sourceDSN)

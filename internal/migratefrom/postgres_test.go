@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/juev/linkding/internal/store"
 )
 
 func TestMigratePinnedUpstreamPostgresFixture(t *testing.T) {
@@ -47,7 +49,13 @@ func TestMigratePinnedUpstreamPostgresFixture(t *testing.T) {
 	if tags != 1 || tokens != 1 || feeds != 1 {
 		t.Fatalf("relationships and tokens: tags=%d api=%d feeds=%d", tags, tokens, feeds)
 	}
+	if err := store.Migrate(ctx, target, "postgres"); err != nil {
+		t.Fatalf("normal startup after migration: %v", err)
+	}
 	verifyPinnedPostgresValues(t, sourceDSN, targetDSN)
+	if username, password := os.Getenv("LINKDING_TEST_SOURCE_POSTGRES_USERNAME"), os.Getenv("LINKDING_TEST_SOURCE_POSTGRES_PASSWORD"); username != "" && password != "" {
+		verifyMigratedHTTP(t, target, "postgres", report.TargetDir, username, password)
+	}
 }
 
 func TestVerifyPinnedPostgresMigrationFixture(t *testing.T) {

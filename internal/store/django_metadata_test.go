@@ -66,3 +66,33 @@ func TestMigrateImportedPreservesExistingDjangoMetadata(t *testing.T) {
 		t.Fatalf("metadata counts = %d content types, %d permissions; want 18 and 69", contentTypes, permissions)
 	}
 }
+
+func TestPrepareImportTargetLeavesDjangoMetadataEmpty(t *testing.T) {
+	ctx := context.Background()
+	db := openTestSQLite(t)
+	if err := PrepareImportTarget(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	var contentTypes, permissions int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM django_content_type`).Scan(&contentTypes); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM auth_permission`).Scan(&permissions); err != nil {
+		t.Fatal(err)
+	}
+	if contentTypes != 0 || permissions != 0 {
+		t.Fatalf("import target metadata = %d content types and %d permissions; want empty tables", contentTypes, permissions)
+	}
+	if err := Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM django_content_type`).Scan(&contentTypes); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM auth_permission`).Scan(&permissions); err != nil {
+		t.Fatal(err)
+	}
+	if contentTypes != 17 || permissions != 68 {
+		t.Fatalf("normal startup metadata = %d content types and %d permissions", contentTypes, permissions)
+	}
+}
