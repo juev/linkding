@@ -94,7 +94,8 @@ func TestAdminAPITokenCRUDSearchAndPermissions(t *testing.T) {
 		t.Fatalf("add second token: %d", got.Code)
 	}
 	filtered := request(http.MethodGet, base+"?q=alice&user__username=alice", adminSession, nil, false)
-	if filtered.Code != 200 || !strings.Contains(filtered.Body.String(), "Alice API") || strings.Contains(filtered.Body.String(), "Service token") || !strings.Contains(filtered.Body.String(), `href="`+change+`"`) {
+	filterSuffix := "?_changelist_filters=" + url.QueryEscape("q=alice&user__username=alice")
+	if filtered.Code != 200 || !strings.Contains(filtered.Body.String(), "Alice API") || strings.Contains(filtered.Body.String(), "Service token") || !strings.Contains(filtered.Body.String(), `href="`+change+filterSuffix+`"`) {
 		t.Fatalf("filtered list: %d %s", filtered.Code, filtered.Body.String())
 	}
 	byUsername := request(http.MethodGet, base+"?q=bob", adminSession, nil, false)

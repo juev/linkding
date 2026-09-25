@@ -29,10 +29,11 @@ type adminTask struct {
 }
 
 type adminPageData struct {
-	Prefix, Title, Username, ModelName, ModelPath              string
+	Prefix, Title, Username, ModelName, ModelPath, AddURL      string
 	SearchQuery, UserFilter, AllUsersURL                       string
 	UserFilterParam, UserFilterTitle, AddLabel                 string
 	PreviousPageURL, NextPageURL                               string
+	ShowCountsURL, ShowCountsLabel                             string
 	CSRFToken, ActionMessage                                   string
 	Tasks                                                      []adminTask
 	Models                                                     []adminModelLink
@@ -41,11 +42,13 @@ type adminPageData struct {
 	UserFilters                                                []adminUserFilter
 	ListFilters                                                []adminFilterGroup
 	ModelColumns                                               []string
+	ModelHeaders                                               []adminListHeader
 	ModelRows                                                  []adminListRow
 	TaskCount                                                  int64
 	Page, Pages                                                int
 	IsTaskList, IsModelList, IsAppIndex, IsSearchableList      bool
 	AppSlug                                                    string
+	AppLabel, AppPath, ModelSlug, PluralLabel                  string
 	IsTagList, IsBookmarkList, IsUserList, IsDefaultActionList bool
 	CanAdd, CanDelete, IsEditableModel                         bool
 }

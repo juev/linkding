@@ -78,8 +78,8 @@ func TestAdminTasksRequireStaffAndPaginate(t *testing.T) {
 			t.Fatalf("non-staff model %s: %d", path, got.Code)
 		}
 		got := get(path, staffKey)
-		if got.Code != 200 || !strings.Contains(got.Body.String(), definition.Columns[0]) {
-			t.Fatalf("model list %s: %d %q", path, got.Code, got.Body.String())
+		if got.Code != 200 || !strings.Contains(got.Body.String(), "Select "+strings.ToLower(definition.Label)+" to change") || !strings.Contains(got.Body.String(), "Pagination "+strings.ToLower(definition.Plural)) {
+			t.Fatalf("model list %s: %d", path, got.Code)
 		}
 	}
 	if got := get("/admin/bookmarks/tag/", staffKey); !strings.Contains(got.Body.String(), "admin-tag") {

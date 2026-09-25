@@ -77,4 +77,35 @@ func TestAdminTagListSearchAndOwnerFilter(t *testing.T) {
 	if !strings.Contains(body, html.EscapeString(filterURL)) {
 		t.Fatalf("owner filter link lost search query: %s", body)
 	}
+	for _, tc := range []struct {
+		order string
+		names []string
+	}{
+		{"1", []string{"literal%tag", "other%tag", "plain-tag"}},
+		{"-1", []string{"plain-tag", "other%tag", "literal%tag"}},
+	} {
+		r := httptest.NewRequest(http.MethodGet, "/admin/bookmarks/tag/?o="+tc.order, nil)
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+		w := httptest.NewRecorder()
+		New(db, cfg, t.TempDir()).ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("sort %s: status=%d", tc.order, w.Code)
+		}
+		filterSuffix := "?_changelist_filters=" + url.QueryEscape("o="+tc.order)
+		if !strings.Contains(w.Body.String(), `href="/admin/bookmarks/tag/add/`+filterSuffix+`"`) ||
+			!strings.Contains(w.Body.String(), `/change/`+filterSuffix+`"`) ||
+			!strings.Contains(w.Body.String(), `?_facets=True&amp;o=`+tc.order) {
+			t.Fatalf("sort %s did not preserve changelist filters in links", tc.order)
+		}
+		result := w.Body.String()
+		result = result[strings.Index(result, `<table id="result_list">`):]
+		last := -1
+		for _, name := range tc.names {
+			position := strings.Index(result, ">"+name+"</a>")
+			if position <= last {
+				t.Fatalf("sort %s: %q appeared at %d after %d", tc.order, name, position, last)
+			}
+			last = position
+		}
+	}
 }

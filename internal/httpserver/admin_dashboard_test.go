@@ -97,6 +97,14 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 			t.Fatalf("app index %s: status=%d", tc.path, got.Code)
 		}
 	}
+	list := request(http.MethodGet, "/admin/bookmarks/tag/", nil)
+	if list.Code != http.StatusOK ||
+		!strings.Contains(list.Body.String(), `id="nav-sidebar"`) ||
+		!strings.Contains(list.Body.String(), `href="/admin/bookmarks/">Bookmarks</a> &rsaquo; Tags`) ||
+		!strings.Contains(list.Body.String(), `Select tag to change`) ||
+		!strings.Contains(list.Body.String(), `1 tag</nav>`) {
+		t.Fatalf("admin model list navigation: status=%d", list.Code)
+	}
 	password := request(http.MethodGet, "/admin/password_change/", nil)
 	if password.Code != http.StatusOK || !strings.Contains(password.Body.String(), `action="/change-password/"`) {
 		t.Fatalf("admin password alias: status=%d", password.Code)

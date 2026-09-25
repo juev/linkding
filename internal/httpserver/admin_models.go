@@ -23,8 +23,8 @@ type adminModelDefinition struct {
 
 var adminModels = []adminModelDefinition{
 	{App: "auth", Model: "user", Label: "User", Plural: "Users", Query: `SELECT id,username,email,first_name,last_name,is_staff FROM auth_user ORDER BY username`, Columns: []string{"Username", "Email address", "First name", "Last name", "Staff status"}},
-	{App: "bookmarks", Model: "bookmark", Label: "Bookmark", Plural: "Bookmarks", Query: `SELECT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.date_added DESC,b.id DESC`, Columns: []string{"Title", "URL", "Is archived", "Owner", "Date added"}},
-	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,COALESCE(NULLIF(display_name,''),'Bookmark Asset #' || id),date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display name", "Date created", "Status"}},
+	{App: "bookmarks", Model: "bookmark", Label: "Bookmark", Plural: "Bookmarks", Query: `SELECT b.id,COALESCE(NULLIF(b.title,''),b.url),b.url,b.is_archived,u.username,b.date_added FROM bookmarks_bookmark AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.date_added DESC,b.id DESC`, Columns: []string{"Resolved title", "Url", "Is archived", "Owner", "Date added"}},
+	{App: "bookmarks", Model: "bookmarkasset", Label: "Bookmark asset", Plural: "Bookmark assets", Query: `SELECT id,COALESCE(NULLIF(display_name,''),'Bookmark Asset #' || id),date_created,status FROM bookmarks_bookmarkasset ORDER BY id DESC`, Columns: []string{"Display Name", "Date created", "Status"}},
 	{App: "bookmarks", Model: "tag", Label: "Tag", Plural: "Tags", Query: `SELECT t.id,t.name,(SELECT COUNT(*) FROM bookmarks_bookmark_tags AS bt WHERE bt.tag_id=t.id),u.username,t.date_added FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.date_added DESC,t.id DESC`, Columns: []string{"Name", "Bookmarks count", "Owner", "Date added"}},
 	{App: "bookmarks", Model: "bookmarkbundle", Label: "Bookmark bundle", Plural: "Bookmark bundles", Query: `SELECT b.id,b.name,u.username,b."order",b.search,b.any_tags,b.all_tags,b.excluded_tags,b.filter_shared,b.filter_unread,b.date_created FROM bookmarks_bookmarkbundle AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.id DESC`, Columns: []string{"Name", "Owner", "Order", "Search", "Any tags", "All tags", "Excluded tags", "Filter shared", "Filter unread", "Date created"}},
 	{App: "bookmarks", Model: "apitoken", Label: "API token", Plural: "API tokens", Query: `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC,t.id DESC`, Columns: []string{"Name", "User", "Created"}},
@@ -37,9 +37,13 @@ type adminModelLink struct {
 }
 
 type adminListRow struct {
-	ID    string
-	Cells []string
-	Link  string
+	ID, Link, ActionLabel string
+	Cells                 []string
+}
+
+type adminListHeader struct {
+	Label, URL, ToggleURL, RemoveURL string
+	Sortable, Sorted, Ascending      bool
 }
 
 type adminUserFilter struct {
@@ -136,6 +140,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			http.Error(w, "Server error", 500)
 			return
 		}
+		if len(data.ListFilters[3].Options) == 0 {
+			data.ListFilters = data.ListFilters[:3]
+		}
 	} else if adminEditableModel(definition.Model) {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
@@ -175,10 +182,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			}
 		} else {
 			data.UserFilterParam = "owner__username"
-			data.UserFilterTitle = "By owner username"
+			data.UserFilterTitle = "By username"
 			if definition.Model == "apitoken" || definition.Model == "feedtoken" {
 				data.UserFilterParam = "user__username"
-				data.UserFilterTitle = "By user username"
 			}
 			data.UserFilter = r.URL.Query().Get(data.UserFilterParam)
 			switch definition.Model {
@@ -223,17 +229,64 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	pages := max(1, int((total+99)/100))
 	page = min(page, pages)
-	query := baseQuery + ` LIMIT 100 OFFSET ` + assetMarker(cfg.DBEngine, len(args)+1)
+	order := 0
+	if requested, err := strconv.Atoi(r.URL.Query().Get("o")); err == nil && requested != 0 && requested >= -len(definition.Columns) && requested <= len(definition.Columns) {
+		order = requested
+	}
+	query := baseQuery
+	if order != 0 {
+		column := order
+		direction := " ASC"
+		if column < 0 {
+			column = -column
+			direction = " DESC"
+		}
+		query = `SELECT * FROM (` + baseQuery + `) AS ordered_records ORDER BY ` + strconv.Itoa(column+1) + direction + `,1 DESC`
+	}
+	query += ` LIMIT 100 OFFSET ` + assetMarker(cfg.DBEngine, len(args)+1)
 	rows, err := db.QueryContext(r.Context(), query, append(args, (page-1)*100)...)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
 	defer rows.Close()
-	data.Title = "Select " + definition.Label + " to change"
+	data.Title = "Select " + strings.ToLower(definition.Label) + " to change"
 	data.IsModelList = true
 	data.ModelName = definition.Plural
+	data.AppSlug, data.ModelSlug = definition.App, definition.Model
+	data.AppLabel, data.AppPath = "Bookmarks", cfg.URLPrefix()+"admin/"+definition.App+"/"
+	if definition.App == "auth" {
+		data.AppLabel = "Authentication and Authorization"
+	}
+	data.PluralLabel = definition.Plural
+	if definition.Model == "apitoken" {
+		data.PluralLabel = "Api tokens"
+	}
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	data.ModelColumns = definition.Columns
+	for i, label := range definition.Columns {
+		index := i + 1
+		header := adminListHeader{Label: label, Sortable: !((definition.Model == "bookmark" || definition.Model == "bookmarkasset") && index == 1), URL: adminListURL(r.URL.Query(), "o", strconv.Itoa(index))}
+		if order == index || order == -index {
+			header.Sorted, header.Ascending = true, order > 0
+			header.RemoveURL = adminListURL(r.URL.Query(), "o", "")
+			header.ToggleURL = adminListURL(r.URL.Query(), "o", strconv.Itoa(-order))
+		} else if order == 0 && ((definition.Model == "tag" && index == 4) || (definition.Model == "bookmark" && index == 5) || (definition.Model == "user" && index == 1) || (definition.Model == "apitoken" && index == 3)) {
+			header.Sorted = true
+			header.Ascending = definition.Model == "user"
+			header.RemoveURL = adminListURL(r.URL.Query(), "o", "")
+			header.ToggleURL = header.URL
+			if header.Ascending {
+				header.ToggleURL = adminListURL(r.URL.Query(), "o", strconv.Itoa(-index))
+			}
+		}
+		data.ModelHeaders = append(data.ModelHeaders, header)
+	}
 	data.TaskCount = total
 	data.Page, data.Pages = page, pages
 	if page > 1 {
@@ -254,7 +307,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	} else if definition.Model == "bookmark" {
 		data.AddLabel = "bookmark"
 	} else if definition.Model == "apitoken" {
-		data.AddLabel = "API token"
+		data.AddLabel = "api token"
 	} else if definition.Model == "feedtoken" {
 		data.AddLabel = "feed token"
 	} else if definition.Model == "tag" {
@@ -265,6 +318,15 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		data.AddLabel = "bookmark asset"
 	}
 	data.ModelPath = cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"
+	filterSuffix := ""
+	if r.URL.RawQuery != "" {
+		filterSuffix = "?_changelist_filters=" + url.QueryEscape(r.URL.RawQuery)
+	}
+	data.AddURL = data.ModelPath + "add/" + filterSuffix
+	data.ShowCountsLabel, data.ShowCountsURL = "Show counts", adminListURL(r.URL.Query(), "_facets", "True")
+	if r.URL.Query().Get("_facets") == "True" {
+		data.ShowCountsLabel, data.ShowCountsURL = "Hide counts", adminListURL(r.URL.Query(), "_facets", "")
+	}
 	for rows.Next() {
 		values := make([]any, len(definition.Columns)+1)
 		pointers := make([]any, len(values))
@@ -277,10 +339,23 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		}
 		row := adminListRow{ID: adminValueString(values[0], location)}
 		if data.IsEditableModel && (permissions.View || permissions.Change) {
-			row.Link = data.ModelPath + url.PathEscape(row.ID) + "/change/"
+			row.Link = data.ModelPath + url.PathEscape(row.ID) + "/change/" + filterSuffix
 		}
 		for _, value := range values[1:] {
-			row.Cells = append(row.Cells, adminValueString(value, location))
+			cell := adminValueString(value, location)
+			if cell == "" {
+				cell = "-"
+			}
+			row.Cells = append(row.Cells, cell)
+		}
+		if len(row.Cells) > 0 {
+			row.ActionLabel = row.Cells[0]
+		}
+		if definition.Model == "bookmark" && len(row.Cells) > 1 {
+			urlRunes := []rune(row.Cells[1])
+			row.ActionLabel += " (" + string(urlRunes[:min(30, len(urlRunes))]) + "...)"
+		} else if definition.Model == "apitoken" && len(row.Cells) > 1 {
+			row.ActionLabel += " (" + row.Cells[1] + ")"
 		}
 		data.ModelRows = append(data.ModelRows, row)
 	}
@@ -471,8 +546,8 @@ func adminBookmarkListQuery(engine, search string, params url.Values) (string, [
 
 func adminBookmarkListFilters(params url.Values) []adminFilterGroup {
 	groups := []adminFilterGroup{
-		{Title: "By owner username", Param: "owner__username", Value: params.Get("owner__username")},
-		{Title: "By archived", Param: "is_archived__exact", Value: params.Get("is_archived__exact")},
+		{Title: "By username", Param: "owner__username", Value: params.Get("owner__username")},
+		{Title: "By is archived", Param: "is_archived__exact", Value: params.Get("is_archived__exact")},
 		{Title: "By unread", Param: "unread__exact", Value: params.Get("unread__exact")},
 		{Title: "By tags", Param: "tags__id__exact", Value: params.Get("tags__id__exact"), ExtraParam: "tags__isnull", ExtraValue: params.Get("tags__isnull"), IsNull: params.Get("tags__isnull") == "True"},
 	}
@@ -505,7 +580,7 @@ func populateBookmarkListFilters(ctx context.Context, db *sql.DB, params url.Val
 	if err := ownerRows.Err(); err != nil {
 		return err
 	}
-	tagRows, err := db.QueryContext(ctx, `SELECT id,name FROM bookmarks_tag ORDER BY name`)
+	tagRows, err := db.QueryContext(ctx, `SELECT id,name FROM bookmarks_tag ORDER BY date_added DESC,id DESC`)
 	if err != nil {
 		return err
 	}
