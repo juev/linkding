@@ -169,30 +169,70 @@ func (r *Repository) ListBundlePreview(ctx context.Context, ownerID int64, bundl
 // ListShared applies the caller's search preferences to all enabled shares.
 // Anonymous visitors use the configured guest profile, or the standard profile.
 func (r *Repository) ListShared(ctx context.Context, viewerID int64, authenticated bool, opts ListOptions) ([]Bookmark, int64, error) {
+	profileID, ownerID, err := r.sharedSearchScope(ctx, viewerID, authenticated, opts.User)
+	if err != nil {
+		return nil, 0, err
+	}
+	return r.listFiltered(ctx, profileID, ownerID, true, !authenticated, opts, nil)
+}
+
+func (r *Repository) sharedSearchScope(ctx context.Context, viewerID int64, authenticated bool, username string) (int64, *int64, error) {
 	profileID := viewerID
 	if !authenticated {
 		var guestID sql.NullInt64
 		err := r.db.QueryRowContext(ctx, "SELECT guest_profile_user_id FROM bookmarks_globalsettings ORDER BY id LIMIT 1").Scan(&guestID)
 		if err != nil && err != sql.ErrNoRows {
-			return nil, 0, fmt.Errorf("load guest profile: %w", err)
+			return 0, nil, fmt.Errorf("load guest profile: %w", err)
 		}
 		if guestID.Valid {
 			profileID = guestID.Int64
 		}
 	}
 	var ownerID *int64
-	if opts.User != "" {
+	if username != "" {
 		query := "SELECT id FROM auth_user WHERE username = " + r.marker(1) + " ORDER BY id LIMIT 1"
 		var matched int64
-		err := r.db.QueryRowContext(ctx, query, opts.User).Scan(&matched)
+		err := r.db.QueryRowContext(ctx, query, username).Scan(&matched)
 		if err != nil && err != sql.ErrNoRows {
-			return nil, 0, fmt.Errorf("find shared owner: %w", err)
+			return 0, nil, fmt.Errorf("find shared owner: %w", err)
 		}
 		if err == nil {
 			ownerID = &matched
 		}
 	}
-	return r.listFiltered(ctx, profileID, ownerID, true, !authenticated, opts, nil)
+	return profileID, ownerID, nil
+}
+
+// ListTagNamesForSearch returns tags attached to all matching bookmarks, before pagination.
+func (r *Repository) ListTagNamesForSearch(ctx context.Context, viewerID int64, authenticated, shared bool, opts ListOptions) ([]string, error) {
+	profileID := viewerID
+	ownerID := &viewerID
+	if shared {
+		var err error
+		profileID, ownerID, err = r.sharedSearchScope(ctx, viewerID, authenticated, opts.User)
+		if err != nil {
+			return nil, err
+		}
+	}
+	f, where, err := r.buildListFilter(ctx, profileID, ownerID, shared, shared && !authenticated, opts, nil)
+	if err != nil {
+		return nil, err
+	}
+	query := "SELECT DISTINCT t.name FROM bookmarks_bookmark b JOIN bookmarks_bookmark_tags bt ON bt.bookmark_id = b.id JOIN bookmarks_tag t ON t.id = bt.tag_id WHERE " + where
+	rows, err := r.db.QueryContext(ctx, query, f.args...)
+	if err != nil {
+		return nil, fmt.Errorf("list matching tags: %w", err)
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
 }
 
 // Public RSS uses the standard guest search profile even when a site-wide
@@ -218,12 +258,70 @@ func (r *Repository) listFiltered(ctx context.Context, profileID int64, ownerID 
 	if opts.Limit < 1 || opts.Offset < 0 {
 		return nil, 0, fmt.Errorf("invalid bookmark page")
 	}
+	f, where, err := r.buildListFilter(ctx, profileID, ownerID, sharedFeed, publicOnly, opts, preview)
+	if err != nil {
+		return nil, 0, err
+	}
+	var count int64
+	if err := r.db.QueryRowContext(ctx, "SELECT count(*) FROM bookmarks_bookmark b WHERE "+where, f.args...).Scan(&count); err != nil {
+		return nil, 0, fmt.Errorf("count bookmarks: %w", err)
+	}
+	order := "b.date_added DESC"
+	switch opts.Sort {
+	case "added_asc":
+		order = "b.date_added ASC"
+	case "modified_asc":
+		order = "b.date_modified ASC"
+	case "modified_desc":
+		order = "b.date_modified DESC"
+	case "title_asc", "title_desc":
+		direction := "ASC"
+		if opts.Sort == "title_desc" {
+			direction = "DESC"
+		}
+		order = "LOWER(CASE WHEN b.title <> '' THEN b.title ELSE b.url END) " + direction
+		if r.engine == "sqlite" {
+			order = "ld_lower(CASE WHEN b.title <> '' THEN b.title ELSE b.url END) COLLATE LD_ROOT " + direction
+		}
+	}
+	query := "SELECT b.id, b.owner_id FROM bookmarks_bookmark b WHERE " + where + " ORDER BY " + order + " LIMIT " + f.bind(opts.Limit) + " OFFSET " + f.bind(opts.Offset)
+	rows, err := r.db.QueryContext(ctx, query, f.args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list bookmarks: %w", err)
+	}
+	type bookmarkRef struct{ id, ownerID int64 }
+	var refs []bookmarkRef
+	for rows.Next() {
+		var ref bookmarkRef
+		if err := rows.Scan(&ref.id, &ref.ownerID); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		refs = append(refs, ref)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]Bookmark, 0, len(refs))
+	for _, ref := range refs {
+		item, err := r.GetByID(ctx, ref.ownerID, ref.id)
+		if err != nil {
+			return nil, 0, fmt.Errorf("load bookmark %d: %w", ref.id, err)
+		}
+		items = append(items, item)
+	}
+	return items, count, nil
+}
+
+func (r *Repository) buildListFilter(ctx context.Context, profileID int64, ownerID *int64, sharedFeed, publicOnly bool, opts ListOptions, preview *PreviewBundle) (*bookmarkFilter, string, error) {
 	tagSearch := "strict"
 	var legacy bool
 	if profileID > 0 {
 		profileQuery := "SELECT tag_search, legacy_search FROM bookmarks_userprofile WHERE user_id = " + r.marker(1)
 		if err := r.db.QueryRowContext(ctx, profileQuery, profileID).Scan(&tagSearch, &legacy); err != nil {
-			return nil, 0, fmt.Errorf("load search profile: %w", err)
+			return nil, "", fmt.Errorf("load search profile: %w", err)
 		}
 	}
 	f := &bookmarkFilter{engine: r.engine}
@@ -280,7 +378,7 @@ func (r *Repository) listFiltered(ctx context.Context, profileID int64, ownerID 
 		} else {
 			bundle, found, err = r.loadBundle(ctx, profileID, bundleID)
 			if err != nil {
-				return nil, 0, err
+				return nil, "", err
 			}
 		}
 		if found {
@@ -321,57 +419,7 @@ func (r *Repository) listFiltered(ctx context.Context, profileID int64, ownerID 
 		}
 	}
 	where := strings.Join(conditions, " AND ")
-	var count int64
-	if err := r.db.QueryRowContext(ctx, "SELECT count(*) FROM bookmarks_bookmark b WHERE "+where, f.args...).Scan(&count); err != nil {
-		return nil, 0, fmt.Errorf("count bookmarks: %w", err)
-	}
-	order := "b.date_added DESC"
-	switch opts.Sort {
-	case "added_asc":
-		order = "b.date_added ASC"
-	case "modified_asc":
-		order = "b.date_modified ASC"
-	case "modified_desc":
-		order = "b.date_modified DESC"
-	case "title_asc", "title_desc":
-		direction := "ASC"
-		if opts.Sort == "title_desc" {
-			direction = "DESC"
-		}
-		order = "LOWER(CASE WHEN b.title <> '' THEN b.title ELSE b.url END) " + direction
-		if r.engine == "sqlite" {
-			order = "ld_lower(CASE WHEN b.title <> '' THEN b.title ELSE b.url END) COLLATE LD_ROOT " + direction
-		}
-	}
-	query := "SELECT b.id, b.owner_id FROM bookmarks_bookmark b WHERE " + where + " ORDER BY " + order + " LIMIT " + f.bind(opts.Limit) + " OFFSET " + f.bind(opts.Offset)
-	rows, err := r.db.QueryContext(ctx, query, f.args...)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list bookmarks: %w", err)
-	}
-	type bookmarkRef struct{ id, ownerID int64 }
-	var refs []bookmarkRef
-	for rows.Next() {
-		var ref bookmarkRef
-		if err := rows.Scan(&ref.id, &ref.ownerID); err != nil {
-			rows.Close()
-			return nil, 0, err
-		}
-		refs = append(refs, ref)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return nil, 0, err
-	}
-	items := make([]Bookmark, 0, len(refs))
-	for _, ref := range refs {
-		item, err := r.GetByID(ctx, ref.ownerID, ref.id)
-		if err != nil {
-			return nil, 0, fmt.Errorf("load bookmark %d: %w", ref.id, err)
-		}
-		items = append(items, item)
-	}
-	return items, count, nil
+	return f, where, nil
 }
 
 func parseSearchDate(value string) (time.Time, bool) {

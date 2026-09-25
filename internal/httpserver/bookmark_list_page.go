@@ -25,8 +25,12 @@ var bookmarkListTemplateFile embed.FS
 var bookmarkListTemplate = template.Must(template.ParseFS(bookmarkListTemplateFile, "bookmark_list_page.html"))
 
 type listTag struct {
-	Name  string
-	Query template.URL
+	Name, FirstChar, Remaining string
+	Query                      template.URL
+	Highlight                  bool
+}
+type listTagGroup struct {
+	Tags []listTag
 }
 type listBundle struct {
 	ID       int64
@@ -53,7 +57,8 @@ type bookmarkListPage struct {
 	Total                                                                                                                                                                                                                                    int64
 	Items                                                                                                                                                                                                                                    []bookmarkListItem
 	PageLinks                                                                                                                                                                                                                                []listPageLink
-	Tags                                                                                                                                                                                                                                     []listTag
+	SelectedTags                                                                                                                                                                                                                             []listTag
+	TagGroups                                                                                                                                                                                                                                []listTagGroup
 	Bundles                                                                                                                                                                                                                                  []listBundle
 	Global                                                                                                                                                                                                                                   settings.Global
 	HasSnapshots                                                                                                                                                                                                                             bool
@@ -159,10 +164,8 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		data.Heading = "Archived bookmarks"
 		data.SearchMode = "archived"
 	}
-	returnParams := cloneQuery(r.URL.Query())
-	returnParams.Del("details")
 	data.ReturnURL = path
-	if encoded := returnParams.Encode(); encoded != "" {
+	if encoded := orderedListQuery(r.URL.RawQuery, "", "", "details"); encoded != "" {
 		data.ReturnURL += "?" + encoded
 	}
 	data.Pages = int((total + int64(limit) - 1) / int64(limit))
@@ -186,16 +189,16 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 	data.HasPrevious = page > 1
 	data.HasNext = page < data.Pages
 	if data.HasPrevious {
-		data.PreviousURL = path + "?" + pageQuery(r.URL.Query(), page-1)
+		data.PreviousURL = path + "?" + pageQuery(r.URL.RawQuery, page-1)
 	}
 	if data.HasNext {
-		data.NextURL = path + "?" + pageQuery(r.URL.Query(), page+1)
+		data.NextURL = path + "?" + pageQuery(r.URL.RawQuery, page+1)
 	}
 	for _, number := range visiblePageNumbers(page, data.Pages) {
 		if number == -1 {
 			data.PageLinks = append(data.PageLinks, listPageLink{Ellipsis: true})
 		} else {
-			data.PageLinks = append(data.PageLinks, listPageLink{Number: number, URL: path + "?" + pageQuery(r.URL.Query(), number), Active: number == page})
+			data.PageLinks = append(data.PageLinks, listPageLink{Number: number, URL: path + "?" + pageQuery(r.URL.RawQuery, number), Active: number == page})
 		}
 	}
 	if profile.Get("legacy_search") == "" && data.Query != "" {
@@ -232,10 +235,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		if entry.SnapshotURL == "" {
 			entry.SnapshotURL = "https://web.archive.org/web/" + item.DateAdded.UTC().Format("20060102150405") + "/" + item.URL
 		}
-		detailValues := cloneQuery(r.URL.Query())
-		detailValues.Del("page")
-		detailValues.Set("details", strconv.FormatInt(item.ID, 10))
-		entry.DetailsURL = path + "?" + detailValues.Encode()
+		entry.DetailsURL = path + "?" + orderedListQuery(r.URL.RawQuery, "details", strconv.FormatInt(item.ID, 10), "page")
 		entry.EditURL = cfg.URLPrefix() + "bookmarks/" + strconv.FormatInt(item.ID, 10) + "/edit?return_url=" + djangoURLQuote(data.ReturnURL)
 		if item.FaviconFile != "" {
 			entry.FaviconURL = cfg.URLPrefix() + "static/" + strings.TrimPrefix(item.FaviconFile, "/")
@@ -250,7 +250,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 			}
 		}
 		for _, name := range item.TagNames {
-			entry.Tags = append(entry.Tags, listTag{Name: name, Query: template.URL(withQuery(r.URL.Query(), "q", strings.TrimSpace(data.Query+" #"+name)))})
+			entry.Tags = append(entry.Tags, listTag{Name: name, Query: addedTagQuery(r.URL.RawQuery, data.Query, name, profile.Get("legacy_search") != "")})
 		}
 		data.Items = append(data.Items, entry)
 	}
@@ -261,11 +261,21 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 			return
 		}
 	}
-	data.Tags, err = loadListTags(r, db, cfg, user.ID, shared, archived, values)
+	matchingTagNames, err := repo.ListTagNamesForSearch(r.Context(), user.ID, user.ID != 0, shared, opts)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
+	selectedNames := search.TagNames(data.Query, profile.Get("tag_search") == "lax")
+	var availableTagNames []string
+	if len(selectedNames) > 0 {
+		availableTagNames, err = loadSelectableTagNames(r, db, cfg, user.ID, shared, r.URL.Query().Get("user"))
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+	}
+	data.SelectedTags, data.TagGroups = buildListTagCloud(matchingTagNames, availableTagNames, selectedNames, r.URL.RawQuery, r.URL.Query(), profile)
 	secret := ""
 	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
 		secret = cookie.Value
@@ -293,6 +303,9 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		http.Error(w, "Server error", 500)
 		return
 	}
+	if strings.Contains(string(data.Details), "<ld-details-modal ") {
+		data.PageTitle = "Bookmark details - Linkding"
+	}
 	integrationHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
@@ -300,7 +313,9 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		return
 	}
 	if r.Header.Get("Turbo-Frame") == "details-modal" {
+		_, _ = w.Write([]byte(`<html lang="en"><head><title>` + data.PageTitle + `</title></head><body>`))
 		_, _ = w.Write([]byte(data.Details))
+		_, _ = w.Write([]byte("</body></html>"))
 		return
 	}
 	_ = bookmarkListTemplate.Execute(w, data)
@@ -309,24 +324,42 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 func defaultListProfile() url.Values {
 	return url.Values{"theme": {"auto"}, "items_per_page": {"30"}, "bookmark_link_target": {"_blank"}, "bookmark_description_display": {"inline"}, "bookmark_description_max_lines": {"1"}, "bookmark_date_display": {"relative"}, "tag_grouping": {"alphabetical"}}
 }
-func withQuery(input url.Values, name, value string) string {
-	copy := url.Values{}
-	for key, values := range input {
-		copy[key] = append([]string(nil), values...)
-	}
-	copy.Set(name, value)
-	copy.Del("page")
-	copy.Del("details")
-	return copy.Encode()
+func pageQuery(raw string, page int) string {
+	return orderedListQuery(raw, "page", strconv.Itoa(page), "details")
 }
-func pageQuery(input url.Values, page int) string {
-	copy := url.Values{}
-	for key, values := range input {
-		copy[key] = append([]string(nil), values...)
+
+// Django's QueryDict retains the first occurrence of each key when encoding.
+func orderedListQuery(raw, name, value string, removed ...string) string {
+	values, _ := url.ParseQuery(raw)
+	var keys []string
+	seen := make(map[string]bool)
+	for _, pair := range strings.Split(raw, "&") {
+		if pair == "" {
+			continue
+		}
+		encodedKey, _, _ := strings.Cut(pair, "=")
+		key, err := url.QueryUnescape(encodedKey)
+		if err == nil && !seen[key] {
+			keys = append(keys, key)
+			seen[key] = true
+		}
 	}
-	copy.Set("page", strconv.Itoa(page))
-	copy.Del("details")
-	return copy.Encode()
+	for _, key := range removed {
+		values.Del(key)
+	}
+	if name != "" {
+		values.Set(name, value)
+		if !seen[name] {
+			keys = append(keys, name)
+		}
+	}
+	var pairs []string
+	for _, key := range keys {
+		for _, current := range values[key] {
+			pairs = append(pairs, url.QueryEscape(key)+"="+url.QueryEscape(current))
+		}
+	}
+	return strings.Join(pairs, "&")
 }
 func djangoURLQuote(value string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(url.QueryEscape(value), "%2F", "/"), "+", "%20")
@@ -422,39 +455,4 @@ func loadListBundles(r *http.Request, db *sql.DB, cfg config.Config, userID int6
 		result = append(result, item)
 	}
 	return result, rows.Err()
-}
-func loadListTags(r *http.Request, db *sql.DB, cfg config.Config, userID int64, shared, archived bool, values url.Values) ([]listTag, error) {
-	query := `SELECT DISTINCT t.name FROM bookmarks_tag t JOIN bookmarks_bookmark_tags bt ON bt.tag_id=t.id JOIN bookmarks_bookmark b ON b.id=bt.bookmark_id WHERE `
-	args := []any{}
-	if shared {
-		query += `b.shared = ` + assetMarker(cfg.DBEngine, 1) + ` AND b.owner_id IN (SELECT user_id FROM bookmarks_userprofile WHERE enable_sharing = ` + assetMarker(cfg.DBEngine, 2)
-		args = append(args, true, true)
-		if userID == 0 {
-			query += ` AND enable_public_sharing = ` + assetMarker(cfg.DBEngine, 3)
-			args = append(args, true)
-		}
-		query += `)`
-	} else {
-		query += `b.owner_id = ` + assetMarker(cfg.DBEngine, 1) + ` AND b.is_archived = ` + assetMarker(cfg.DBEngine, 2)
-		args = append(args, userID, archived)
-	}
-	query += ` ORDER BY t.name`
-	rows, err := db.QueryContext(r.Context(), query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var tags []listTag
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, err
-		}
-		tags = append(tags, listTag{Name: name, Query: template.URL(withQuery(values, "q", strings.TrimSpace(values.Get("q")+" #"+name)))})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	sort.Slice(tags, func(i, j int) bool { return strings.ToLower(tags[i].Name) < strings.ToLower(tags[j].Name) })
-	return tags, nil
 }

@@ -69,7 +69,7 @@ func renderBookmarkDetails(r *http.Request, cfg config.Config, db *sql.DB, repo 
 	fragment.Title = item.Title
 	fragment.URL = item.URL
 	fragment.Description = item.Description
-	fragment.DateAdded = item.DateAdded.Format("Jan 2, 2006, 3:04 p.m.")
+	fragment.DateAdded = formatBookmarkDetailsDate(item.DateAdded, r, cfg.TimeZone)
 	fragment.NotesHTML = markdown.Render(item.Notes)
 	fragment.Archived = item.IsArchived
 	fragment.Unread = item.Unread
@@ -104,24 +104,21 @@ func renderBookmarkDetails(r *http.Request, cfg config.Config, db *sql.DB, repo 
 		fragment.WebArchiveURL = "https://web.archive.org/web/" + item.DateAdded.UTC().Format("20060102150405") + "/" + item.URL
 	}
 	values := r.URL.Query()
-	deleteValues := cloneQuery(values)
-	deleteValues.Del("details")
-	closeValues := cloneQuery(deleteValues)
-	actionValues := cloneQuery(values)
-	actionValues.Set("details", strconv.FormatInt(id, 10))
+	closeQuery := orderedListQuery(r.URL.RawQuery, "", "", "details")
+	detailsQuery := orderedListQuery(r.URL.RawQuery, "details", strconv.FormatInt(id, 10))
 	base := r.URL.Path
 	fragment.CloseURL = base
-	if encoded := closeValues.Encode(); encoded != "" {
-		fragment.CloseURL += "?" + encoded
+	if closeQuery != "" {
+		fragment.CloseURL += "?" + closeQuery
 	}
-	fragment.ActionURL = base + "/action?" + actionValues.Encode()
+	fragment.ActionURL = base + "/action?" + detailsQuery
 	fragment.DeleteURL = base + "/action"
-	if encoded := deleteValues.Encode(); encoded != "" {
-		fragment.DeleteURL += "?" + encoded
+	if closeQuery != "" {
+		fragment.DeleteURL += "?" + closeQuery
 	}
-	fragment.EditURL = cfg.URLPrefix() + "bookmarks/" + strconv.FormatInt(id, 10) + "/edit?return_url=" + url.QueryEscape(base+"?"+actionValues.Encode())
+	fragment.EditURL = cfg.URLPrefix() + "bookmarks/" + strconv.FormatInt(id, 10) + "/edit?return_url=" + djangoURLQuote(base+"?"+detailsQuery)
 	for _, name := range item.TagNames {
-		fragment.Tags = append(fragment.Tags, listTag{Name: name, Query: template.URL(withQuery(values, "q", strings.TrimSpace(values.Get("q")+" #"+name)))})
+		fragment.Tags = append(fragment.Tags, listTag{Name: name, Query: addedTagQuery(r.URL.RawQuery, values.Get("q"), name, profile.Get("legacy_search") != "")})
 	}
 	query = `SELECT id,bookmark_id,date_created,file_size,asset_type,content_type,display_name,status,file,gzip FROM bookmarks_bookmarkasset WHERE bookmark_id = ` + assetMarker(cfg.DBEngine, 1) + ` ORDER BY id`
 	rows, err := db.QueryContext(r.Context(), query, id)

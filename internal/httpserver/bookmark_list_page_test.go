@@ -78,7 +78,7 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 		t.Fatalf("page beyond last must show the last page: %d %q", beyondLast.Code, beyondLast.Body.String())
 	}
 	ownerDetails := get("/bookmarks?details="+strconv.FormatInt(first.ID, 10), true)
-	if ownerDetails.Code != 200 || !strings.Contains(ownerDetails.Body.String(), `class="modal active bookmark-details"`) || !strings.Contains(ownerDetails.Body.String(), `name="update_state"`) {
+	if ownerDetails.Code != 200 || !strings.Contains(ownerDetails.Body.String(), `<title>Bookmark details - Linkding</title>`) || !strings.Contains(ownerDetails.Body.String(), `class="modal active bookmark-details"`) || !strings.Contains(ownerDetails.Body.String(), `name="update_state"`) {
 		t.Fatalf("owner details: %d %q", ownerDetails.Code, ownerDetails.Body.String())
 	}
 	frameRequest := httptest.NewRequest(http.MethodGet, "/bookmarks?details="+strconv.FormatInt(first.ID, 10), nil)
@@ -86,7 +86,7 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	frameRequest.Header.Set("Turbo-Frame", "details-modal")
 	frame := httptest.NewRecorder()
 	handler.ServeHTTP(frame, frameRequest)
-	if frame.Code != 200 || !strings.HasPrefix(frame.Body.String(), `<turbo-frame id="details-modal"`) || strings.Contains(frame.Body.String(), "<html") {
+	if frame.Code != 200 || !strings.HasPrefix(frame.Body.String(), `<html lang="en">`) || !strings.Contains(frame.Body.String(), `<title>Bookmark details - Linkding</title>`) || !strings.Contains(frame.Body.String(), `<turbo-frame id="details-modal"`) {
 		t.Fatalf("details frame: %d %q", frame.Code, frame.Body.String())
 	}
 	archived := get("/bookmarks/archived", true)
@@ -101,7 +101,7 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	if guestDetails.Code != 200 || !strings.Contains(guestDetails.Body.String(), `class="modal active bookmark-details"`) || strings.Contains(guestDetails.Body.String(), `name="is_archived"`) {
 		t.Fatalf("guest shared details: %d %q", guestDetails.Code, guestDetails.Body.String())
 	}
-	if !strings.Contains(guestDetails.Body.String(), `href="/bookmarks/?q=%23Go"`) {
+	if !strings.Contains(guestDetails.Body.String(), `href="/bookmarks?q=%23Go"`) {
 		t.Fatalf("details tag link is not navigable: %q", guestDetails.Body.String())
 	}
 	privateDetails := get("/bookmarks/shared?details="+strconv.FormatInt(second.ID, 10), false)

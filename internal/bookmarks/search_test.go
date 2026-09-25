@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -71,6 +72,29 @@ func TestListFilteredSearchGrammarAndFilters(t *testing.T) {
 				if _, _, err := repo.CreateOrUpdateData(ctx, user.ID, input); err != nil {
 					t.Fatal(err)
 				}
+			}
+			tagNames, err := repo.ListTagNamesForSearch(ctx, user.ID, true, false, ListOptions{Query: "#coding", Limit: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			slices.Sort(tagNames)
+			if !slices.Equal(tagNames, []string{"coding", "systems"}) {
+				t.Fatalf("tag cloud must include all matching bookmarks before pagination: %v", tagNames)
+			}
+			tagNames, err = repo.ListTagNamesForSearch(ctx, user.ID, true, false, ListOptions{Query: "Go", Limit: 1})
+			if err != nil || !slices.Equal(tagNames, []string{"coding"}) {
+				t.Fatalf("tag cloud must follow search filters: %v, %v", tagNames, err)
+			}
+			if _, err := db.ExecContext(ctx, "UPDATE bookmarks_userprofile SET enable_sharing = "+repo.marker(1)+", enable_public_sharing = "+repo.marker(2)+" WHERE user_id = "+repo.marker(3), true, true, user.ID); err != nil {
+				t.Fatal(err)
+			}
+			tagNames, err = repo.ListTagNamesForSearch(ctx, 0, false, true, ListOptions{User: user.Username})
+			if err != nil || !slices.Equal(tagNames, []string{"coding"}) {
+				t.Fatalf("public shared tag cloud: %v, %v", tagNames, err)
+			}
+			tagNames, err = repo.ListTagNamesForSearch(ctx, 0, false, true, ListOptions{User: "missing"})
+			if err != nil || !slices.Equal(tagNames, []string{"coding"}) {
+				t.Fatalf("unknown shared owner must fall back to all public shares: %v, %v", tagNames, err)
 			}
 			assertTitles := func(opts ListOptions, want ...string) {
 				t.Helper()
