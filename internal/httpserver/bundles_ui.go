@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/bookmarks"
 	"github.com/juev/linkding/internal/config"
+	"github.com/juev/linkding/internal/markdown"
 	"github.com/juev/linkding/internal/settings"
 )
 
@@ -22,8 +24,10 @@ var bundlesPageTemplate = template.Must(template.ParseFS(bundlesUIFiles, "bundle
 var bundlesPreviewTemplate = template.Must(template.ParseFS(bundlesUIFiles, "bundles_preview.html"))
 
 type bundlePreviewRow struct {
-	URL, Title, Description string
-	Tags                    []string
+	ID                                                                      int64
+	URL, Title, Description, Date, SnapshotURL, FaviconURL, PreviewURL, CSS string
+	NotesHTML                                                               template.HTML
+	Tags                                                                    []listTag
 }
 type bundlePageData struct {
 	Prefix, Theme, CustomCSSHash, CSRFToken, PageTitle, Heading, Action, Flash, NameError string
@@ -34,8 +38,12 @@ type bundlePageData struct {
 	ToastHTML                                                                             template.HTML
 }
 type bundlePreviewData struct {
-	Count int64
-	Items []bundlePreviewRow
+	Count                                                                                  int64
+	Page, DescriptionMaxLines                                                              int
+	Prefix, LinkTarget, DescriptionDisplay, PreviousURL, NextURL                           string
+	ShowURL, ShowFavicons, ShowPreviews, ShowNotes, StickyPagination, HasPrevious, HasNext bool
+	Items                                                                                  []bundlePreviewRow
+	PageLinks                                                                              []listPageLink
 }
 
 func serveBundlesUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
@@ -55,7 +63,7 @@ func serveBundlesUI(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	case root + "/action":
 		serveBundlesActionUI(w, r, cfg, db, user)
 	case root + "/preview":
-		serveBundlesPreviewUI(w, r, cfg, repo, user)
+		serveBundlesPreviewUI(w, r, cfg, db, repo, user)
 	default:
 		serveBundleEditorUI(w, r, cfg, db, repo, user)
 	}
@@ -337,7 +345,7 @@ func serveBundleEditorUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		}
 		status = 422
 	}
-	data.Preview, err = renderBundlePreviewUI(r, repo, user.ID, data.Form, 30, 0)
+	data.Preview, err = renderBundlePreviewUI(r, cfg, db, repo, user.ID, data.Form)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
@@ -365,7 +373,7 @@ func validateBundleFormUI(bundle apiBundle) string {
 	return ""
 }
 
-func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Config, repo *bookmarks.Repository, user auth.User) {
+func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, repo *bookmarks.Repository, user auth.User) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", 405)
 		return
@@ -386,8 +394,7 @@ func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Co
 		values = r.PostForm
 	}
 	bundle := apiBundle{Search: values.Get("search"), AnyTags: values.Get("any_tags"), AllTags: values.Get("all_tags"), ExcludedTags: values.Get("excluded_tags"), FilterUnread: values.Get("filter_unread"), FilterShared: values.Get("filter_shared")}
-	page := positiveIntOr(values.Get("page"), 1)
-	fragment, err := renderBundlePreviewUI(r, repo, user.ID, bundle, 30, (page-1)*30)
+	fragment, err := renderBundlePreviewUI(r, cfg, db, repo, user.ID, bundle)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
@@ -397,19 +404,75 @@ func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Co
 	_, _ = w.Write([]byte(fragment))
 }
 
-func renderBundlePreviewUI(r *http.Request, repo *bookmarks.Repository, ownerID int64, bundle apiBundle, limit, offset int) (template.HTML, error) {
-	filter := bookmarks.PreviewBundle{Search: bundle.Search, AnyTags: bundle.AnyTags, AllTags: bundle.AllTags, ExcludedTags: bundle.ExcludedTags, FilterUnread: bundle.FilterUnread, FilterShared: bundle.FilterShared}
-	items, count, err := repo.ListBundlePreview(r.Context(), ownerID, filter, bookmarks.ListOptions{Limit: limit, Offset: offset})
+func renderBundlePreviewUI(r *http.Request, cfg config.Config, db *sql.DB, repo *bookmarks.Repository, ownerID int64, bundle apiBundle) (template.HTML, error) {
+	profile, err := settings.LoadProfileForm(r.Context(), db, cfg.DBEngine, ownerID)
 	if err != nil {
 		return "", err
 	}
-	data := bundlePreviewData{Count: count}
+	limit := positiveIntOr(profile.Get("items_per_page"), 30)
+	page := positiveIntOr(r.URL.Query().Get("page"), 1)
+	filter := bookmarks.PreviewBundle{Search: bundle.Search, AnyTags: bundle.AnyTags, AllTags: bundle.AllTags, ExcludedTags: bundle.ExcludedTags, FilterUnread: bundle.FilterUnread, FilterShared: bundle.FilterShared}
+	items, count, err := repo.ListBundlePreview(r.Context(), ownerID, filter, bookmarks.ListOptions{Limit: limit, Offset: (page - 1) * limit})
+	if err != nil {
+		return "", err
+	}
+	pages := max(1, (int(count)+limit-1)/limit)
+	if page > pages {
+		page = pages
+		items, _, err = repo.ListBundlePreview(r.Context(), ownerID, filter, bookmarks.ListOptions{Limit: limit, Offset: (page - 1) * limit})
+		if err != nil {
+			return "", err
+		}
+	}
+	data := bundlePreviewData{Count: count, Page: page, Prefix: cfg.URLPrefix(), LinkTarget: profile.Get("bookmark_link_target"), DescriptionDisplay: profile.Get("bookmark_description_display"), DescriptionMaxLines: positiveIntOr(profile.Get("bookmark_description_max_lines"), 1), ShowURL: profile.Get("display_url") != "", ShowFavicons: profile.Get("enable_favicons") != "", ShowPreviews: profile.Get("enable_preview_images") != "", ShowNotes: profile.Get("permanent_notes") != "", StickyPagination: profile.Get("sticky_pagination") != "", HasPrevious: page > 1, HasNext: page < pages}
+	if data.HasPrevious {
+		data.PreviousURL = r.URL.Path + "?" + pageQuery(r.URL.RawQuery, page-1)
+	}
+	if data.HasNext {
+		data.NextURL = r.URL.Path + "?" + pageQuery(r.URL.RawQuery, page+1)
+	}
+	for _, number := range visiblePageNumbers(page, pages) {
+		if number == -1 {
+			data.PageLinks = append(data.PageLinks, listPageLink{Ellipsis: true})
+		} else {
+			data.PageLinks = append(data.PageLinks, listPageLink{Number: number, URL: r.URL.Path + "?" + pageQuery(r.URL.RawQuery, number), Active: number == page})
+		}
+	}
 	for _, item := range items {
 		title := item.Title
 		if title == "" {
 			title = item.URL
 		}
-		data.Items = append(data.Items, bundlePreviewRow{URL: item.URL, Title: title, Description: item.Description, Tags: item.TagNames})
+		row := bundlePreviewRow{ID: item.ID, URL: item.URL, Title: title, Description: item.Description, NotesHTML: markdown.Render(item.Notes), SnapshotURL: item.WebArchiveSnapshotURL}
+		if row.SnapshotURL == "" {
+			row.SnapshotURL = "https://web.archive.org/web/" + item.DateAdded.UTC().Format("20060102150405") + "/" + item.URL
+		}
+		switch profile.Get("bookmark_date_display") {
+		case "hidden":
+		case "absolute":
+			row.Date = absoluteBookmarkDate(item.DateAdded, time.Now())
+		default:
+			row.Date = relativeBookmarkDate(item.DateAdded, time.Now())
+		}
+		if item.Unread {
+			row.CSS = "unread"
+		}
+		if item.Shared {
+			if row.CSS != "" {
+				row.CSS += " "
+			}
+			row.CSS += "shared"
+		}
+		if item.FaviconFile != "" {
+			row.FaviconURL = cfg.URLPrefix() + "static/" + strings.TrimPrefix(item.FaviconFile, "/")
+		}
+		if item.PreviewImageFile != "" {
+			row.PreviewURL = cfg.URLPrefix() + "static/" + strings.TrimPrefix(item.PreviewImageFile, "/")
+		}
+		for _, name := range item.TagNames {
+			row.Tags = append(row.Tags, listTag{Name: name, Query: addedTagQuery(r.URL.RawQuery, r.URL.Query().Get("q"), name, profile.Get("legacy_search") != "")})
+		}
+		data.Items = append(data.Items, row)
 	}
 	var output bytes.Buffer
 	if err := bundlesPreviewTemplate.Execute(&output, data); err != nil {

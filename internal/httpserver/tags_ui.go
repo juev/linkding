@@ -36,6 +36,7 @@ type tagsPageData struct {
 	CustomCSS, EnableSharing, IsSuperuser, UnusedOnly, HasPrevious, HasNext, Filtered  bool
 	Total, FilterCount                                                                 int
 	Rows                                                                               []tagUIRow
+	PageLinks                                                                          []listPageLink
 	ToastHTML                                                                          template.HTML
 }
 
@@ -155,10 +156,7 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			continue
 		}
 		item.URL = cfg.URLPrefix() + "bookmarks?q=" + url.QueryEscape("#"+item.Name)
-		item.EditURL = cfg.URLPrefix() + "tags/" + strconv.FormatInt(item.ID, 10) + "/edit"
-		if r.URL.RawQuery != "" {
-			item.EditURL += "?" + r.URL.RawQuery
-		}
+		item.EditURL = cfg.URLPrefix() + "tags/" + strconv.FormatInt(item.ID, 10) + "/edit?" + r.URL.RawQuery
 		filtered = append(filtered, item)
 	}
 	data.FilterCount = len(filtered)
@@ -200,11 +198,18 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	data.Rows = filtered[start:end]
 	if page > 1 {
 		data.HasPrevious = true
-		data.PreviousURL = pageURLWithQuery(r.URL.Query(), cfg.URLPrefix()+"tags", page-1)
+		data.PreviousURL = cfg.URLPrefix() + "tags?" + pageQuery(r.URL.RawQuery, page-1)
 	}
 	if page < pages {
 		data.HasNext = true
-		data.NextURL = pageURLWithQuery(r.URL.Query(), cfg.URLPrefix()+"tags", page+1)
+		data.NextURL = cfg.URLPrefix() + "tags?" + pageQuery(r.URL.RawQuery, page+1)
+	}
+	for _, number := range visiblePageNumbers(page, pages) {
+		if number == -1 {
+			data.PageLinks = append(data.PageLinks, listPageLink{Ellipsis: true})
+		} else {
+			data.PageLinks = append(data.PageLinks, listPageLink{Number: number, URL: cfg.URLPrefix() + "tags?" + pageQuery(r.URL.RawQuery, number), Active: number == page})
+		}
 	}
 	data.ToastHTML, err = renderPageToasts(r.Context(), db, cfg, user.ID, data.CSRFToken, r.URL.Path)
 	if err != nil {
@@ -220,12 +225,6 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	if err := tagsPageTemplate.Execute(w, data); err != nil {
 		return
 	}
-}
-
-func pageURLWithQuery(values url.Values, path string, page int) string {
-	query := cloneQuery(values)
-	query.Set("page", strconv.Itoa(page))
-	return path + "?" + query.Encode()
 }
 
 func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User) {

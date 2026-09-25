@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -73,6 +74,12 @@ func TestTagsUIOwnerCreateRenameMergeDelete(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT id FROM bookmarks_tag WHERE owner_id=? AND name='hello-world'`, alice.ID).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
+	if got := request(http.MethodGet, "/tags", nil); got.Code != 200 ||
+		!strings.Contains(got.Body.String(), `/tags/`+strconv.FormatInt(id, 10)+`/edit?`) ||
+		!strings.Contains(got.Body.String(), `<ul class="pagination">`) ||
+		!strings.Contains(got.Body.String(), `href="/tags?page=1"`) {
+		t.Fatalf("single-page tag links: %d %q", got.Code, got.Body.String())
+	}
 	if got := request(http.MethodPost, "/tags/new", url.Values{"name": {"HELLO WORLD"}}); got.Code != 200 || !strings.Contains(got.Body.String(), "already exists") {
 		t.Fatalf("duplicate: %d %q", got.Code, got.Body.String())
 	}
@@ -119,5 +126,59 @@ func TestTagsUIOwnerCreateRenameMergeDelete(t *testing.T) {
 	}
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM bookmarks_tag WHERE id=?`, foreignID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("foreign tag changed: %d %v", count, err)
+	}
+}
+
+func TestTagsUIPaginationPreservesFilters(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), DisableBackgroundTasks: true}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	users := auth.NewRepository(db, "sqlite")
+	user, err := users.CreateUser(ctx, auth.NewUser{Username: "tag-pages", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := users.CreateSession(ctx, user.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 52)
+	for i := range names {
+		names[i] = "tag-" + fmt.Sprintf("%02d", i)
+	}
+	repo := bookmarks.NewRepository(db, "sqlite")
+	if _, _, err := repo.CreateOrUpdateData(ctx, user.ID, bookmarks.CreateInput{URL: "https://tags.example/pages", TagNames: names}); err != nil {
+		t.Fatal(err)
+	}
+	handler := New(db, cfg, t.TempDir())
+	page := func(rawQuery string) string {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodGet, "/tags?"+rawQuery, nil)
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("tags page status = %d", w.Code)
+		}
+		return w.Body.String()
+	}
+	first := page("sort=name-desc&search=tag&page=1")
+	if !strings.Contains(first, `href="/tags?sort=name-desc&amp;search=tag&amp;page=2"`) ||
+		!strings.Contains(first, `class="page-item active"><a href="/tags?sort=name-desc&amp;search=tag&amp;page=1"`) ||
+		!strings.Contains(first, `tag-51`) {
+		t.Fatal("first page lacks filtered pagination or descending tags")
+	}
+	second := page("sort=name-desc&search=tag&page=2")
+	if !strings.Contains(second, `href="/tags?sort=name-desc&amp;search=tag&amp;page=1"`) ||
+		!strings.Contains(second, `tag-00`) || strings.Contains(second, `tag-51`) ||
+		!strings.Contains(second, `<li class="page-item disabled"><a href="#" tabindex="-1">Next</a></li>`) {
+		t.Fatal("second page lacks filtered previous link, final tags, or disabled next link")
 	}
 }

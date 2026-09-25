@@ -141,3 +141,59 @@ func TestBundlesUIEditorPreviewMoveAndOwner(t *testing.T) {
 		t.Fatalf("order after delete: %d %v", firstOrder, err)
 	}
 }
+
+func TestBundlePreviewUsesProfilePageSizeAndBookmarkLinks(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), DisableBackgroundTasks: true}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	users := auth.NewRepository(db, "sqlite")
+	user, err := users.CreateUser(ctx, auth.NewUser{Username: "preview", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE bookmarks_userprofile SET items_per_page=10 WHERE user_id=?`, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	repo := bookmarks.NewRepository(db, "sqlite")
+	for i := 0; i < 11; i++ {
+		if _, _, err := repo.CreateOrUpdateData(ctx, user.ID, bookmarks.CreateInput{URL: "https://preview.example/" + strconv.Itoa(i), Title: "Preview " + strconv.Itoa(i), TagNames: []string{"preview"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session, err := users.CreateSession(ctx, user.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := New(db, cfg, t.TempDir())
+	page := func(path string) string {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: status %d", path, w.Code)
+		}
+		return w.Body.String()
+	}
+	first := page("/bundles/new")
+	if strings.Count(first, `data-bookmark-id=`) != 10 ||
+		!strings.Contains(first, `href="?q=%23preview"`) ||
+		!strings.Contains(first, `https://web.archive.org/web/`) ||
+		!strings.Contains(first, `href="/bundles/new?page=2"`) {
+		t.Fatal("first preview page lacks profile-sized rows, tag or snapshot links, or next page")
+	}
+	second := page("/bundles/new?page=2")
+	if strings.Count(second, `data-bookmark-id=`) != 1 ||
+		!strings.Contains(second, `href="/bundles/new?page=1"`) ||
+		!strings.Contains(second, `<li class="page-item disabled"><a href="#" tabindex="-1">Next</a></li>`) {
+		t.Fatal("second preview page lacks final row or pagination controls")
+	}
+}

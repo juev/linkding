@@ -1,1 +1,25 @@
-<turbo-frame id="preview">{{if eq .Count 0}}<div>No bookmarks match the current bundle.</div>{{else}}<div class="mb-4">Found {{.Count}} bookmarks matching this bundle.</div><section aria-label="Bookmark list"><ul class="bookmark-list" role="list">{{range .Items}}<li role="listitem"><div class="content"><div class="title"><a href="{{.URL}}" target="_blank" rel="noopener"><span>{{.Title}}</span></a></div>{{if .Description}}<div class="description inline truncate">{{.Description}}</div>{{end}}{{if .Tags}}<div class="tags">{{range .Tags}}<span>{{.}}</span> {{end}}</div>{{end}}</div></li>{{end}}</ul></section>{{end}}</turbo-frame>
+<turbo-frame id="preview">
+{{if eq .Count 0}}<div>No bookmarks match the current bundle.</div>{{else}}
+<div class="mb-4">Found {{.Count}} bookmarks matching this bundle.</div>
+<section aria-label="Bookmark list">
+  <ul class="bookmark-list{{if .ShowNotes}} show-notes{{end}}" role="list" tabindex="-1" style="--ld-bookmark-description-max-lines:{{.DescriptionMaxLines}}" data-bookmarks-total="{{.Count}}">
+    {{range .Items}}<li data-bookmark-id="{{.ID}}" role="listitem"{{if .CSS}} class="{{.CSS}}"{{end}}>
+      <div class="content">
+        <div class="title">{{if and $.ShowFavicons .FaviconURL}}<img class="favicon" src="{{.FaviconURL}}" alt="">{{end}}<a href="{{.URL}}" target="{{$.LinkTarget}}" rel="noopener"><span>{{.Title}}</span></a></div>
+        {{if $.ShowURL}}<div class="url-path truncate"><a href="{{.URL}}" target="{{$.LinkTarget}}" rel="noopener" class="url-display">{{.URL}}</a></div>{{end}}
+        {{if eq $.DescriptionDisplay "inline"}}<div class="description inline truncate">{{if .Tags}}<span class="tags">{{range .Tags}}<a href="?{{.Query}}">{{.Name}}</a>{{end}}</span>{{end}}{{if and .Tags .Description}}|{{end}}{{if .Description}}<span>{{.Description}}</span>{{end}}</div>
+        {{else}}{{if .Description}}<div class="description separate">{{.Description}}</div>{{end}}{{if .Tags}}<div class="tags">{{range .Tags}}<a href="?{{.Query}}">{{.Name}}</a>{{end}}</div>{{end}}{{end}}
+        {{if .NotesHTML}}<div class="notes"><div class="markdown">{{.NotesHTML}}</div></div>{{end}}
+        <div class="actions">{{if .Date}}<a href="{{.SnapshotURL}}" title="View snapshot on the Internet Archive Wayback Machine" target="{{$.LinkTarget}}" rel="noopener">{{.Date}}</a>{{end}}</div>
+      </div>
+      {{if $.ShowPreviews}}{{if .PreviewURL}}<img class="preview-image" src="{{.PreviewURL}}" alt="" loading="lazy">{{else}}<div class="preview-image placeholder"><div class="img"></div></div>{{end}}{{end}}
+    </li>{{end}}
+  </ul>
+  <div class="bookmark-pagination{{if .StickyPagination}} sticky{{end}}"><ul class="pagination">
+    {{if .HasPrevious}}<li class="page-item"><a href="{{.PreviousURL}}" tabindex="-1" data-turbo-frame="preview">Previous</a></li>{{else}}<li class="page-item disabled"><a href="#" tabindex="-1">Previous</a></li>{{end}}
+    {{range .PageLinks}}{{if .Ellipsis}}<li class="page-item"><span>...</span></li>{{else}}<li class="page-item {{if .Active}}active{{end}}"><a href="{{.URL}}" data-turbo-frame="preview">{{.Number}}</a></li>{{end}}{{end}}
+    {{if .HasNext}}<li class="page-item"><a href="{{.NextURL}}" tabindex="-1" data-turbo-frame="preview">Next</a></li>{{else}}<li class="page-item disabled"><a href="#" tabindex="-1">Next</a></li>{{end}}
+  </ul></div>
+</section>{{end}}
+<script>document.dispatchEvent(new CustomEvent('bookmark-list-updated'));</script>
+</turbo-frame>
