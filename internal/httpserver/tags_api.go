@@ -135,7 +135,7 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		query := `SELECT id, name, date_added FROM bookmarks_tag WHERE id = ` + assetMarker(cfg.DBEngine, 1) + ` AND owner_id = ` + assetMarker(cfg.DBEngine, 2)
 		tag, err := scanTag(db.QueryRowContext(r.Context(), query, id, user.ID))
 		if errors.Is(err, sql.ErrNoRows) {
-			writeDetail(w, http.StatusNotFound, "Not found.")
+			writeDetail(w, http.StatusNotFound, "No Tag matches the given query.")
 			return
 		}
 		if err != nil {

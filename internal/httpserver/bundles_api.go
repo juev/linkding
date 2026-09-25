@@ -159,7 +159,7 @@ func serveBundlesAPI(w http.ResponseWriter, r *http.Request, root string, cfg co
 	if !list && (r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete) {
 		bundle, err := getBundle(r, cfg, db, user.ID, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			writeDetail(w, http.StatusNotFound, "Not found.")
+			writeDetail(w, http.StatusNotFound, "No BookmarkBundle matches the given query.")
 			return
 		}
 		if err != nil {

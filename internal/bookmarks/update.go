@@ -19,6 +19,8 @@ type UpdateInput struct {
 	IsArchived  *bool
 	TagNames    *[]string
 	DateAdded   *time.Time
+	// The REST serializer compares URL strings; the UI form uses query_existing.
+	ExactURLDuplicateCheck bool
 }
 
 func (r *Repository) UpdateData(ctx context.Context, ownerID, id int64, input UpdateInput) (Bookmark, error) {
@@ -41,11 +43,19 @@ func (r *Repository) UpdateData(ctx context.Context, ownerID, id int64, input Up
 	originalURL := url
 	if input.URL != nil {
 		url = *input.URL
-		query = `SELECT EXISTS(SELECT 1 FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
-			` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) +
-			`)) AND id <> ` + r.marker(4) + `)`
 		var duplicate bool
-		if err := tx.QueryRowContext(ctx, query, ownerID, NormalizeURL(url), url, id).Scan(&duplicate); err != nil {
+		var args []any
+		if input.ExactURLDuplicateCheck {
+			query = `SELECT EXISTS(SELECT 1 FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
+				` AND url = ` + r.marker(2) + ` AND id <> ` + r.marker(3) + `)`
+			args = []any{ownerID, url, id}
+		} else {
+			query = `SELECT EXISTS(SELECT 1 FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
+				` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) +
+				`)) AND id <> ` + r.marker(4) + `)`
+			args = []any{ownerID, NormalizeURL(url), url, id}
+		}
+		if err := tx.QueryRowContext(ctx, query, args...).Scan(&duplicate); err != nil {
 			return Bookmark{}, err
 		}
 		if duplicate {

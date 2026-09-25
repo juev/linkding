@@ -60,7 +60,7 @@ func serveBookmarkUpdate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	item, err := repo.UpdateData(r.Context(), user.ID, id, bookmarks.UpdateInput{
 		URL: input.URL, Title: input.Title, Description: input.Description, Notes: input.Notes,
 		Unread: input.Unread, Shared: input.Shared, IsArchived: input.IsArchived,
-		TagNames: input.TagNames, DateAdded: input.DateAdded,
+		TagNames: input.TagNames, DateAdded: input.DateAdded, ExactURLDuplicateCheck: true,
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		writeDetail(w, http.StatusNotFound, "No Bookmark matches the given query.")

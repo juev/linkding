@@ -66,13 +66,17 @@ func ownedBookmarkExists(r *http.Request, db *sql.DB, engine string, ownerID, bo
 }
 
 func serveBookmarkAssets(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, bookmarkID int64, path string, tokenAuth bool) {
+	if path == "upload" && r.Method != http.MethodPost {
+		writeDetail(w, http.StatusMethodNotAllowed, "Method \""+r.Method+"\" not allowed.")
+		return
+	}
 	exists, err := ownedBookmarkExists(r, db, cfg.DBEngine, user.ID, bookmarkID)
 	if err != nil {
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
 	if !exists {
-		writeDetail(w, http.StatusNotFound, "No Bookmark matches the given query.")
+		writeDetail(w, http.StatusNotFound, "Bookmark does not exist")
 		return
 	}
 	if path == "upload" {
@@ -102,7 +106,7 @@ func serveBookmarkAssets(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		` AND bookmark_id = ` + assetMarker(cfg.DBEngine, 2)
 	asset, err := scanAsset(db.QueryRowContext(r.Context(), query, assetID, bookmarkID))
 	if errors.Is(err, sql.ErrNoRows) {
-		writeDetail(w, http.StatusNotFound, "Not found.")
+		writeDetail(w, http.StatusNotFound, "No BookmarkAsset matches the given query.")
 		return
 	}
 	if err != nil {
