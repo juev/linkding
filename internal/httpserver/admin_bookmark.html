@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <title>{{.Title}} | linkding Admin</title>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
+  <script src="{{.Prefix}}static/admin/js/theme.js"></script>
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/forms.css">
+  <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="NONE,NOARCHIVE">
+</head>
+<body class="app-bookmarks model-bookmark change-form">
+<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<div id="container">
+  <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">Welcome, <strong>{{.Username}}</strong>. <a href="{{.Prefix}}">View site</a></div></header>
+  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.ListURL}}">Bookmarks</a> &rsaquo; {{.Title}}</div></nav>
+  <div class="main" id="main"><main id="content-start" class="content"><div id="content" class="colM">
+    <h1>{{.Title}}</h1>
+    {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
+    {{if .ConfirmDelete}}
+      <p>Are you sure you want to delete the bookmark “{{if .BookmarkTitle}}{{.BookmarkTitle}}{{else}}{{.URL}}{{end}}”?</p>
+      <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="post" value="yes"><div class="submit-row"><input type="submit" value="Yes, I’m sure"><a href="{{.ListURL}}" class="button cancel-link">No, take me back</a></div></form>
+    {{else}}
+      <form method="post" action="{{.Action}}" id="bookmark_form" novalidate>
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+        <fieldset class="module aligned">
+          <div class="form-row"><label class="required" for="id_url">URL:</label><input type="text" name="url" value="{{.URL}}" maxlength="2048" required id="id_url"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_url_normalized">URL normalized:</label><input type="text" name="url_normalized" value="{{.URLNormalized}}" maxlength="2048" id="id_url_normalized"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_title">Title:</label><input type="text" name="title" value="{{.BookmarkTitle}}" maxlength="512" id="id_title"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_description">Description:</label><textarea name="description" id="id_description"{{if not .CanChange}} readonly{{end}}>{{.Description}}</textarea></div>
+          <div class="form-row"><label for="id_notes">Notes:</label><textarea name="notes" id="id_notes"{{if not .CanChange}} readonly{{end}}>{{.Notes}}</textarea></div>
+          <div class="form-row"><label for="id_website_title">Website title:</label><input type="text" name="website_title" value="{{.WebsiteTitle}}" maxlength="512" id="id_website_title"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_website_description">Website description:</label><textarea name="website_description" id="id_website_description"{{if not .CanChange}} readonly{{end}}>{{.WebsiteDescription}}</textarea></div>
+          <div class="form-row"><label for="id_web_archive_snapshot_url">Web archive snapshot URL:</label><input type="text" name="web_archive_snapshot_url" value="{{.WebArchiveURL}}" maxlength="2048" id="id_web_archive_snapshot_url"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_favicon_file">Favicon file:</label><input type="text" name="favicon_file" value="{{.FaviconFile}}" maxlength="512" id="id_favicon_file"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_preview_image_file">Preview image file:</label><input type="text" name="preview_image_file" value="{{.PreviewImageFile}}" maxlength="512" id="id_preview_image_file"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_unread">Unread:</label><input type="checkbox" name="unread" id="id_unread"{{if .Unread}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label for="id_is_archived">Is archived:</label><input type="checkbox" name="is_archived" id="id_is_archived"{{if .Archived}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label for="id_shared">Shared:</label><input type="checkbox" name="shared" id="id_shared"{{if .Shared}} checked{{end}}{{if not .CanChange}} disabled{{end}}></div>
+          <div class="form-row"><label class="required" for="id_date_added_0">Date added:</label><input type="text" class="vDateField" name="date_added_0" value="{{.DateAddedDate}}" required id="id_date_added_0"{{if not .CanChange}} readonly{{end}}> <input type="text" class="vTimeField" name="date_added_1" value="{{.DateAddedTime}}" required id="id_date_added_1"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label class="required" for="id_date_modified_0">Date modified:</label><input type="text" class="vDateField" name="date_modified_0" value="{{.DateModifiedDate}}" required id="id_date_modified_0"{{if not .CanChange}} readonly{{end}}> <input type="text" class="vTimeField" name="date_modified_1" value="{{.DateModifiedTime}}" required id="id_date_modified_1"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_date_accessed_0">Date accessed:</label><input type="text" class="vDateField" name="date_accessed_0" value="{{.DateAccessedDate}}" id="id_date_accessed_0"{{if not .CanChange}} readonly{{end}}> <input type="text" class="vTimeField" name="date_accessed_1" value="{{.DateAccessedTime}}" id="id_date_accessed_1"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label class="required" for="id_owner">Owner:</label><select name="owner" required id="id_owner"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Owners}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Username}}</option>{{end}}</select></div>
+          <div class="form-row"><label class="required" for="id_tags">Tags:</label><select name="tags" multiple required id="id_tags"{{if not .CanChange}} disabled{{end}}>{{range .Tags}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+          <div class="form-row"><label for="id_latest_snapshot">Latest snapshot:</label><select name="latest_snapshot" id="id_latest_snapshot"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Snapshots}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+        </fieldset>
+        {{if or .CanChange .CanDelete}}<div class="submit-row">{{if .CanChange}}<input type="submit" value="Save" class="default">{{end}}{{if and .ID .CanDelete}}<p class="deletelink-box"><a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink">Delete</a></p>{{end}}</div>{{end}}
+      </form>
+    {{end}}
+    <br class="clear">
+  </div></main></div><footer id="footer"></footer>
+</div>
+</body>
+</html>

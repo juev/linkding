@@ -50,7 +50,7 @@ func (r *Repository) DeleteData(ctx context.Context, ownerID, id int64) (Deleted
 	if _, err := tx.ExecContext(ctx, `DELETE FROM bookmarks_bookmark_tags WHERE bookmark_id = `+r.marker(1), id); err != nil {
 		return DeletedFiles{}, fmt.Errorf("delete bookmark tags: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE bookmarks_bookmark SET latest_snapshot_id = NULL WHERE id = `+r.marker(1), id); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE bookmarks_bookmark SET latest_snapshot_id = NULL WHERE latest_snapshot_id IN (SELECT id FROM bookmarks_bookmarkasset WHERE bookmark_id = `+r.marker(1)+`)`, id); err != nil {
 		return DeletedFiles{}, fmt.Errorf("clear latest snapshot: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM bookmarks_bookmarkasset WHERE bookmark_id = `+r.marker(1), id); err != nil {

@@ -117,6 +117,15 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		serveAdminBookmarkAsset(w, r, cfg, db, user, permissions)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, root+"bookmarks/bookmark/") && r.URL.Path != root+"bookmarks/bookmark/" {
+		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "bookmark")
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		serveAdminBookmark(w, r, cfg, db, user, permissions)
+		return
+	}
 	if r.URL.Path == root+"bookmarks/tag/" && r.Method == http.MethodPost {
 		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "tag")
 		if err != nil {
