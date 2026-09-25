@@ -3,6 +3,7 @@ package httpserver
 import (
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"net/http"
@@ -14,16 +15,23 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_tag.html
+//go:embed admin_tag.html admin_sidebar.html
 var adminTagFile embed.FS
-var adminTagTemplate = template.Must(template.ParseFS(adminTagFile, "admin_tag.html"))
+var adminTagTemplate = template.Must(template.ParseFS(adminTagFile, "admin_tag.html", "admin_sidebar.html"))
 
 type adminTagData struct {
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, DateAddedDate, DateAddedTime, Error           string
 	ID, OwnerID                                         int64
 	ConfirmDelete, CanChange, CanDelete                 bool
+	History                                             bool
+	HistoryRows                                         []adminTagHistoryRow
 	Owners                                              []adminOwnerOption
+	DashboardApps                                       []adminDashboardApp
+}
+
+type adminTagHistoryRow struct {
+	Date, Username, Action string
 }
 
 func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, permissions adminPermissions) {
@@ -40,7 +48,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		action = "add"
 	} else {
 		pieces := strings.Split(part, "/")
-		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
+		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete" && pieces[1] != "history") {
 			http.NotFound(w, r)
 			return
 		}
@@ -51,7 +59,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		}
 		id, action = parsed, pieces[1]
 	}
-	if (action == "add" && !permissions.Add) || (action == "change" && !permissions.Change && !permissions.View) || (action == "delete" && !permissions.Delete) {
+	if (action == "add" && !permissions.Add) || ((action == "change" || action == "history") && !permissions.Change && !permissions.View) || (action == "delete" && !permissions.Delete) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -60,7 +68,12 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	data := adminTagData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add tag", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
+	if action == "history" && r.Method == http.MethodPost {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data := adminTagData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add tag", ConfirmDelete: action == "delete", History: action == "history", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
 	if action == "change" {
 		data.Title = "Change tag"
 		if !permissions.Change {
@@ -85,6 +98,34 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		data.DateAddedDate = added.In(location).Format("2006-01-02")
 		data.DateAddedTime = added.In(location).Format("15:04:05")
 		previousAdded = added
+	}
+	if action == "history" {
+		data.Title = "Change history: " + data.Name
+		rows, err := db.QueryContext(r.Context(), `SELECT l.action_time,u.username,l.action_flag,l.change_message FROM django_admin_log AS l JOIN django_content_type AS c ON c.id=l.content_type_id JOIN auth_user AS u ON u.id=l.user_id WHERE c.app_label = `+assetMarker(cfg.DBEngine, 1)+` AND c.model = `+assetMarker(cfg.DBEngine, 2)+` AND l.object_id = `+assetMarker(cfg.DBEngine, 3)+` ORDER BY l.action_time DESC,l.id DESC LIMIT 100`, "bookmarks", "tag", strconv.FormatInt(id, 10))
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		for rows.Next() {
+			var happened time.Time
+			var entry adminTagHistoryRow
+			var flag int
+			var message string
+			if err := rows.Scan(&happened, &entry.Username, &flag, &message); err != nil {
+				rows.Close()
+				http.Error(w, "Server error", 500)
+				return
+			}
+			entry.Date = happened.In(location).Format("Jan. 2, 2006, 3:04 p.m.")
+			entry.Action = adminTagHistoryMessage(flag, message)
+			data.HistoryRows = append(data.HistoryRows, entry)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			http.Error(w, "Server error", 500)
+			return
+		}
+		rows.Close()
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -196,7 +237,13 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + strconv.FormatInt(id, 10) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}
@@ -240,11 +287,35 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		return
 	}
 	rows.Close()
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {
 		_ = adminTagTemplate.Execute(w, data)
 	}
+}
+
+func adminTagHistoryMessage(flag int, message string) string {
+	if flag == 1 {
+		return "Added."
+	}
+	if flag == 3 {
+		return "Deleted."
+	}
+	var changes []struct {
+		Changed struct {
+			Fields []string `json:"fields"`
+		} `json:"changed"`
+	}
+	if json.Unmarshal([]byte(message), &changes) == nil && len(changes) > 0 && len(changes[0].Changed.Fields) > 0 {
+		return "Changed " + strings.Join(changes[0].Changed.Fields, ", ") + "."
+	}
+	return "No fields changed."
 }
 
 func adminTagLocation(timeZone string) (*time.Location, error) {

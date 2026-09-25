@@ -15,12 +15,12 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_feed_token.html
+//go:embed admin_feed_token.html admin_sidebar.html
 var adminFeedTokenFile embed.FS
-
-var adminFeedTokenTemplate = template.Must(template.ParseFS(adminFeedTokenFile, "admin_feed_token.html"))
+var adminFeedTokenTemplate = template.Must(template.ParseFS(adminFeedTokenFile, "admin_feed_token.html", "admin_sidebar.html"))
 
 type adminFeedTokenData struct {
+	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Key, KeyPath, OwnerName, Error                      string
 	OwnerID                                             int64
@@ -260,6 +260,12 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		return
 	}
 	rows.Close()
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

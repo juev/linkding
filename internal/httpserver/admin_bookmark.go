@@ -16,9 +16,9 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_bookmark.html
+//go:embed admin_bookmark.html admin_sidebar.html
 var adminBookmarkFile embed.FS
-var adminBookmarkTemplate = template.Must(template.ParseFS(adminBookmarkFile, "admin_bookmark.html"))
+var adminBookmarkTemplate = template.Must(template.ParseFS(adminBookmarkFile, "admin_bookmark.html", "admin_sidebar.html"))
 
 type adminBookmarkOption struct {
 	ID       int64
@@ -27,6 +27,7 @@ type adminBookmarkOption struct {
 }
 
 type adminBookmarkData struct {
+	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	URL, URLNormalized, BookmarkTitle, Description      string
 	Notes, WebsiteTitle, WebsiteDescription             string
@@ -211,6 +212,12 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		http.Error(w, "Server error", 500)
 		return
 	}
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

@@ -98,6 +98,24 @@ func TestAdminTagCRUDAndPermissions(t *testing.T) {
 	if got := request(http.MethodGet, change, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `value="2020-02-03"`) || !strings.Contains(got.Body.String(), `value="04:05:06"`) {
 		t.Fatalf("change form date display: %d %s", got.Code, got.Body.String())
 	}
+	if got := request(http.MethodGet, change, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `value="Save and add another"`) || !strings.Contains(got.Body.String(), `value="Save and continue editing"`) || !strings.Contains(got.Body.String(), change[:len(change)-len("change/")]+"history/") {
+		t.Fatalf("change form actions: %d %s", got.Code, got.Body.String())
+	}
+	continueForm := url.Values{"name": {"continued"}, "date_added_0": {"2020-02-03"}, "date_added_1": {"04:05:06"}, "owner": {strconv.FormatInt(owner.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_continue": {"Save and continue editing"}}
+	if got := request(http.MethodPost, change, adminSession, continueForm, true); got.Code != 302 || got.Header().Get("Location") != change {
+		t.Fatalf("continue editing redirect: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	addAnotherForm := url.Values{"name": {"another"}, "date_added_0": {"2020-02-03"}, "date_added_1": {"04:05:06"}, "owner": {strconv.FormatInt(owner.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_addanother": {"Save and add another"}}
+	if got := request(http.MethodPost, base+"add/", adminSession, addAnotherForm, true); got.Code != 302 || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("add another redirect: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	history := base + strconv.FormatInt(id, 10) + "/history/"
+	if got := request(http.MethodGet, history, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), "Change history: continued") || !strings.Contains(got.Body.String(), "Added.") || !strings.Contains(got.Body.String(), "Changed Name.") {
+		t.Fatalf("tag history: %d %s", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodPost, history, adminSession, form, true); got.Code != 405 {
+		t.Fatalf("history accepted POST: %d", got.Code)
+	}
 	if got := request(http.MethodGet, base+"999999/change/", adminSession, nil, false); got.Code != 404 {
 		t.Fatalf("missing change object: %d", got.Code)
 	}

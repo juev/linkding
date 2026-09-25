@@ -14,9 +14,9 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_default_delete_selected.html
+//go:embed admin_default_delete_selected.html admin_sidebar.html
 var adminDefaultDeleteSelectedFile embed.FS
-var adminDefaultDeleteSelectedTemplate = template.Must(template.ParseFS(adminDefaultDeleteSelectedFile, "admin_default_delete_selected.html"))
+var adminDefaultDeleteSelectedTemplate = template.Must(template.ParseFS(adminDefaultDeleteSelectedFile, "admin_default_delete_selected.html", "admin_sidebar.html"))
 
 type adminDefaultSelected struct {
 	ID, Repr, File string
@@ -25,6 +25,7 @@ type adminDefaultSelected struct {
 type adminDefaultDeleteSelectedData struct {
 	Prefix, Username, Action, CSRFToken, Model, Plural string
 	Objects                                            []adminDefaultSelected
+	DashboardApps                                      []adminDashboardApp
 }
 
 func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, actor auth.User, definition adminModelDefinition, permissions adminPermissions) {
@@ -91,6 +92,12 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 			Prefix: cfg.URLPrefix(), Username: actor.Username, Action: r.URL.RequestURI(), CSRFToken: r.PostForm.Get("csrfmiddlewaretoken"),
 			Model: definition.Label, Plural: strings.ToLower(definition.Plural), Objects: objects,
 		}
+		models, err := loadAdminModels(r, db, cfg, actor)
+		if err != nil {
+			http.Error(w, "Server error", http.StatusInternalServerError)
+			return
+		}
+		data.DashboardApps = groupAdminDashboardApps(cfg, models)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 		_ = adminDefaultDeleteSelectedTemplate.Execute(w, data)

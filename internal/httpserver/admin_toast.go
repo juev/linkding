@@ -13,9 +13,9 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_toast.html
+//go:embed admin_toast.html admin_sidebar.html
 var adminToastFile embed.FS
-var adminToastTemplate = template.Must(template.ParseFS(adminToastFile, "admin_toast.html"))
+var adminToastTemplate = template.Must(template.ParseFS(adminToastFile, "admin_toast.html", "admin_sidebar.html"))
 
 type adminOwnerOption struct {
 	ID       int64
@@ -24,6 +24,7 @@ type adminOwnerOption struct {
 }
 
 type adminToastData struct {
+	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Key, Message, Error                                 string
 	ID, OwnerID                                         int64
@@ -221,6 +222,12 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		return
 	}
 	rows.Close()
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

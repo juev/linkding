@@ -14,9 +14,9 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_user_delete_selected.html
+//go:embed admin_user_delete_selected.html admin_sidebar.html
 var adminUserDeleteSelectedFile embed.FS
-var adminUserDeleteSelectedTemplate = template.Must(template.ParseFS(adminUserDeleteSelectedFile, "admin_user_delete_selected.html"))
+var adminUserDeleteSelectedTemplate = template.Must(template.ParseFS(adminUserDeleteSelectedFile, "admin_user_delete_selected.html", "admin_sidebar.html"))
 
 type adminUserSelected struct {
 	ID       int64
@@ -26,6 +26,7 @@ type adminUserSelected struct {
 type adminUserDeleteSelectedData struct {
 	Prefix, Username, Action, CSRFToken string
 	Users                               []adminUserSelected
+	DashboardApps                       []adminDashboardApp
 }
 
 func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, actor auth.User, permissions adminPermissions) {
@@ -102,6 +103,12 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 	}
 	if r.PostForm.Get("post") != "yes" {
 		data := adminUserDeleteSelectedData{Prefix: cfg.URLPrefix(), Username: actor.Username, Action: r.URL.RequestURI(), CSRFToken: r.PostForm.Get("csrfmiddlewaretoken"), Users: users}
+		models, err := loadAdminModels(r, db, cfg, actor)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		data.DashboardApps = groupAdminDashboardApps(cfg, models)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 		_ = adminUserDeleteSelectedTemplate.Execute(w, data)

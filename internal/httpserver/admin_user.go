@@ -18,9 +18,9 @@ import (
 	"github.com/juev/linkding/internal/settings"
 )
 
-//go:embed admin_user.html
+//go:embed admin_user.html admin_sidebar.html
 var adminUserFile embed.FS
-var adminUserTemplate = template.Must(template.ParseFS(adminUserFile, "admin_user.html"))
+var adminUserTemplate = template.Must(template.ParseFS(adminUserFile, "admin_user.html", "admin_sidebar.html"))
 
 type adminUserOption struct {
 	ID       int64
@@ -40,6 +40,7 @@ type adminUserData struct {
 	Groups, Permissions                                 []adminUserOption
 	GroupIDs, PermissionIDs                             map[int64]bool
 	Profile                                             adminUserProfileData
+	DashboardApps                                       []adminDashboardApp
 }
 
 func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository, user auth.User, permissions adminPermissions) {
@@ -192,6 +193,12 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 	}
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

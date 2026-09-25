@@ -13,13 +13,13 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_page.html
+//go:embed admin_page.html admin_sidebar.html
 var adminPageFile embed.FS
 var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(template.FuncMap{
 	"add":   func(a, b int) int { return a + b },
 	"sub":   func(a, b int) int { return a - b },
 	"lower": strings.ToLower,
-}).ParseFS(adminPageFile, "admin_page.html"))
+}).ParseFS(adminPageFile, "admin_page.html", "admin_sidebar.html"))
 
 type adminTask struct {
 	ID      int64

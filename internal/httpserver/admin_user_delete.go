@@ -13,12 +13,13 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_user_delete.html
+//go:embed admin_user_delete.html admin_sidebar.html
 var adminUserDeleteFile embed.FS
-var adminUserDeleteTemplate = template.Must(template.ParseFS(adminUserDeleteFile, "admin_user_delete.html"))
+var adminUserDeleteTemplate = template.Must(template.ParseFS(adminUserDeleteFile, "admin_user_delete.html", "admin_sidebar.html"))
 
 type adminUserDeleteData struct {
 	Prefix, Title, Username, Target, CSRFToken, Action, ListURL string
+	DashboardApps                                               []adminDashboardApp
 }
 
 func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, actor auth.User, permissions adminPermissions, id int64) {
@@ -89,6 +90,12 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 		return
 	}
 	data := adminUserDeleteData{Prefix: cfg.URLPrefix(), Title: "Delete user", Username: actor.Username, Target: target, CSRFToken: masked, Action: r.URL.Path, ListURL: base}
+	models, err := loadAdminModels(r, db, cfg, actor)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

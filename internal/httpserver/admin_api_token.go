@@ -16,11 +16,12 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_api_token.html
+//go:embed admin_api_token.html admin_sidebar.html
 var adminAPITokenFile embed.FS
-var adminAPITokenTemplate = template.Must(template.ParseFS(adminAPITokenFile, "admin_api_token.html"))
+var adminAPITokenTemplate = template.Must(template.ParseFS(adminAPITokenFile, "admin_api_token.html", "admin_sidebar.html"))
 
 type adminAPITokenData struct {
+	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, OwnerName, Error                              string
 	ID, OwnerID                                         int64
@@ -231,6 +232,12 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		return
 	}
 	rows.Close()
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {

@@ -14,11 +14,12 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-//go:embed admin_bundle.html
+//go:embed admin_bundle.html admin_sidebar.html
 var adminBundleFile embed.FS
-var adminBundleTemplate = template.Must(template.ParseFS(adminBundleFile, "admin_bundle.html"))
+var adminBundleTemplate = template.Must(template.ParseFS(adminBundleFile, "admin_bundle.html", "admin_sidebar.html"))
 
 type adminBundleData struct {
+	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, Search, AnyTags, AllTags, ExcludedTags        string
 	FilterUnread, FilterShared, Order, Error            string
@@ -251,6 +252,12 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 		return
 	}
 	rows.Close()
+	models, err := loadAdminModels(r, db, cfg, user)
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
+	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
 	if r.Method != http.MethodHead {
