@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -28,10 +29,33 @@ func run() error {
 	defer stop()
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "server":
+			if len(os.Args) != 2 {
+				return fmt.Errorf("usage: linkding server")
+			}
 		case "migrate-from-linkding":
 			return runMigration(ctx, os.Args[2:], os.Stdout)
 		case "full_backup", "backup":
 			return runBackup(ctx, os.Args[1], os.Args[2:], os.Stdout)
+		case "ensure_superuser":
+			return runEnsureSuperuser(ctx, os.Args[2:])
+		case "create_initial_superuser":
+			return runCreateInitialSuperuser(ctx, os.Args[2:])
+		case "import_netscape":
+			return runImportNetscape(ctx, os.Args[2:])
+		case "enable_wal":
+			return runEnableWAL(ctx, os.Args[2:])
+		case "generate_secret_key":
+			if len(os.Args) != 2 {
+				return fmt.Errorf("usage: linkding generate_secret_key")
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			return ensureSecretKey(cfg.DataDir)
+		default:
+			return fmt.Errorf("unknown command %q", os.Args[1])
 		}
 	}
 	cfg, err := config.Load()
@@ -44,6 +68,12 @@ func run() error {
 	}
 	defer db.Close()
 	if err := store.Migrate(ctx, db, cfg.DBEngine); err != nil {
+		return err
+	}
+	if err := enableWAL(ctx, db, cfg.DBEngine); err != nil {
+		return err
+	}
+	if err := ensureSecretKey(cfg.DataDir); err != nil {
 		return err
 	}
 	if err := ensureInitialSuperuser(ctx, db, cfg); err != nil {

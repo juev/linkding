@@ -103,6 +103,37 @@ func TestEnsureInitialSuperuserWithoutNameIsNoop(t *testing.T) {
 	}
 }
 
+func TestEnsureSuperuserCommandFieldsAndIdempotence(t *testing.T) {
+	ctx := context.Background()
+	db := openBootstrapDB(t)
+	if err := ensureSuperuser(ctx, db, "sqlite", "command-admin", "admin@example.com", "first-password"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureSuperuser(ctx, db, "sqlite", "command-admin", "changed@example.com", "second-password"); err != nil {
+		t.Fatal(err)
+	}
+	var count, staff, superuser int
+	var email string
+	if err := db.QueryRowContext(ctx, `SELECT count(*), max(is_staff), max(is_superuser), max(email) FROM auth_user WHERE username = 'command-admin'`).Scan(&count, &staff, &superuser, &email); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || staff != 1 || superuser != 1 || email != "admin@example.com" {
+		t.Fatalf("superuser command changed existing account: count=%d staff=%d superuser=%d email=%q", count, staff, superuser, email)
+	}
+	if _, err := auth.NewRepository(db, "sqlite").AuthenticatePassword(ctx, "command-admin", "first-password"); err != nil {
+		t.Fatalf("original password no longer works: %v", err)
+	}
+	if _, err := auth.NewRepository(db, "sqlite").AuthenticatePassword(ctx, "command-admin", "second-password"); err == nil {
+		t.Fatal("second password unexpectedly replaced the original")
+	}
+	if err := ensureSuperuser(ctx, db, "sqlite", "", "", "password"); err == nil {
+		t.Fatal("missing username must fail")
+	}
+	if err := runEnsureSuperuser(ctx, nil); err == nil {
+		t.Fatal("CLI must require a username")
+	}
+}
+
 func TestEnsureInitialSuperuserPostgres(t *testing.T) {
 	dsn := os.Getenv("LINKDING_TEST_POSTGRES_DSN")
 	if dsn == "" {
