@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,9 +15,10 @@ import (
 
 //go:embed admin_bundle.html admin_sidebar.html
 var adminBundleFile embed.FS
-var adminBundleTemplate = template.Must(template.ParseFS(adminBundleFile, "admin_bundle.html", "admin_sidebar.html"))
+var adminBundleTemplate = adminSidebarTemplate(adminBundleFile, "admin_bundle.html")
 
 type adminBundleData struct {
+	Language                                            string
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, Search, AnyTags, AllTags, ExcludedTags        string
@@ -263,6 +263,7 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

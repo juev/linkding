@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,7 +14,7 @@ import (
 
 //go:embed admin_tag_delete_selected.html admin_sidebar.html
 var adminTagDeleteSelectedFile embed.FS
-var adminTagDeleteSelectedTemplate = template.Must(template.ParseFS(adminTagDeleteSelectedFile, "admin_tag_delete_selected.html", "admin_sidebar.html"))
+var adminTagDeleteSelectedTemplate = adminSidebarTemplate(adminTagDeleteSelectedFile, "admin_tag_delete_selected.html")
 
 type adminTagSelected struct {
 	ID   int64
@@ -23,6 +22,7 @@ type adminTagSelected struct {
 }
 
 type adminTagDeleteSelectedData struct {
+	Language                            string
 	Prefix, Username, Action, CSRFToken string
 	Tags                                []adminTagSelected
 	DashboardApps                       []adminDashboardApp
@@ -138,6 +138,7 @@ func serveAdminTagDeleteSelected(w http.ResponseWriter, r *http.Request, cfg con
 			http.Error(w, "Server error", 500)
 			return
 		}
+		data.Language = selectedAdminLanguage(r).Code
 		data.DashboardApps = groupAdminDashboardApps(cfg, models)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

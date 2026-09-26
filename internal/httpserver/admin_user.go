@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -20,7 +19,7 @@ import (
 
 //go:embed admin_user.html admin_sidebar.html
 var adminUserFile embed.FS
-var adminUserTemplate = template.Must(template.ParseFS(adminUserFile, "admin_user.html", "admin_sidebar.html"))
+var adminUserTemplate = adminSidebarTemplate(adminUserFile, "admin_user.html")
 
 type adminUserOption struct {
 	ID       int64
@@ -29,6 +28,7 @@ type adminUserOption struct {
 }
 
 type adminUserData struct {
+	Language                                                                          string
 	Prefix, Title, Username, CSRFToken, Action, ListURL                               string
 	UserName, FirstName, LastName, Email, PasswordHash                                string
 	PasswordAlgorithm, PasswordIterations, PasswordSaltSummary, PasswordDigestSummary string
@@ -208,6 +208,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

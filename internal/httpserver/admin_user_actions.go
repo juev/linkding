@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"html/template"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -16,7 +15,7 @@ import (
 
 //go:embed admin_user_delete_selected.html admin_sidebar.html
 var adminUserDeleteSelectedFile embed.FS
-var adminUserDeleteSelectedTemplate = template.Must(template.ParseFS(adminUserDeleteSelectedFile, "admin_user_delete_selected.html", "admin_sidebar.html"))
+var adminUserDeleteSelectedTemplate = adminSidebarTemplate(adminUserDeleteSelectedFile, "admin_user_delete_selected.html")
 
 type adminUserSelected struct {
 	ID       int64
@@ -24,6 +23,7 @@ type adminUserSelected struct {
 }
 
 type adminUserDeleteSelectedData struct {
+	Language                            string
 	Prefix, Username, Action, CSRFToken string
 	Users                               []adminUserSelected
 	Summary                             []adminDeletionSummary
@@ -115,6 +115,7 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 			http.Error(w, "Server error", 500)
 			return
 		}
+		data.Language = selectedAdminLanguage(r).Code
 		data.DashboardApps = groupAdminDashboardApps(cfg, models)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

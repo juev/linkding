@@ -188,3 +188,41 @@ func adminAppTitle(language, name string) string {
 func adminAppIndexTitle(language, name string) string {
 	return strings.ReplaceAll(adminTranslate(language, "%(app)s administration"), "%(app)s", name)
 }
+
+func adminSelectTitle(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Select %s to change"), "%s", name)
+}
+
+func adminAddTitle(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Add %(name)s"), "%(name)s", name)
+}
+
+func adminSearchTitle(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Search %(name)s"), "%(name)s", name)
+}
+
+func adminActionCounter(language string, count int) string {
+	return strings.ReplaceAll(adminTranslate(language, "0 of %(cnt)s selected"), "%(cnt)s", strconv.Itoa(count))
+}
+
+func adminDeleteSelected(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Delete selected %(verbose_name_plural)s"), "%(verbose_name_plural)s", name)
+}
+
+func adminPaginationTitle(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Pagination %(name)s"), "%(name)s", name)
+}
+
+func adminRowActionAria(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Select this object for an action - {}"), "{}", name)
+}
+
+func adminFilterTitle(language, title string) string {
+	if language != "en" && strings.HasPrefix(title, "By ") {
+		field := strings.ToLower(strings.TrimPrefix(title, "By "))
+		if translated := adminTranslate(language, field); translated != field {
+			return translated
+		}
+	}
+	return adminTranslate(language, title)
+}

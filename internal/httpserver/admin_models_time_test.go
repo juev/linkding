@@ -23,4 +23,7 @@ func TestAdminValueStringUsesConfiguredTimeZoneAndDjangoDateStyle(t *testing.T) 
 			t.Errorf("admin date %s = %q, want %q", test.utc, got, test.want)
 		}
 	}
+	if got := adminValueStringLocalized(time.Date(2026, 9, 25, 8, 3, 0, 0, time.UTC), moscow, "ru"); got != "25 сентября 2026 г. 11:03" {
+		t.Errorf("Russian admin date = %q", got)
+	}
 }

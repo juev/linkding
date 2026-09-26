@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,9 +16,10 @@ import (
 
 //go:embed admin_tag.html admin_sidebar.html
 var adminTagFile embed.FS
-var adminTagTemplate = template.Must(template.ParseFS(adminTagFile, "admin_tag.html", "admin_sidebar.html"))
+var adminTagTemplate = adminSidebarTemplate(adminTagFile, "admin_tag.html")
 
 type adminTagData struct {
+	Language                                            string
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Name, DateAddedDate, DateAddedTime, Error           string
 	ID, OwnerID                                         int64
@@ -292,6 +292,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

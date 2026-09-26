@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +17,7 @@ import (
 
 //go:embed admin_bookmark_asset.html admin_sidebar.html
 var adminBookmarkAssetFile embed.FS
-var adminBookmarkAssetTemplate = template.Must(template.ParseFS(adminBookmarkAssetFile, "admin_bookmark_asset.html", "admin_sidebar.html"))
+var adminBookmarkAssetTemplate = adminSidebarTemplate(adminBookmarkAssetFile, "admin_bookmark_asset.html")
 
 type adminAssetBookmarkOption struct {
 	ID       int64
@@ -27,6 +26,7 @@ type adminAssetBookmarkOption struct {
 }
 
 type adminBookmarkAssetData struct {
+	Language                                            string
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	File, FileSize, AssetType, ContentType              string
@@ -267,6 +267,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

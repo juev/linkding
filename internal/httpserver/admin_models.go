@@ -264,15 +264,18 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		return
 	}
 	defer rows.Close()
-	data.Title = "Select " + strings.ToLower(definition.Label) + " to change"
+	data.Title = adminSelectTitle(data.Language, strings.ToLower(definition.Label))
 	data.IsModelList = true
 	data.ModelName = definition.Plural
 	data.AppSlug, data.ModelSlug = definition.App, definition.Model
 	data.AppLabel, data.AppPath = "Bookmarks", cfg.URLPrefix()+"admin/"+definition.App+"/"
 	if definition.App == "auth" {
-		data.AppLabel = "Authentication and Authorization"
+		data.AppLabel = adminTranslate(data.Language, "Authentication and Authorization")
 	}
 	data.PluralLabel = definition.Plural
+	if definition.App == "auth" && definition.Model == "user" {
+		data.PluralLabel = adminTranslate(data.Language, "Users")
+	}
 	if definition.Model == "apitoken" {
 		data.PluralLabel = "Api tokens"
 	}
@@ -352,7 +355,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			row.Link = data.ModelPath + url.PathEscape(row.ID) + "/change/" + filterSuffix
 		}
 		for _, value := range values[1:] {
-			cell := adminValueString(value, location)
+			cell := adminValueStringLocalized(value, location, data.Language)
 			if cell == "" {
 				cell = "-"
 			}
@@ -724,4 +727,12 @@ func adminValueString(value any, location *time.Location) string {
 	default:
 		return fmt.Sprint(value)
 	}
+}
+
+func adminValueStringLocalized(value any, location *time.Location, language string) string {
+	if date, ok := value.(time.Time); ok && language == "ru" {
+		date = date.In(location)
+		return fmt.Sprintf("%d %s %d г. %02d:%02d", date.Day(), russianBookmarkMonths[date.Month()-1], date.Year(), date.Hour(), date.Minute())
+	}
+	return adminValueString(value, location)
 }

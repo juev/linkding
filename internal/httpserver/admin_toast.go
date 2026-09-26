@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,7 +14,7 @@ import (
 
 //go:embed admin_toast.html admin_sidebar.html
 var adminToastFile embed.FS
-var adminToastTemplate = template.Must(template.ParseFS(adminToastFile, "admin_toast.html", "admin_sidebar.html"))
+var adminToastTemplate = adminSidebarTemplate(adminToastFile, "admin_toast.html")
 
 type adminOwnerOption struct {
 	ID       int64
@@ -24,6 +23,7 @@ type adminOwnerOption struct {
 }
 
 type adminToastData struct {
+	Language                                            string
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Key, Message, ObjectName, Error                     string
@@ -234,6 +234,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

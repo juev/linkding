@@ -5,7 +5,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,9 +16,10 @@ import (
 
 //go:embed admin_user_history.html admin_sidebar.html
 var adminUserHistoryFile embed.FS
-var adminUserHistoryTemplate = template.Must(template.ParseFS(adminUserHistoryFile, "admin_user_history.html", "admin_sidebar.html"))
+var adminUserHistoryTemplate = adminSidebarTemplate(adminUserHistoryFile, "admin_user_history.html")
 
 type adminUserHistoryData struct {
+	Language                                         string
 	Prefix, Username, CSRFToken, TargetName, ListURL string
 	AppPath, AppLabel, AppSlug, ModelSlug            string
 	PluralLabel, ModelSingular, TargetPath           string
@@ -112,6 +112,7 @@ func serveAdminUserHistory(w http.ResponseWriter, r *http.Request, cfg config.Co
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,9 +15,10 @@ import (
 
 //go:embed admin_user_password.html admin_sidebar.html
 var adminUserPasswordFile embed.FS
-var adminUserPasswordTemplate = template.Must(template.ParseFS(adminUserPasswordFile, "admin_user_password.html", "admin_sidebar.html"))
+var adminUserPasswordTemplate = adminSidebarTemplate(adminUserPasswordFile, "admin_user_password.html")
 
 type adminUserPasswordData struct {
+	Language                                                      string
 	Prefix, Title, Username, Target, CSRFToken, Action, ChangeURL string
 	Error                                                         string
 	UsablePassword                                                bool
@@ -138,6 +138,7 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

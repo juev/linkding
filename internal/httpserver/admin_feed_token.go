@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,9 +16,10 @@ import (
 
 //go:embed admin_feed_token.html admin_sidebar.html
 var adminFeedTokenFile embed.FS
-var adminFeedTokenTemplate = template.Must(template.ParseFS(adminFeedTokenFile, "admin_feed_token.html", "admin_sidebar.html"))
+var adminFeedTokenTemplate = adminSidebarTemplate(adminFeedTokenFile, "admin_feed_token.html")
 
 type adminFeedTokenData struct {
+	Language                                            string
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	Key, KeyPath, OwnerName, Error                      string
@@ -271,6 +271,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

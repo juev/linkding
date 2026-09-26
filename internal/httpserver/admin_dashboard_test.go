@@ -127,6 +127,22 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 		!strings.Contains(list.Body.String(), `1 tag</nav>`) {
 		t.Fatalf("admin model list navigation: status=%d", list.Code)
 	}
+	ruListRequest := httptest.NewRequest(http.MethodGet, "/admin/bookmarks/tag/", nil)
+	ruListRequest.Header.Set("Accept-Language", "ru")
+	ruListRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	ruList := httptest.NewRecorder()
+	handler.ServeHTTP(ruList, ruListRequest)
+	for _, want := range []string{
+		"Выберите tag для изменения", "Хлебные крошки", "Переключить навигацию",
+		"Фильтр элементов навигации", "Добавить tag", "Искать tags", "Фильтр", "имя пользователя",
+		`alt="Search"`,
+		"Выбрано 0 объектов из 1", "Выбрать этот объект, чтобы применить к нему действие - dashboard-tag",
+		"Паджинация tags", "Удалить из сортировки", "Сортировать в другом направлении",
+	} {
+		if ruList.Code != http.StatusOK || !strings.Contains(ruList.Body.String(), want) {
+			t.Fatalf("Russian admin tag list missing %q: status=%d", want, ruList.Code)
+		}
+	}
 	password := request(http.MethodGet, "/admin/password_change/", nil)
 	if password.Code != http.StatusOK || !strings.Contains(password.Body.String(), `action="/change-password/"`) {
 		t.Fatalf("admin password alias: status=%d", password.Code)
