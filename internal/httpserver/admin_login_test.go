@@ -69,6 +69,45 @@ func TestAdminLoginRequiresStaffAndPreservesNext(t *testing.T) {
 	if formPage.Code != http.StatusOK || !strings.Contains(formPage.Body.String(), "<title>Log in | linkding Admin</title>") || !strings.Contains(formPage.Body.String(), `action="/linkding/admin/login/?next=/linkding/admin/bookmarks/bookmark/"`) || !strings.Contains(formPage.Body.String(), `name="next" value="/linkding/admin/bookmarks/bookmark/"`) || !strings.Contains(formPage.Body.String(), `static/admin/css/login.css`) {
 		t.Fatalf("admin login form: %d %s", formPage.Code, formPage.Body.String())
 	}
+	ruRequest := httptest.NewRequest(http.MethodGet, formPath, nil)
+	ruRequest.Header.Set("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8")
+	ruPage := httptest.NewRecorder()
+	handler.ServeHTTP(ruPage, ruRequest)
+	if ruPage.Code != http.StatusOK || ruPage.Header().Get("Content-Language") != "ru" || ruPage.Header().Get("Vary") != "Cookie, Accept-Language" || !strings.Contains(ruPage.Body.String(), `<html lang="ru" dir="ltr">`) || !strings.Contains(ruPage.Body.String(), "<title>Войти | linkding Admin</title>") || !strings.Contains(ruPage.Body.String(), "Имя пользователя:") || !strings.Contains(ruPage.Body.String(), "Пароль:") {
+		t.Fatalf("Russian admin login form: %d %s", ruPage.Code, ruPage.Body.String())
+	}
+	ruCSRF := regexp.MustCompile(`name="csrfmiddlewaretoken" value="([^"]+)"`).FindStringSubmatch(ruPage.Body.String())
+	if len(ruCSRF) != 2 {
+		t.Fatal("Russian login form has no CSRF token")
+	}
+	ruForm := url.Values{"username": {"admin"}, "password": {"wrong"}, "csrfmiddlewaretoken": {ruCSRF[1]}}
+	ruRequest = httptest.NewRequest(http.MethodPost, formPath, strings.NewReader(ruForm.Encode()))
+	ruRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ruRequest.Header.Set("Accept-Language", "ru")
+	for _, cookie := range ruPage.Result().Cookies() {
+		ruRequest.AddCookie(cookie)
+	}
+	ruError := httptest.NewRecorder()
+	handler.ServeHTTP(ruError, ruRequest)
+	if ruError.Code != http.StatusOK || !strings.Contains(ruError.Body.String(), "<title>Ошибка: Войти | linkding Admin</title>") || !strings.Contains(ruError.Body.String(), "Пожалуйста, введите корректные имя пользователя и пароль учётной записи.") {
+		t.Fatalf("Russian admin login error: %d %s", ruError.Code, ruError.Body.String())
+	}
+	ruRequest = httptest.NewRequest(http.MethodGet, loginPath, nil)
+	ruRequest.Header.Set("Accept-Language", "ru")
+	ruRequest.AddCookie(memberCookie)
+	ruMemberPage := httptest.NewRecorder()
+	handler.ServeHTTP(ruMemberPage, ruRequest)
+	if ruMemberPage.Code != http.StatusOK || !strings.Contains(ruMemberPage.Body.String(), "Вы вошли в систему как member, однако у вас недостаточно прав") {
+		t.Fatalf("Russian non-staff login warning: %d %s", ruMemberPage.Code, ruMemberPage.Body.String())
+	}
+	ruRequest = httptest.NewRequest(http.MethodGet, formPath, nil)
+	ruRequest.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	ruRequest.AddCookie(&http.Cookie{Name: "ld_language", Value: "ru"})
+	ruPage = httptest.NewRecorder()
+	handler.ServeHTTP(ruPage, ruRequest)
+	if ruPage.Code != http.StatusOK || !strings.Contains(ruPage.Body.String(), "<title>Войти | linkding Admin</title>") {
+		t.Fatalf("language cookie did not override Accept-Language: %d %s", ruPage.Code, ruPage.Body.String())
+	}
 	var csrfCookie *http.Cookie
 	for _, cookie := range formPage.Result().Cookies() {
 		if cookie.Name == auth.CSRFCookieName {

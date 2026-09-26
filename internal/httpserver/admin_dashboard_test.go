@@ -88,6 +88,15 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 		!strings.Contains(body, `href="/admin/password_change/"`) {
 		t.Fatalf("admin dashboard: status=%d body=%q", page.Code, body)
 	}
+	ruRequest := httptest.NewRequest(http.MethodGet, "/admin/", nil)
+	ruRequest.Header.Set("Accept-Language", "ru-RU,ru;q=0.9")
+	ruRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	ruPage := httptest.NewRecorder()
+	handler.ServeHTTP(ruPage, ruRequest)
+	ruBody := ruPage.Body.String()
+	if ruPage.Code != http.StatusOK || ruPage.Header().Get("Content-Language") != "ru" || !strings.Contains(ruBody, `<html lang="ru" dir="ltr">`) || !strings.Contains(ruBody, `<title>Администрирование сайта | linkding Admin</title>`) || !strings.Contains(ruBody, "Добро пожаловать, <strong>dashboard</strong>") || !strings.Contains(ruBody, `title="Модели в приложении Bookmarks"`) || !strings.Contains(ruBody, "Имя модели") || !strings.Contains(ruBody, "Пользователи") || !strings.Contains(ruBody, "Последние действия") {
+		t.Fatalf("Russian admin dashboard: status=%d body=%q", ruPage.Code, ruBody)
+	}
 	for _, tc := range []struct{ path, title string }{
 		{"/admin/auth/", "Authentication and Authorization administration"},
 		{"/admin/bookmarks/", "Bookmarks administration"},
@@ -95,6 +104,19 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 		got := request(http.MethodGet, tc.path, nil)
 		if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), tc.title) || strings.Contains(got.Body.String(), `id="recent-actions-module"`) {
 			t.Fatalf("app index %s: status=%d", tc.path, got.Code)
+		}
+	}
+	for _, tc := range []struct{ path, title string }{
+		{"/admin/auth/", "Администрирование приложения «Пользователи и группы»"},
+		{"/admin/bookmarks/", "Администрирование приложения «Bookmarks»"},
+	} {
+		r := httptest.NewRequest(http.MethodGet, tc.path, nil)
+		r.Header.Set("Accept-Language", "ru")
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+		got := httptest.NewRecorder()
+		handler.ServeHTTP(got, r)
+		if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), tc.title) {
+			t.Fatalf("Russian app index %s: status=%d body=%q", tc.path, got.Code, got.Body.String())
 		}
 	}
 	list := request(http.MethodGet, "/admin/bookmarks/tag/", nil)

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="{{.Language}}" dir="{{.Direction}}">
 <head>
-<title>{{if .Error}}Error: {{end}}Log in | linkding Admin</title>
+<title>{{if .Error}}{{.Labels.ErrorPrefix}} {{end}}{{.Labels.Login}} | linkding Admin</title>
 <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
 <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
 <script src="{{.Prefix}}static/admin/js/theme.js"></script>
@@ -13,17 +13,17 @@
 <meta name="robots" content="NONE,NOARCHIVE">
 </head>
 <body class=" login" data-admin-utc-offset="0">
-<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<a href="#content-start" class="skip-to-content-link">{{.Labels.Skip}}</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div>
-  <button class="theme-toggle"><span class="visually-hidden theme-label-when-auto">Toggle theme (current theme: auto)</span><span class="visually-hidden theme-label-when-light">Toggle theme (current theme: light)</span><span class="visually-hidden theme-label-when-dark">Toggle theme (current theme: dark)</span><svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto" /></svg><svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon" /></svg><svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg></button></div></header>
+  <button class="theme-toggle"><span class="visually-hidden theme-label-when-auto">{{.Labels.ToggleAuto}}</span><span class="visually-hidden theme-label-when-light">{{.Labels.ToggleLight}}</span><span class="visually-hidden theme-label-when-dark">{{.Labels.ToggleDark}}</span><svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto" /></svg><svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon" /></svg><svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg></button></div></header>
   <div class="main" id="main"><main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
-    {{if .Error}}<p class="errornote">Please enter the correct username and password for a staff account. Note that both fields may be case-sensitive.</p>{{end}}
-    {{if .LoggedInAs}}<p class="errornote">You are authenticated as {{.LoggedInAs}}, but are not authorized to access this page. Would you like to login to a different account?</p>{{end}}
+    {{if .Error}}<p class="errornote">{{.Labels.InvalidLogin}}</p>{{end}}
+    {{if .LoggedInMessage}}<p class="errornote">{{.LoggedInMessage}}</p>{{end}}
     <div id="content-main"><form action="{{.Action}}" method="post" id="login-form"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
-      <div class="form-row"><label for="id_username" class="required">Username:</label> <input type="text" name="username"{{if .Username}} value="{{.Username}}"{{end}} autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username"></div>
-      <div class="form-row"><label for="id_password" class="required">Password:</label> <input type="password" name="password" autocomplete="current-password" required id="id_password"><input type="hidden" name="next" value="{{.Next}}"></div>
-      <div class="submit-row"><input type="submit" value="Log in"></div>
+      <div class="form-row"><label for="id_username" class="required">{{.Labels.Username}}</label> <input type="text" name="username"{{if .Username}} value="{{.Username}}"{{end}} autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username"></div>
+      <div class="form-row"><label for="id_password" class="required">{{.Labels.Password}}</label> <input type="password" name="password" autocomplete="current-password" required id="id_password"><input type="hidden" name="next" value="{{.Next}}"></div>
+      <div class="submit-row"><input type="submit" value="{{.Labels.Login}}"></div>
     </form></div><br class="clear">
   </div></main></div><footer id="footer"></footer>
 </div>

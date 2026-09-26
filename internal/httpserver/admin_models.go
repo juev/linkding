@@ -72,6 +72,7 @@ func findAdminModel(app, model string) (adminModelDefinition, bool) {
 
 func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.User) ([]adminModelLink, error) {
 	var links []adminModelLink
+	language := selectedAdminLanguage(r).Code
 	for _, definition := range adminModels {
 		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, definition.App, definition.Model)
 		if err != nil {
@@ -83,11 +84,13 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 		}
 		appLabel := "Bookmarks"
 		if definition.App == "auth" {
-			appLabel = "Authentication and Authorization"
+			appLabel = adminTranslate(language, "Authentication and Authorization")
 		}
 		label := definition.Plural
 		if definition.Model == "apitoken" {
 			label = "Api tokens"
+		} else if definition.Model == "user" {
+			label = adminCapitalized(adminTranslate(language, "users"))
 		}
 		link := adminModelLink{Label: label, AppLabel: appLabel, App: definition.App, Model: definition.Model}
 		base := cfg.URLPrefix() + "admin/" + definition.App + "/" + definition.Model + "/"

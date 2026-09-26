@@ -4,6 +4,7 @@ import (
 	"embed"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/config"
@@ -14,8 +15,16 @@ var adminLoginFile embed.FS
 var adminLoginTemplate = template.Must(template.ParseFS(adminLoginFile, "admin_login.html"))
 
 type adminLoginData struct {
-	Prefix, Action, CSRFToken, Next, Username, LoggedInAs string
-	Error                                                 bool
+	Prefix, Action, CSRFToken, Next, Username string
+	Language, Direction                       string
+	Labels                                    adminLoginLabels
+	LoggedInMessage                           string
+	Error                                     bool
+}
+
+type adminLoginLabels struct {
+	Login, ErrorPrefix, Skip, ToggleAuto, ToggleLight, ToggleDark string
+	Username, Password, InvalidLogin                              string
 }
 
 func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, users *auth.Repository) {
@@ -46,9 +55,23 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		}
 		setCSRFCookie(w, cfg.URLPrefix(), secret)
 	}
-	data := adminLoginData{Prefix: cfg.URLPrefix(), Action: r.URL.RequestURI(), Next: r.URL.Query().Get("next")}
+	language := selectedAdminLanguage(r)
+	labels := adminLoginLabels{
+		Login:       adminTranslate(language.Code, "Log in"),
+		ErrorPrefix: adminTranslate(language.Code, "Error:"),
+		Skip:        adminTranslate(language.Code, "Skip to main content"),
+		ToggleAuto:  adminTranslate(language.Code, "Toggle theme (current theme: auto)"),
+		ToggleLight: adminTranslate(language.Code, "Toggle theme (current theme: light)"),
+		ToggleDark:  adminTranslate(language.Code, "Toggle theme (current theme: dark)"),
+		Username:    adminCapitalized(adminTranslate(language.Code, "username")) + ":",
+		Password:    adminTranslate(language.Code, "Password") + ":",
+	}
+	labels.InvalidLogin = adminTranslate(language.Code, "Please enter the correct %(username)s and password for a staff account. Note that both fields may be case-sensitive.")
+	labels.InvalidLogin = strings.ReplaceAll(labels.InvalidLogin, "%(username)s", adminTranslate(language.Code, "username"))
+	data := adminLoginData{Prefix: cfg.URLPrefix(), Action: r.URL.RequestURI(), Next: r.URL.Query().Get("next"), Language: language.Code, Direction: language.Dir, Labels: labels}
 	if current.ID != 0 && !current.IsStaff {
-		data.LoggedInAs = current.Username
+		data.LoggedInMessage = adminTranslate(language.Code, "You are authenticated as %(username)s, but are not authorized to access this page. Would you like to login to a different account?")
+		data.LoggedInMessage = strings.ReplaceAll(data.LoggedInMessage, "%(username)s", current.Username)
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)

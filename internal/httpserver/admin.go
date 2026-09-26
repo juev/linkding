@@ -16,9 +16,11 @@ import (
 //go:embed admin_page.html admin_sidebar.html
 var adminPageFile embed.FS
 var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(template.FuncMap{
-	"add":   func(a, b int) int { return a + b },
-	"sub":   func(a, b int) int { return a - b },
-	"lower": strings.ToLower,
+	"add":      func(a, b int) int { return a + b },
+	"sub":      func(a, b int) int { return a - b },
+	"lower":    strings.ToLower,
+	"tr":       adminTranslate,
+	"appTitle": adminAppTitle,
 }).ParseFS(adminPageFile, "admin_page.html", "admin_sidebar.html"))
 
 type adminTask struct {
@@ -29,6 +31,7 @@ type adminTask struct {
 }
 
 type adminPageData struct {
+	Language, Direction                                        string
 	Prefix, Title, Username, ModelName, ModelPath, AddURL      string
 	SearchQuery, UserFilter, AllUsersURL                       string
 	UserFilterParam, UserFilterTitle, AddLabel                 string
@@ -57,6 +60,8 @@ type adminPageData struct {
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	root := cfg.URLPrefix() + "admin/"
+	w.Header().Set("Vary", "Cookie, Accept-Language")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	if !strings.HasPrefix(r.URL.Path, root) {
 		http.NotFound(w, r)
 		return
@@ -219,7 +224,8 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	data := adminPageData{Prefix: cfg.URLPrefix(), Title: "Site administration", Username: user.Username, Page: 1}
+	language := selectedAdminLanguage(r)
+	data := adminPageData{Prefix: cfg.URLPrefix(), Title: adminTranslate(language.Code, "Site administration"), Language: language.Code, Direction: language.Dir, Username: user.Username, Page: 1}
 	secret := ""
 	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
 		secret = cookie.Value
@@ -312,7 +318,7 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			if appIndex == "auth" {
 				label = "Authentication and Authorization"
 			}
-			data.Title = label + " administration"
+			data.Title = adminAppIndexTitle(language.Code, adminTranslate(language.Code, label))
 		} else {
 			data.Models = models
 		}
@@ -322,6 +328,9 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 			if err != nil {
 				http.Error(w, "Server error", 500)
 				return
+			}
+			for index := range data.RecentActions {
+				data.RecentActions[index].Verb = adminTranslate(language.Code, data.RecentActions[index].Verb)
 			}
 		}
 	}
