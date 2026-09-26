@@ -1,8 +1,8 @@
 # linkding (Go implementation)
 
-This repository is an independent Go implementation of [linkding](https://github.com/sissbruecker/linkding), targeting compatibility with upstream v1.47.0. It is under development: feature parity, migration, and release checks are not complete. The upstream project is maintained separately.
+This repository contains a Go port of [linkding](https://github.com/sissbruecker/linkding) v1.47.0. The upstream project is maintained separately.
 
-The implementation aims to preserve linkding's interface and public contracts, including its `LD_*` configuration names. The [parity specification](docs/specs/linkding-parity.md) records the target behavior and verification scenarios.
+The port preserves linkding's interface and public contracts, including its `LD_*` configuration names. The [parity specification](docs/specs/linkding-parity.md) records the target behavior and verification scenarios.
 
 ## Build and test
 

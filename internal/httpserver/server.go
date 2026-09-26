@@ -13,8 +13,7 @@ import (
 
 const UpstreamVersion = "1.47.0"
 
-// New builds the HTTP surface that is currently implemented. Additional routes
-// must be added against the pinned upstream route matrix before release.
+// New builds the HTTP surface of the pinned upstream release.
 func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	mux := http.NewServeMux()
 	prefix := cfg.URLPrefix()
