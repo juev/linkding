@@ -55,6 +55,15 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	if got := adminTranslate("ru", "linkding administration"); got != "linkding administration" {
 		t.Fatalf("unknown text changed: %q", got)
 	}
+	if got := adminFormTitle("ru", "Delete tag"); got != "Удалить tag" {
+		t.Fatalf("Russian delete title: %q", got)
+	}
+	if got := adminRelatedTitle("en", "Add another", "user"); got != "Add another user" {
+		t.Fatalf("English related title: %q", got)
+	}
+	if got := adminRelatedTitle("ru", "Add another", "user"); got != "Добавить ещё один объект типа " {
+		t.Fatalf("Russian related title: %q", got)
+	}
 	if _, err := parseAdminMO([]byte("broken")); err == nil {
 		t.Fatal("accepted a truncated gettext catalog")
 	}

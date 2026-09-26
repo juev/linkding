@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="{{.Language}}">
 <head>
-  <title>{{if .ID}}{{.UserName}} | {{end}}{{.Title}} | linkding Admin</title>
+  <title>{{if .ID}}{{.UserName}} | {{end}}{{formTitle .Language .Title}} | linkding Admin</title>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
   <script src="{{.Prefix}}static/admin/js/theme.js"></script>
@@ -21,30 +21,30 @@
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
 <body class="app-auth model-user change-form" data-admin-utc-offset="0">
-<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<a href="#content-start" class="skip-to-content-link">{{tr .Language "Skip to main content"}}</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">
-    Welcome, <strong>{{.Username}}</strong>.
-    <a href="{{.Prefix}}">View site</a> /
-    <a href="{{.Prefix}}admin/password_change/">Change password</a> /
-    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">Log out</button></form>
+    {{tr .Language "Welcome,"}} <strong>{{.Username}}</strong>.
+    <a href="{{.Prefix}}">{{tr .Language "View site"}}</a> /
+    <a href="{{.Prefix}}admin/password_change/">{{tr .Language "Change password"}}</a> /
+    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">{{tr .Language "Log out"}}</button></form>
     <button class="theme-toggle">
-      <span class="visually-hidden theme-label-when-auto">Toggle theme (current theme: auto)</span>
-      <span class="visually-hidden theme-label-when-light">Toggle theme (current theme: light)</span>
-      <span class="visually-hidden theme-label-when-dark">Toggle theme (current theme: dark)</span>
+      <span class="visually-hidden theme-label-when-auto">{{tr .Language "Toggle theme (current theme: auto)"}}</span>
+      <span class="visually-hidden theme-label-when-light">{{tr .Language "Toggle theme (current theme: light)"}}</span>
+      <span class="visually-hidden theme-label-when-dark">{{tr .Language "Toggle theme (current theme: dark)"}}</span>
       <svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/auth/">Authentication and Authorization</a> &rsaquo; <a href="{{.ListURL}}">Users</a> &rsaquo; {{if .ID}}{{.UserName}}{{else}}{{.Title}}{{end}}</div></nav>
+  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/auth/">Authentication and Authorization</a> &rsaquo; <a href="{{.ListURL}}">Users</a> &rsaquo; {{if .ID}}{{.UserName}}{{else}}{{formTitle .Language .Title}}{{end}}</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
-    <h1>{{.Title}}</h1>
+    <h1>{{formTitle .Language .Title}}</h1>
     {{if .ID}}<h2>{{.UserName}}</h2>{{end}}
     <div id="content-main">
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .IsAdd}}<p>After you’ve created a user, you’ll be able to edit more user options.</p>{{end}}
-    {{if .ID}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">History</a></li></ul>{{end}}
+    {{if .ID}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">{{tr .Language "History"}}</a></li></ul>{{end}}
     <form method="post" action="{{.Action}}" id="user_form" novalidate>
       <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
       {{if .IsAdd}}
@@ -72,8 +72,8 @@
           <div class="form-row field-user_permissions"><fieldset aria-describedby="id_user_permissions_helptext"><legend for="id_user_permissions">User permissions:</legend><div><div class="flex-container"><div class="related-widget-wrapper" data-model-ref="permission"><select name="user_permissions" id="id_user_permissions" class="selectfilter" data-field-name="user permissions" data-is-stacked="0" multiple{{if not .CanChange}} disabled{{end}}>{{range .Permissions}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div></div><div class="help" id="id_user_permissions_helptext">Specific permissions for this user. Hold down “Control”, or “Command” on a Mac, to select more than one.</div></div></fieldset></div>
         </fieldset>
         <fieldset class="module aligned"><h2>Important dates</h2>
-          <div class="form-row field-last_login"><fieldset><legend for="id_last_login">Last login:</legend><div><div class="flex-container"><p class="datetime"><label for="id_last_login_0">Date:</label> <input type="text" class="vDateField" name="last_login_0" value="{{.LastLoginDate}}" size="10" id="id_last_login_0"{{if not .CanChange}} readonly{{end}} aria-describedby="id_last_login_timezone_warning_helptext"><br><label for="id_last_login_1">Time:</label> <input type="text" class="vTimeField" name="last_login_1" value="{{.LastLoginTime}}" size="8" id="id_last_login_1"{{if not .CanChange}} readonly{{end}} aria-describedby="id_last_login_timezone_warning_helptext"></p></div></div></fieldset></div>
-          <div class="form-row field-date_joined"><fieldset><legend class="required" for="id_date_joined">Date joined:</legend><div><div class="flex-container"><p class="datetime"><label for="id_date_joined_0">Date:</label> <input type="text" class="vDateField" name="date_joined_0" value="{{.DateJoinedDate}}" size="10" required id="id_date_joined_0"{{if not .CanChange}} readonly{{end}} aria-describedby="id_date_joined_timezone_warning_helptext"><br><label for="id_date_joined_1">Time:</label> <input type="text" class="vTimeField" name="date_joined_1" value="{{.DateJoinedTime}}" size="8" required id="id_date_joined_1"{{if not .CanChange}} readonly{{end}} aria-describedby="id_date_joined_timezone_warning_helptext"></p></div></div></fieldset></div>
+          <div class="form-row field-last_login"><fieldset><legend for="id_last_login">Last login:</legend><div><div class="flex-container"><p class="datetime"><label for="id_last_login_0">{{tr .Language "Date:"}}</label> <input type="text" class="vDateField" name="last_login_0" value="{{.LastLoginDate}}" size="10" id="id_last_login_0"{{if not .CanChange}} readonly{{end}} aria-describedby="id_last_login_timezone_warning_helptext"><br><label for="id_last_login_1">{{tr .Language "Time:"}}</label> <input type="text" class="vTimeField" name="last_login_1" value="{{.LastLoginTime}}" size="8" id="id_last_login_1"{{if not .CanChange}} readonly{{end}} aria-describedby="id_last_login_timezone_warning_helptext"></p></div></div></fieldset></div>
+          <div class="form-row field-date_joined"><fieldset><legend class="required" for="id_date_joined">Date joined:</legend><div><div class="flex-container"><p class="datetime"><label for="id_date_joined_0">{{tr .Language "Date:"}}</label> <input type="text" class="vDateField" name="date_joined_0" value="{{.DateJoinedDate}}" size="10" required id="id_date_joined_0"{{if not .CanChange}} readonly{{end}} aria-describedby="id_date_joined_timezone_warning_helptext"><br><label for="id_date_joined_1">{{tr .Language "Time:"}}</label> <input type="text" class="vTimeField" name="date_joined_1" value="{{.DateJoinedTime}}" size="8" required id="id_date_joined_1"{{if not .CanChange}} readonly{{end}} aria-describedby="id_date_joined_timezone_warning_helptext"></p></div></div></fieldset></div>
         </fieldset>
         <div class="js-inline-admin-formset inline-group" id="profile-group"><fieldset class="module" aria-labelledby="profile-heading"><h2 id="profile-heading" class="inline-heading">User profile</h2>
           <input type="hidden" name="profile-TOTAL_FORMS" value="1"><input type="hidden" name="profile-INITIAL_FORMS" value="1"><input type="hidden" name="profile-MIN_NUM_FORMS" value="0"><input type="hidden" name="profile-MAX_NUM_FORMS" value="1">
@@ -89,7 +89,7 @@
           </div>{{end}}
           </fieldset></div></fieldset></div>
       {{end}}
-      {{if .CanChange}}<div class="submit-row"><input type="submit" value="Save" class="default" name="_save"><input type="submit" value="Save and add another" name="_addanother"><input type="submit" value="Save and continue editing" name="_continue">{{if and .ID .CanDelete}}<a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink" role="button">Delete</a>{{end}}</div>{{end}}
+      {{if .CanChange}}<div class="submit-row"><input type="submit" value="{{tr .Language "Save"}}" class="default" name="_save"><input type="submit" value="{{tr .Language "Save and add another"}}" name="_addanother"><input type="submit" value="{{tr .Language "Save and continue editing"}}" name="_continue">{{if and .ID .CanDelete}}<a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink" role="button">{{tr .Language "Delete"}}</a>{{end}}</div>{{end}}
     </form>
     </div>
     <br class="clear">

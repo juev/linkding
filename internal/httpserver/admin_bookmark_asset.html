@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="{{.Language}}">
 <head>
-  <title>{{if and .ID (not .ConfirmDelete)}}{{.ObjectName}} | {{end}}{{.Title}} | linkding Admin</title>
+  <title>{{if and .ID (not .ConfirmDelete)}}{{.ObjectName}} | {{end}}{{formTitle .Language .Title}} | linkding Admin</title>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
   <script src="{{.Prefix}}static/admin/js/theme.js"></script>
@@ -13,28 +13,28 @@
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
 <body class="app-bookmarks model-bookmarkasset change-form">
-<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<a href="#content-start" class="skip-to-content-link">{{tr .Language "Skip to main content"}}</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">
-    Welcome, <strong>{{.Username}}</strong>.
-    <a href="{{.Prefix}}">View site</a> /
-    <a href="{{.Prefix}}admin/password_change/">Change password</a> /
-    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">Log out</button></form>
+    {{tr .Language "Welcome,"}} <strong>{{.Username}}</strong>.
+    <a href="{{.Prefix}}">{{tr .Language "View site"}}</a> /
+    <a href="{{.Prefix}}admin/password_change/">{{tr .Language "Change password"}}</a> /
+    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">{{tr .Language "Log out"}}</button></form>
     <button class="theme-toggle">
-      <span class="visually-hidden theme-label-when-auto">Toggle theme (current theme: auto)</span>
-      <span class="visually-hidden theme-label-when-light">Toggle theme (current theme: light)</span>
-      <span class="visually-hidden theme-label-when-dark">Toggle theme (current theme: dark)</span>
+      <span class="visually-hidden theme-label-when-auto">{{tr .Language "Toggle theme (current theme: auto)"}}</span>
+      <span class="visually-hidden theme-label-when-light">{{tr .Language "Toggle theme (current theme: light)"}}</span>
+      <span class="visually-hidden theme-label-when-dark">{{tr .Language "Toggle theme (current theme: dark)"}}</span>
       <svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Bookmark assets</a> &rsaquo; {{if .ID}}{{.ObjectName}}{{else}}{{.Title}}{{end}}</div></nav>
+  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Bookmark assets</a> &rsaquo; {{if .ID}}{{.ObjectName}}{{else}}{{formTitle .Language .Title}}{{end}}</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
-    <h1>{{.Title}}</h1>
+    <h1>{{formTitle .Language .Title}}</h1>
     {{if and .ID (not .ConfirmDelete)}}<h2>{{.ObjectName}}</h2>{{end}}
     <div id="content-main">
-    {{if and .ID (not .ConfirmDelete)}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">History</a></li></ul>{{end}}
+    {{if and .ID (not .ConfirmDelete)}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">{{tr .Language "History"}}</a></li></ul>{{end}}
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .ConfirmDelete}}
       <p>Are you sure you want to delete the bookmark asset “{{if .DisplayName}}{{.DisplayName}}{{else}}Bookmark Asset #{{.ID}}{{end}}”?</p>
@@ -43,7 +43,7 @@
       <form method="post" action="{{.Action}}" id="bookmarkasset_form" novalidate>
         <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
         <fieldset class="module aligned">
-          <div class="form-row field-bookmark"><div><div class="flex-container"><label class="required" for="id_bookmark">Bookmark:</label><div class="related-widget-wrapper" data-model-ref="bookmark"><select name="bookmark" required id="id_bookmark"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Bookmarks}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select><a class="related-widget-wrapper-link change-related" id="change_id_bookmark" data-href-template="{{.Prefix}}admin/bookmarks/bookmark/__fk__/change/?_to_field=id&amp;_popup=1" data-popup="yes"{{if .BookmarkID}} href="{{.Prefix}}admin/bookmarks/bookmark/{{.BookmarkID}}/change/?_to_field=id&amp;_popup=1"{{else}} aria-disabled="true"{{end}} title="Change selected bookmark"><img src="{{.Prefix}}static/admin/img/icon-changelink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link add-related" id="add_id_bookmark" data-popup="yes" href="{{.Prefix}}admin/bookmarks/bookmark/add/?_to_field=id&amp;_popup=1" title="Add another bookmark"><img src="{{.Prefix}}static/admin/img/icon-addlink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link view-related" id="view_id_bookmark" data-href-template="{{.Prefix}}admin/bookmarks/bookmark/__fk__/change/?_to_field=id"{{if .BookmarkID}} href="{{.Prefix}}admin/bookmarks/bookmark/{{.BookmarkID}}/change/?_to_field=id"{{else}} aria-disabled="true"{{end}} title="View selected bookmark"><img src="{{.Prefix}}static/admin/img/icon-viewlink.svg" alt="" width="24" height="24"></a></div></div></div></div>
+          <div class="form-row field-bookmark"><div><div class="flex-container"><label class="required" for="id_bookmark">Bookmark:</label><div class="related-widget-wrapper" data-model-ref="bookmark"><select name="bookmark" required id="id_bookmark"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Bookmarks}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select><a class="related-widget-wrapper-link change-related" id="change_id_bookmark" data-href-template="{{.Prefix}}admin/bookmarks/bookmark/__fk__/change/?_to_field=id&amp;_popup=1" data-popup="yes"{{if .BookmarkID}} href="{{.Prefix}}admin/bookmarks/bookmark/{{.BookmarkID}}/change/?_to_field=id&amp;_popup=1"{{else}} aria-disabled="true"{{end}} title="{{relatedTitle .Language "Change" "bookmark"}}"><img src="{{.Prefix}}static/admin/img/icon-changelink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link add-related" id="add_id_bookmark" data-popup="yes" href="{{.Prefix}}admin/bookmarks/bookmark/add/?_to_field=id&amp;_popup=1" title="{{relatedTitle .Language "Add another" "bookmark"}}"><img src="{{.Prefix}}static/admin/img/icon-addlink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link view-related" id="view_id_bookmark" data-href-template="{{.Prefix}}admin/bookmarks/bookmark/__fk__/change/?_to_field=id"{{if .BookmarkID}} href="{{.Prefix}}admin/bookmarks/bookmark/{{.BookmarkID}}/change/?_to_field=id"{{else}} aria-disabled="true"{{end}} title="{{relatedTitle .Language "View" "bookmark"}}"><img src="{{.Prefix}}static/admin/img/icon-viewlink.svg" alt="" width="24" height="24"></a></div></div></div></div>
           <div class="form-row"><label for="id_file">File:</label><input type="text" name="file" value="{{.File}}" maxlength="2048" id="id_file"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label class="required" for="id_file_size">File size:</label><input type="number" name="file_size" value="{{.FileSize}}" required id="id_file_size"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label class="required" for="id_asset_type">Asset type:</label><input type="text" name="asset_type" value="{{.AssetType}}" maxlength="64" required id="id_asset_type"{{if not .CanChange}} readonly{{end}}></div>
@@ -52,7 +52,7 @@
           <div class="form-row"><label class="required" for="id_status">Status:</label><input type="text" name="status" value="{{.Status}}" maxlength="64" required id="id_status"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row field-gzip"><div class="checkbox-row"><input type="checkbox" name="gzip" id="id_gzip"{{if .Gzip}} checked{{end}}{{if not .CanChange}} disabled{{end}}><label class="vCheckboxLabel" for="id_gzip">Gzip</label></div></div>
         </fieldset>
-        {{if or .CanChange .CanDelete}}<div class="submit-row">{{if .CanChange}}<input type="submit" value="Save" class="default" name="_save"><input type="submit" value="Save and add another" name="_addanother"><input type="submit" value="Save and continue editing" name="_continue">{{end}}{{if and .ID .CanDelete}}<a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink" role="button">Delete</a>{{end}}</div>{{end}}
+        {{if or .CanChange .CanDelete}}<div class="submit-row">{{if .CanChange}}<input type="submit" value="{{tr .Language "Save"}}" class="default" name="_save"><input type="submit" value="{{tr .Language "Save and add another"}}" name="_addanother"><input type="submit" value="{{tr .Language "Save and continue editing"}}" name="_continue">{{end}}{{if and .ID .CanDelete}}<a href="{{.ListURL}}{{.ID}}/delete/" class="deletelink" role="button">{{tr .Language "Delete"}}</a>{{end}}</div>{{end}}
       </form>
     {{end}}
     </div>

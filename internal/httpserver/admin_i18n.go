@@ -226,3 +226,29 @@ func adminFilterTitle(language, title string) string {
 	}
 	return adminTranslate(language, title)
 }
+
+func adminFormTitle(language, title string) string {
+	for _, verb := range []string{"Add", "Change", "View", "Delete"} {
+		if name, ok := strings.CutPrefix(title, verb+" "); ok {
+			translated := adminTranslate(language, verb+" %s")
+			if translated == verb+" %s" {
+				translated = adminTranslate(language, verb) + " %s"
+			}
+			return strings.ReplaceAll(translated, "%s", name)
+		}
+	}
+	return adminTranslate(language, title)
+}
+
+func adminRelatedTitle(language, action, model string) string {
+	key := action + " selected %(model)s"
+	if action == "Add another" {
+		key = "Add another %(model)s"
+	}
+	if language == "en" {
+		return strings.ReplaceAll(key, "%(model)s", model)
+	}
+	translated := adminTranslate(language, key)
+	translated = strings.ReplaceAll(translated, `"%(model)s"`, "")
+	return strings.ReplaceAll(translated, "%(model)s", model)
+}

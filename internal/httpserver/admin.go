@@ -33,8 +33,10 @@ var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(temp
 
 func adminSidebarTemplate(files embed.FS, name string) *template.Template {
 	return template.Must(template.New(name).Funcs(template.FuncMap{
-		"tr":       adminTranslate,
-		"appTitle": adminAppTitle,
+		"tr":           adminTranslate,
+		"appTitle":     adminAppTitle,
+		"formTitle":    adminFormTitle,
+		"relatedTitle": adminRelatedTitle,
 	}).ParseFS(files, name, "admin_sidebar.html"))
 }
 

@@ -143,6 +143,21 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 			t.Fatalf("Russian admin tag list missing %q: status=%d", want, ruList.Code)
 		}
 	}
+	ruFormRequest := httptest.NewRequest(http.MethodGet, "/admin/bookmarks/tag/"+strconv.FormatInt(tagID, 10)+"/change/", nil)
+	ruFormRequest.Header.Set("Accept-Language", "ru")
+	ruFormRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	ruForm := httptest.NewRecorder()
+	handler.ServeHTTP(ruForm, ruFormRequest)
+	for _, want := range []string{
+		"<title>dashboard-tag | Изменить tag | linkding Admin</title>",
+		"К основному", "Добро пожаловать,", "Хлебные крошки", "История",
+		"Дата:", "Время:", "Изменить выбранный объект типа ",
+		"Добавить ещё один объект типа ", "Просмотреть выбранный объект типа ", "Удалить",
+	} {
+		if ruForm.Code != http.StatusOK || !strings.Contains(ruForm.Body.String(), want) {
+			t.Fatalf("Russian admin tag form missing %q: status=%d", want, ruForm.Code)
+		}
+	}
 	password := request(http.MethodGet, "/admin/password_change/", nil)
 	if password.Code != http.StatusOK || !strings.Contains(password.Body.String(), `action="/change-password/"`) {
 		t.Fatalf("admin password alias: status=%d", password.Code)

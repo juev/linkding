@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="{{.Language}}">
 <head>
   <title>Delete multiple objects | linkding Admin</title>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
@@ -13,23 +13,23 @@
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
 <body class="app-bookmarks model-tag delete-confirmation">
-<a href="#content-start" class="skip-to-content-link">Skip to main content</a>
+<a href="#content-start" class="skip-to-content-link">{{tr .Language "Skip to main content"}}</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">
-    Welcome, <strong>{{.Username}}</strong>.
-    <a href="{{.Prefix}}">View site</a> /
-    <a href="{{.Prefix}}admin/password_change/">Change password</a> /
-    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">Log out</button></form>
+    {{tr .Language "Welcome,"}} <strong>{{.Username}}</strong>.
+    <a href="{{.Prefix}}">{{tr .Language "View site"}}</a> /
+    <a href="{{.Prefix}}admin/password_change/">{{tr .Language "Change password"}}</a> /
+    <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">{{tr .Language "Log out"}}</button></form>
     <button class="theme-toggle">
-      <span class="visually-hidden theme-label-when-auto">Toggle theme (current theme: auto)</span>
-      <span class="visually-hidden theme-label-when-light">Toggle theme (current theme: light)</span>
-      <span class="visually-hidden theme-label-when-dark">Toggle theme (current theme: dark)</span>
+      <span class="visually-hidden theme-label-when-auto">{{tr .Language "Toggle theme (current theme: auto)"}}</span>
+      <span class="visually-hidden theme-label-when-light">{{tr .Language "Toggle theme (current theme: light)"}}</span>
+      <span class="visually-hidden theme-label-when-dark">{{tr .Language "Toggle theme (current theme: dark)"}}</span>
       <svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon" /></svg>
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.Action}}">Tags</a> &rsaquo; Delete multiple objects</div></nav>
+  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.Action}}">Tags</a> &rsaquo; Delete multiple objects</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     <h1>Delete multiple objects</h1>
     <p>Are you sure you want to delete the selected tag? All of the following objects and their related items will be deleted:</p>
