@@ -42,12 +42,12 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -73,7 +73,7 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	if id != 0 {
 		err := db.QueryRowContext(r.Context(), `SELECT t.name,t.user_id,u.username FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id WHERE t.id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.Name, &data.OwnerID, &data.OwnerName)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -116,7 +116,7 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -195,7 +195,7 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + strconv.FormatInt(tokenID, 10) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

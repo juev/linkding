@@ -47,7 +47,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			}
 		}
 		if key == "" {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 	}
@@ -77,7 +77,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	if action != "add" {
 		if err := db.QueryRowContext(r.Context(), `SELECT t.user_id,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id WHERE t.key = `+assetMarker(cfg.DBEngine, 1), key).Scan(&data.OwnerID, &data.OwnerName); errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		} else if err != nil {
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -119,7 +119,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -222,7 +222,7 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + url.PathEscape(data.Key) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

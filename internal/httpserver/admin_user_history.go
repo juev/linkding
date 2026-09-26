@@ -37,7 +37,7 @@ func serveAdminUserHistory(w http.ResponseWriter, r *http.Request, cfg config.Co
 	part := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, base), "/history/")
 	id, err := strconv.ParseInt(part, 10, 64)
 	if err != nil || id <= 0 {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "auth", "user")
@@ -51,7 +51,7 @@ func serveAdminUserHistory(w http.ResponseWriter, r *http.Request, cfg config.Co
 	}
 	data := adminUserHistoryData{Prefix: cfg.URLPrefix(), Username: user.Username, TargetPath: strconv.FormatInt(id, 10), ListURL: base, AppPath: cfg.URLPrefix() + "admin/auth/", AppLabel: "Authentication and Authorization", AppSlug: "auth", ModelSlug: "user", PluralLabel: "Users", ModelSingular: "user"}
 	if err := db.QueryRowContext(r.Context(), `SELECT username FROM auth_user WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.TargetName); errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	} else if err != nil {
 		http.Error(w, "Server error", 500)

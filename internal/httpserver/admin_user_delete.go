@@ -38,7 +38,7 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 	query := `SELECT username FROM auth_user WHERE id = ` + assetMarker(cfg.DBEngine, 1)
 	err := db.QueryRowContext(r.Context(), query, id).Scan(&target)
 	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if err != nil {
@@ -71,7 +71,7 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 		for _, name := range files.Assets {
 			removeStoredFile(filepath.Join(cfg.DataDir, "assets"), name)
 		}
-		http.Redirect(w, r, base, http.StatusFound)
+		writeRedirect(w, r, base)
 		return
 	}
 	secret := ""

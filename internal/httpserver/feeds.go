@@ -18,7 +18,7 @@ import (
 
 func serveFeed(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	part := strings.TrimPrefix(r.URL.Path, root)
@@ -28,7 +28,7 @@ func serveFeed(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 	if !public {
 		segments := strings.Split(part, "/")
 		if len(segments) != 2 || segments[0] == "" || (segments[1] != "all" && segments[1] != "unread" && segments[1] != "shared") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		key, feedKind = segments[0], segments[1]
@@ -37,7 +37,7 @@ func serveFeed(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 	if !public {
 		query := "SELECT user_id FROM bookmarks_feedtoken WHERE key = " + assetMarker(cfg.DBEngine, 1)
 		if err := db.QueryRowContext(r.Context(), query, key).Scan(&ownerID); err != nil {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 	}
@@ -61,7 +61,7 @@ func serveFeed(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 		query := "SELECT owner_id FROM bookmarks_bookmarkbundle WHERE id = " + assetMarker(cfg.DBEngine, 1)
 		var bundleOwner int64
 		if err := db.QueryRowContext(r.Context(), query, bundleID).Scan(&bundleOwner); err != nil || sessionUser.ID == 0 || sessionUser.ID != bundleOwner {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 	}

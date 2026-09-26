@@ -59,7 +59,7 @@ func renderPageToasts(ctx context.Context, db *sql.DB, cfg config.Config, ownerI
 func serveToastAcknowledge(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	path := cfg.URLPrefix() + "toasts/acknowledge"
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -82,7 +82,7 @@ func serveToastAcknowledge(w http.ResponseWriter, r *http.Request, cfg config.Co
 	}
 	id, err := strconv.ParseInt(r.PostForm.Get("toast"), 10, 64)
 	if err != nil || id <= 0 {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	result, err := db.ExecContext(r.Context(), `UPDATE bookmarks_toast SET acknowledged = `+assetMarker(cfg.DBEngine, 1)+` WHERE id = `+assetMarker(cfg.DBEngine, 2)+` AND owner_id = `+assetMarker(cfg.DBEngine, 3), true, id, user.ID)
@@ -92,12 +92,12 @@ func serveToastAcknowledge(w http.ResponseWriter, r *http.Request, cfg config.Co
 	}
 	updated, err := result.RowsAffected()
 	if err != nil || updated == 0 {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	returnURL := r.URL.Query().Get("return_url")
 	if !toastReturnURL.MatchString(returnURL) {
 		returnURL = cfg.URLPrefix() + "bookmarks"
 	}
-	http.Redirect(w, r, returnURL, http.StatusFound)
+	writeRedirect(w, r, returnURL)
 }

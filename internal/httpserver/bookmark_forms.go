@@ -33,8 +33,15 @@ type bookmarkFormPage struct {
 func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
 	path := r.URL.Path
 	if path != root+"new" && !strings.HasSuffix(path, "/edit") {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
+	}
+	if path != root+"new" {
+		id, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(path, root), "/edit"), 10, 64)
+		if err != nil || id <= 0 || path != root+strconv.FormatInt(id, 10)+"/edit" {
+			writeNotFound(w, r)
+			return
+		}
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
 	if !ok {
@@ -70,12 +77,12 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 		idString := strings.TrimSuffix(strings.TrimPrefix(path, root), "/edit")
 		id, err := strconv.ParseInt(idString, 10, 64)
 		if err != nil || id <= 0 || path != root+strconv.FormatInt(id, 10)+"/edit" {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		original, err = repo.GetByID(r.Context(), user.ID, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -140,7 +147,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 				if data.BookmarkID == 0 && data.AutoClose {
 					destination = cfg.URLPrefix() + "bookmarks/close"
 				}
-				http.Redirect(w, r, destination, http.StatusFound)
+				writeRedirect(w, r, destination)
 				return
 			}
 		}

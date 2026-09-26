@@ -58,7 +58,7 @@ func serveAdminTagAction(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	selected := r.PostForm["_selected_action"]
 	if len(selected) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	selectedIDs := make([]int64, 0, len(selected))
@@ -102,7 +102,7 @@ func serveAdminTagAction(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		message = fmt.Sprintf("%d unused tags were successfully deleted.", count)
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_admin_tag_action", message)
-	http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+	writeRedirect(w, r, r.URL.RequestURI())
 }
 
 func serveAdminTagDeleteSelected(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, selectionQuery string, args []any) {
@@ -128,7 +128,7 @@ func serveAdminTagDeleteSelected(w http.ResponseWriter, r *http.Request, cfg con
 		return
 	}
 	if len(tags) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	if r.PostForm.Get("post") != "yes" {
@@ -181,5 +181,5 @@ func serveAdminTagDeleteSelected(w http.ResponseWriter, r *http.Request, cfg con
 		message = "Successfully deleted 1 tag."
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_admin_tag_action", message)
-	http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+	writeRedirect(w, r, r.URL.RequestURI())
 }

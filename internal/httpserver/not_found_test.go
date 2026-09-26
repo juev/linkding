@@ -28,6 +28,7 @@ func TestPinnedHTMLNotFoundResponses(t *testing.T) {
 			serveRoot(w, r, "/", config.Config{}, nil, nil)
 		}},
 		{"api-root-unknown", "/api/nope/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Allow", "GET, HEAD, OPTIONS")
 			serveAPIRoot(w, r, "/api/", nil)
 		}},
 		{"asset", "/assets/999999", func(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +36,15 @@ func TestPinnedHTMLNotFoundResponses(t *testing.T) {
 		}},
 		{"static", "/static/missing.css", func(w http.ResponseWriter, r *http.Request) {
 			serveStaticFile(w, r, "/static/", staticDir, "")
+		}},
+		{"bookmark-invalid-id", "/bookmarks/abc/edit", func(w http.ResponseWriter, r *http.Request) {
+			serveBookmarkForm(w, r, "/bookmarks/", config.Config{}, nil, nil, nil)
+		}},
+		{"tag-invalid-id", "/tags/abc/edit", func(w http.ResponseWriter, r *http.Request) {
+			serveTagsUI(w, r, config.Config{}, nil, nil)
+		}},
+		{"bundle-invalid-id", "/bundles/abc/edit", func(w http.ResponseWriter, r *http.Request) {
+			serveBundlesUI(w, r, config.Config{}, nil, nil, nil)
 		}},
 	} {
 		for _, language := range []struct {
@@ -64,6 +74,7 @@ func TestPinnedHTMLNotFoundResponses(t *testing.T) {
 						t.Fatalf("status = %d, want 404", result.StatusCode)
 					}
 					for name, want := range map[string]string{
+						"Allow":                      "",
 						"Content-Type":               "text/html; charset=utf-8",
 						"Content-Language":           language.want,
 						"Vary":                       "Accept-Language, Cookie",

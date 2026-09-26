@@ -10,7 +10,7 @@ import (
 
 func serveBookmarkClose(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, users *auth.Repository, db *sql.DB) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)

@@ -43,12 +43,12 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -74,7 +74,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 	if id != 0 {
 		err := db.QueryRowContext(r.Context(), `SELECT key,message,acknowledged,owner_id FROM bookmarks_toast WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.Key, &data.Message, &data.Acknowledged, &data.OwnerID)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -116,7 +116,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -186,7 +186,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + strconv.FormatInt(id, 10) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

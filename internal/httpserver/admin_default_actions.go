@@ -54,7 +54,7 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 	}
 	selected := r.PostForm["_selected_action"]
 	if len(selected) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	if definition.Model != "feedtoken" {
@@ -85,7 +85,7 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 		return
 	}
 	if len(objects) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	if r.PostForm.Get("post") != "yes" {
@@ -119,7 +119,7 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 		message = "Successfully deleted 1 " + strings.ToLower(definition.Label) + "."
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_admin_default_action", message)
-	http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+	writeRedirect(w, r, r.URL.RequestURI())
 }
 
 func adminDefaultSelectionQuery(engine, model, search, status, owner, user string) (string, []any, error) {

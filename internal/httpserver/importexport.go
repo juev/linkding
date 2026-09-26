@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 	"unicode/utf8"
 
@@ -26,13 +25,13 @@ func settingsSession(w http.ResponseWriter, r *http.Request, path string, users 
 			return auth.User{}, false
 		}
 	}
-	http.Redirect(w, r, cfg.URLPrefix()+"login/?next="+url.QueryEscape(path), http.StatusFound)
+	redirectToLogin(w, r, cfg)
 	return auth.User{}, false
 }
 
 func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -42,7 +41,7 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 	redirect := cfg.URLPrefix() + "settings/general"
 	if r.Method != http.MethodPost {
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "Please select a file to import.")
-		http.Redirect(w, r, redirect, http.StatusFound)
+		writeRedirect(w, r, redirect)
 		return
 	}
 	limit := cfg.RequestMaxContentLength
@@ -61,14 +60,14 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 	file, _, err := r.FormFile("import_file")
 	if err != nil {
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "Please select a file to import.")
-		http.Redirect(w, r, redirect, http.StatusFound)
+		writeRedirect(w, r, redirect)
 		return
 	}
 	defer file.Close()
 	content, err := io.ReadAll(file)
 	if err != nil || !utf8.Valid(content) {
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "An error occurred during bookmark import.")
-		http.Redirect(w, r, redirect, http.StatusFound)
+		writeRedirect(w, r, redirect)
 		return
 	}
 	result, err := importexport.ImportNetscape(r.Context(), db, cfg, user.ID, string(content), importexport.ImportOptions{
@@ -82,12 +81,12 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 			settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", fmt.Sprintf("%d bookmarks could not be imported. Please check the logs for more details.", result.Failed))
 		}
 	}
-	http.Redirect(w, r, redirect, http.StatusFound)
+	writeRedirect(w, r, redirect)
 }
 
 func serveBookmarkExport(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)

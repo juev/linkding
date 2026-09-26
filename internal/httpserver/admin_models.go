@@ -742,7 +742,7 @@ func adminValueString(value any, location *time.Location) string {
 func adminValueStringLocalized(value any, location *time.Location, language string) string {
 	if date, ok := value.(time.Time); ok && language == "ru" {
 		date = date.In(location)
-		return fmt.Sprintf("%d %s %d г. %02d:%02d", date.Day(), russianBookmarkMonths[date.Month()-1], date.Year(), date.Hour(), date.Minute())
+		return fmt.Sprintf("%d %s %d г. %d:%02d", date.Day(), russianBookmarkMonths[date.Month()-1], date.Year(), date.Hour(), date.Minute())
 	}
 	return adminValueString(value, location)
 }

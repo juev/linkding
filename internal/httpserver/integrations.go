@@ -40,7 +40,7 @@ func manifestTheme(r *http.Request, db *sql.DB, users *auth.Repository) string {
 
 func serveManifest(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	prefix := cfg.URLPrefix()
@@ -101,7 +101,7 @@ func serveManifest(w http.ResponseWriter, r *http.Request, path string, cfg conf
 
 func serveOpenSearch(w http.ResponseWriter, r *http.Request, path string, cfg config.Config) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	scheme := "http"
@@ -124,7 +124,7 @@ func serveOpenSearch(w http.ResponseWriter, r *http.Request, path string, cfg co
 
 func serveCustomCSS(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	var ownerID sql.NullInt64

@@ -51,12 +51,12 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete" && pieces[1] != "history") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -90,7 +90,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		var ownerName string
 		err := db.QueryRowContext(r.Context(), `SELECT t.name,t.date_added,t.owner_id,u.username FROM bookmarks_tag AS t JOIN auth_user AS u ON u.id=t.owner_id WHERE t.id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.Name, &added, &data.OwnerID, &ownerName)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -164,7 +164,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -245,7 +245,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + strconv.FormatInt(id, 10) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

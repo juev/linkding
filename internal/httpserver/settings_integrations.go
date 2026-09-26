@@ -33,7 +33,7 @@ type integrationsPageData struct {
 
 func serveIntegrations(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -114,7 +114,7 @@ func serveIntegrations(w http.ResponseWriter, r *http.Request, path string, cfg 
 
 func serveCreateAPIToken(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	_, ok := settingsSession(w, r, path, users, cfg)
@@ -146,7 +146,7 @@ func serveCreateAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, cfg.URLPrefix()+"settings/integrations", http.StatusFound)
+		writeRedirect(w, r, cfg.URLPrefix()+"settings/integrations")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -174,12 +174,12 @@ func serveCreateAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 		return
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_api_success", `API token "`+name+`" created successfully`)
-	http.Redirect(w, r, cfg.URLPrefix()+"settings/integrations", http.StatusFound)
+	writeRedirect(w, r, cfg.URLPrefix()+"settings/integrations")
 }
 
 func serveDeleteAPIToken(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -198,12 +198,12 @@ func serveDeleteAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 		}
 		id, err := strconv.ParseInt(r.PostForm.Get("token_id"), 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		name, err := settings.DeleteAPIToken(r.Context(), db, cfg.DBEngine, user.ID, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -212,7 +212,7 @@ func serveDeleteAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 		}
 		settingsFlash(w, cfg.URLPrefix(), "ld_api_success", `API token "`+name+`" has been deleted.`)
 	}
-	http.Redirect(w, r, cfg.URLPrefix()+"settings/integrations", http.StatusFound)
+	writeRedirect(w, r, cfg.URLPrefix()+"settings/integrations")
 }
 
 func requestScheme(r *http.Request) string {

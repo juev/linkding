@@ -65,7 +65,7 @@ func serializeBookmark(r *http.Request, cfg config.Config, b bookmarks.Bookmark)
 
 func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository, metadataCache *metadata.Cache) {
 	if !strings.HasPrefix(r.URL.Path, root) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	part := strings.TrimPrefix(r.URL.Path, root)
@@ -96,14 +96,20 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 	var id int64
+	invalidID := false
 	if !list && !check && !singlefile {
 		if !strings.HasSuffix(part, "/") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		segments := strings.Split(strings.TrimSuffix(part, "/"), "/")
 		if len(segments) >= 2 && segments[1] == "assets" {
 			assetPath = strings.Join(segments[2:], "/")
+			assetSegments := strings.Split(assetPath, "/")
+			if len(assetSegments) > 2 || len(assetSegments) == 2 && assetSegments[1] != "download" {
+				writeNotFound(w, r)
+				return
+			}
 			switch {
 			case assetPath == "":
 				w.Header().Set("Allow", "GET, HEAD, OPTIONS")
@@ -118,15 +124,12 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 			action = segments[1]
 			w.Header().Set("Allow", "POST, OPTIONS")
 		} else if len(segments) != 1 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		var err error
 		id, err = strconv.ParseInt(segments[0], 10, 64)
-		if err != nil || id < 1 {
-			http.NotFound(w, r)
-			return
-		}
+		invalidID = err != nil
 	}
 	token, present, parseErr := auth.ParseTokenAuthorization(r.Header.Get("Authorization"))
 	if parseErr != nil {
@@ -180,9 +183,8 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 				writeAPIMetadata(w, "Upload", http.MethodPost, assetUploadAPISchema)
 			default:
 				segments := strings.Split(assetPath, "/")
-				assetID, parseErr := strconv.ParseInt(segments[0], 10, 64)
-				if parseErr != nil || assetID < 1 || len(segments) > 2 || len(segments) == 2 && segments[1] != "download" {
-					http.NotFound(w, r)
+				if len(segments) > 2 || len(segments) == 2 && segments[1] != "download" {
+					writeNotFound(w, r)
 					return
 				}
 				if len(segments) == 2 {
@@ -207,6 +209,10 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 				writeAPIMetadata(w, "Bookmark Instance", "", "")
 			}
 		}
+		return
+	}
+	if invalidID {
+		writeDetail(w, http.StatusNotFound, "Not found.")
 		return
 	}
 	if singlefile {

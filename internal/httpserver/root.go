@@ -34,5 +34,5 @@ func serveRoot(w http.ResponseWriter, r *http.Request, path string, cfg config.C
 	if r.URL.RawQuery != "" {
 		destination += "?" + r.URL.RawQuery
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }

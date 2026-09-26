@@ -116,7 +116,7 @@ func TestSettingsImportExportSessionOwnerAndCSRF(t *testing.T) {
 	}
 	unauthorized := httptest.NewRecorder()
 	handler.ServeHTTP(unauthorized, httptest.NewRequest(http.MethodGet, "/settings/export", nil))
-	if unauthorized.Code != http.StatusFound || !strings.HasPrefix(unauthorized.Header().Get("Location"), "/login/?next=") {
+	if unauthorized.Code != http.StatusFound || unauthorized.Header().Get("Location") != "/login?next=/settings/export" {
 		t.Fatalf("unauthorized export: status %d redirect %q", unauthorized.Code, unauthorized.Header().Get("Location"))
 	}
 }

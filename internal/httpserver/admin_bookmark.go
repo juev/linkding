@@ -58,12 +58,12 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete" && pieces[1] != "history") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -103,7 +103,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		var added, modified time.Time
 		err := db.QueryRowContext(r.Context(), `SELECT url,url_normalized,title,description,notes,website_title,website_description,web_archive_snapshot_url,favicon_file,preview_image_file,unread,is_archived,shared,date_added,date_modified,date_accessed,owner_id,latest_snapshot_id FROM bookmarks_bookmark WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.URL, &data.URLNormalized, &data.BookmarkTitle, &data.Description, &data.Notes, &websiteTitle, &websiteDescription, &data.WebArchiveURL, &data.FaviconFile, &data.PreviewImageFile, &data.Unread, &data.Archived, &data.Shared, &added, &modified, &accessed, &data.OwnerID, &snapshot)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -206,7 +206,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			for _, name := range files.Assets {
 				removeStoredFile(filepath.Join(cfg.DataDir, "assets"), name)
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -231,7 +231,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + strconv.FormatInt(data.ID, 10) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

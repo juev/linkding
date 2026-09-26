@@ -54,12 +54,12 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "password" && pieces[1] != "delete") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -96,7 +96,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 		var joined time.Time
 		err := db.QueryRowContext(r.Context(), `SELECT username,password,first_name,last_name,email,is_active,is_staff,is_superuser,last_login,date_joined FROM auth_user WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.UserName, &data.PasswordHash, &data.FirstName, &data.LastName, &data.Email, &data.IsActive, &data.IsStaff, &data.IsSuperuser, &lastLogin, &joined)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -175,7 +175,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 				} else if _, ok := r.PostForm["_continue"]; ok {
 					redirect = base + strconv.FormatInt(savedID, 10) + "/change/"
 				}
-				http.Redirect(w, r, redirect, http.StatusFound)
+				writeRedirect(w, r, redirect)
 				return
 			}
 		}

@@ -74,7 +74,7 @@ type bookmarkListPage struct {
 
 func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	shared := strings.HasSuffix(path, "/shared")
@@ -84,7 +84,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		user, _ = users.AuthenticateSession(r.Context(), cookie.Value)
 	}
 	if !shared && user.ID == 0 {
-		http.Redirect(w, r, cfg.URLPrefix()+"login/?next="+url.QueryEscape(path), http.StatusFound)
+		redirectToLogin(w, r, cfg)
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -342,7 +342,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 }
 
 func defaultListProfile() url.Values {
-	return url.Values{"theme": {"auto"}, "items_per_page": {"30"}, "bookmark_link_target": {"_blank"}, "bookmark_description_display": {"inline"}, "bookmark_description_max_lines": {"1"}, "bookmark_date_display": {"relative"}, "tag_grouping": {"alphabetical"}}
+	return url.Values{"theme": {"auto"}, "items_per_page": {"30"}, "bookmark_link_target": {"_blank"}, "bookmark_description_display": {"inline"}, "bookmark_description_max_lines": {"1"}, "bookmark_date_display": {"relative"}, "tag_grouping": {"alphabetical"}, "display_view_bookmark_action": {"on"}}
 }
 func pageQuery(raw string, page int) string {
 	return orderedListQuery(raw, "page", strconv.Itoa(page), "details")

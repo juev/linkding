@@ -93,12 +93,12 @@ func serveBookmarkAssets(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	parts := strings.Split(path, "/")
 	if len(parts) > 2 || len(parts) == 2 && parts[1] != "download" {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	assetID, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil || assetID < 1 {
-		http.NotFound(w, r)
+	if err != nil {
+		writeDetail(w, http.StatusNotFound, "Not found.")
 		return
 	}
 	query := `SELECT id, bookmark_id, date_created, file_size, asset_type, content_type,

@@ -49,8 +49,15 @@ func serveTagsUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *
 	root := cfg.URLPrefix() + "tags"
 	path := r.URL.Path
 	if path != root && path != root+"/new" && path != root+"/merge" && !(strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
+	}
+	if strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit") {
+		id, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(path, root+"/"), "/edit"), 10, 64)
+		if err != nil || id <= 0 || path != root+"/"+strconv.FormatInt(id, 10)+"/edit" {
+			writeNotFound(w, r)
+			return
+		}
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
 	if !ok {
@@ -80,13 +87,13 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 		}
 		id, err := strconv.ParseInt(r.PostForm.Get("delete_tag"), 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		var name string
 		err = db.QueryRowContext(r.Context(), `SELECT name FROM bookmarks_tag WHERE id = `+assetMarker(cfg.DBEngine, 1)+` AND owner_id = `+assetMarker(cfg.DBEngine, 2), id, user.ID).Scan(&name)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil || deleteTag(r, cfg, db, id, user.ID) != nil {
@@ -94,7 +101,7 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 		settingsFlash(w, cfg.URLPrefix(), "ld_tag_success", `Tag "`+name+`" deleted successfully.`)
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	profile, err := settings.LoadProfileForm(r.Context(), db, cfg.DBEngine, user.ID)
@@ -246,13 +253,13 @@ func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		part := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, root+"/"), "/edit")
 		id, err := strconv.ParseInt(part, 10, 64)
 		if err != nil || id <= 0 || r.URL.Path != root+"/"+strconv.FormatInt(id, 10)+"/edit" {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		tagID = id
 		data.Title = "Edit Tag"
 		if err := db.QueryRowContext(r.Context(), `SELECT name FROM bookmarks_tag WHERE id = `+assetMarker(cfg.DBEngine, 1)+` AND owner_id = `+assetMarker(cfg.DBEngine, 2), id, user.ID).Scan(&data.Name); errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		} else if err != nil {
 			http.Error(w, "Server error", 500)
@@ -313,7 +320,7 @@ func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 				message = `Tag "` + strings.TrimSpace(data.Name) + `" updated successfully.`
 			}
 			settingsFlash(w, cfg.URLPrefix(), "ld_tag_success", message)
-			http.Redirect(w, r, root, http.StatusFound)
+			writeRedirect(w, r, root)
 			return
 		}
 	}

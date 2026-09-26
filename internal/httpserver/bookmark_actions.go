@@ -18,7 +18,7 @@ import (
 
 func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -52,13 +52,13 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	if raw, ok := r.PostForm["remove_asset"]; ok && len(raw) > 0 {
 		assetID, err := strconv.ParseInt(raw[0], 10, 64)
 		if err != nil || assetID <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		query := `SELECT a.id,a.bookmark_id,a.date_created,a.file_size,a.asset_type,a.content_type,a.display_name,a.status,a.file,a.gzip FROM bookmarks_bookmarkasset a JOIN bookmarks_bookmark b ON b.id=a.bookmark_id WHERE a.id = ` + assetMarker(cfg.DBEngine, 1) + ` AND b.owner_id = ` + assetMarker(cfg.DBEngine, 2)
 		asset, err := scanAsset(db.QueryRowContext(r.Context(), query, assetID, user.ID))
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil || deleteAsset(r, cfg, db, asset.Bookmark, asset) != nil {
@@ -71,7 +71,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	if raw, ok := r.PostForm["update_state"]; ok && len(raw) > 0 && r.PostForm.Get("upload_asset") == "" && r.PostForm.Get("create_html_snapshot") == "" {
 		id, err := strconv.ParseInt(raw[0], 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		query := `UPDATE bookmarks_bookmark SET is_archived = ` + assetMarker(cfg.DBEngine, 1) + `, unread = ` + assetMarker(cfg.DBEngine, 2) + `, shared = ` + assetMarker(cfg.DBEngine, 3) + `, date_modified = ` + assetMarker(cfg.DBEngine, 4) + ` WHERE id = ` + assetMarker(cfg.DBEngine, 5) + ` AND owner_id = ` + assetMarker(cfg.DBEngine, 6)
@@ -82,7 +82,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 		}
 		count, err := result.RowsAffected()
 		if err != nil || count == 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		redirectBookmarkAction(w, r, cfg, archived, shared)
@@ -95,11 +95,11 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 		}
 		id, err := strconv.ParseInt(raw[0], 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if _, err = repo.GetByID(r.Context(), user.ID, id); errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		} else if err != nil {
 			http.Error(w, "Server error", 500)
@@ -126,11 +126,11 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 		if raw := r.PostForm.Get(action); raw != "" {
 			id, err := strconv.ParseInt(raw, 10, 64)
 			if err != nil || id <= 0 {
-				http.NotFound(w, r)
+				writeNotFound(w, r)
 				return
 			}
 			if _, err := repo.GetByID(r.Context(), user.ID, id); errors.Is(err, sql.ErrNoRows) {
-				http.NotFound(w, r)
+				writeNotFound(w, r)
 				return
 			} else if err != nil {
 				http.Error(w, "Server error", 500)
@@ -287,5 +287,5 @@ func redirectBookmarkAction(w http.ResponseWriter, r *http.Request, cfg config.C
 	if r.URL.RawQuery != "" {
 		destination += "?" + r.URL.RawQuery
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }

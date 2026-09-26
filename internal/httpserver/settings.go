@@ -49,7 +49,7 @@ type settingsPageData struct {
 
 func serveSettingsGeneral(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path && r.URL.Path != cfg.URLPrefix()+"settings" {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, r.URL.Path, users, cfg)
@@ -153,7 +153,7 @@ func takeSettingsFlash(w http.ResponseWriter, r *http.Request, prefix, name stri
 
 func serveSettingsUpdate(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -162,7 +162,7 @@ func serveSettingsUpdate(w http.ResponseWriter, r *http.Request, path string, cf
 	}
 	destination := cfg.URLPrefix() + "settings/general"
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, destination, http.StatusFound)
+		writeRedirect(w, r, destination)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -223,5 +223,5 @@ func serveSettingsUpdate(w http.ResponseWriter, r *http.Request, path string, cf
 			settingsFlash(w, cfg.URLPrefix(), "ld_settings_success", "No missing snapshots found.")
 		}
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }

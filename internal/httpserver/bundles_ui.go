@@ -50,8 +50,15 @@ func serveBundlesUI(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	root := cfg.URLPrefix() + "bundles"
 	path := r.URL.Path
 	if path != root && path != root+"/action" && path != root+"/new" && path != root+"/preview" && !(strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
+	}
+	if strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit") {
+		id, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(path, root+"/"), "/edit"), 10, 64)
+		if err != nil || id <= 0 || path != root+"/"+strconv.FormatInt(id, 10)+"/edit" {
+			writeNotFound(w, r)
+			return
+		}
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
 	if !ok {
@@ -155,7 +162,7 @@ func serveBundlesIndexUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 
 func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User) {
 	if r.Method != http.MethodPost {
-		http.Redirect(w, r, cfg.URLPrefix()+"bundles", http.StatusFound)
+		writeRedirect(w, r, cfg.URLPrefix()+"bundles")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -171,12 +178,12 @@ func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Con
 	if raw := r.PostForm.Get("remove_bundle"); raw != "" {
 		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		bundle, err := getBundle(r, cfg, db, user.ID, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -191,7 +198,7 @@ func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Con
 	} else if raw := r.PostForm.Get("move_bundle"); raw != "" {
 		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		position, err := strconv.Atoi(r.PostForm.Get("move_position"))
@@ -200,14 +207,14 @@ func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Con
 			return
 		}
 		if err := moveBundleUI(r, cfg, db, user.ID, id, position); errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		} else if err != nil {
 			http.Error(w, "Server error", 500)
 			return
 		}
 	}
-	http.Redirect(w, r, root, http.StatusFound)
+	writeRedirect(w, r, root)
 }
 
 func moveBundleUI(r *http.Request, cfg config.Config, db *sql.DB, ownerID, id int64, position int) error {
@@ -293,12 +300,12 @@ func serveBundleEditorUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		part := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, root+"/"), "/edit")
 		id, err := strconv.ParseInt(part, 10, 64)
 		if err != nil || id <= 0 || r.URL.Path != root+"/"+strconv.FormatInt(id, 10)+"/edit" {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		data.Form, err = getBundle(r, cfg, db, user.ID, id)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -340,7 +347,7 @@ func serveBundleEditorUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				return
 			}
 			settingsFlash(w, cfg.URLPrefix(), "ld_bundle_success", "Bundle saved successfully.")
-			http.Redirect(w, r, root, http.StatusFound)
+			writeRedirect(w, r, root)
 			return
 		}
 		status = 422

@@ -44,12 +44,20 @@ func TestAPIMissingObjectsUsePinnedDRFDetails(t *testing.T) {
 		status       int
 		detail       string
 	}{
+		{http.MethodGet, "/api/bookmarks/abc/", 404, "Not found."},
+		{http.MethodGet, "/api/bookmarks/0/", 404, "No Bookmark matches the given query."},
+		{http.MethodGet, "/api/bookmarks/-1/", 404, "No Bookmark matches the given query."},
+		{http.MethodGet, "/api/bookmarks/" + strconv.FormatInt(bookmark.ID, 10) + "/assets/abc/", 404, "Not found."},
 		{http.MethodGet, "/api/bookmarks/999999/assets/", 404, "Bookmark does not exist"},
 		{http.MethodGet, "/api/bookmarks/999999/assets/upload/", 405, `Method "GET" not allowed.`},
 		{http.MethodGet, "/api/bookmarks/" + strconv.FormatInt(bookmark.ID, 10) + "/assets/999999/", 404, "No BookmarkAsset matches the given query."},
 		{http.MethodGet, "/api/tags/999999/", 404, "No Tag matches the given query."},
+		{http.MethodGet, "/api/tags/abc/", 404, "Not found."},
+		{http.MethodGet, "/api/tags/0/", 404, "No Tag matches the given query."},
 		{http.MethodDelete, "/api/tags/999999/", 404, "No Tag matches the given query."},
 		{http.MethodGet, "/api/bundles/999999/", 404, "No BookmarkBundle matches the given query."},
+		{http.MethodGet, "/api/bundles/abc/", 404, "Not found."},
+		{http.MethodGet, "/api/bundles/0/", 404, "No BookmarkBundle matches the given query."},
 		{http.MethodDelete, "/api/bundles/999999/", 404, "No BookmarkBundle matches the given query."},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, nil)
@@ -64,6 +72,26 @@ func TestAPIMissingObjectsUsePinnedDRFDetails(t *testing.T) {
 		}
 		if response.Code != tc.status || body.Detail != tc.detail {
 			t.Errorf("%s %s: got %d %q, want %d %q", tc.method, tc.path, response.Code, body.Detail, tc.status, tc.detail)
+		}
+	}
+	for _, tc := range []struct{ path, name string }{
+		{"/api/bookmarks/abc/", "Bookmark Instance"},
+		{"/api/bookmarks/" + strconv.FormatInt(bookmark.ID, 10) + "/assets/abc/", "Bookmark Asset Instance"},
+		{"/api/tags/abc/", "Tag Instance"},
+		{"/api/bundles/abc/", "Bookmark Bundle Instance"},
+	} {
+		request := httptest.NewRequest(http.MethodOptions, tc.path, nil)
+		request.Header.Set("Authorization", "Token "+token)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		var body struct{ Name string `json:"name"` }
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || response.Code != http.StatusOK || body.Name != tc.name {
+			t.Errorf("OPTIONS %s: status=%d body=%q error=%v", tc.path, response.Code, response.Body.String(), err)
+		}
+		guest := httptest.NewRecorder()
+		handler.ServeHTTP(guest, httptest.NewRequest(http.MethodOptions, tc.path, nil))
+		if guest.Code != http.StatusUnauthorized {
+			t.Errorf("guest OPTIONS %s: status=%d, want 401", tc.path, guest.Code)
 		}
 	}
 }

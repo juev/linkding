@@ -21,7 +21,7 @@ type passwordPageData struct {
 
 func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
@@ -67,7 +67,7 @@ func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cf
 					return
 				}
 			} else {
-				http.Redirect(w, r, cfg.URLPrefix()+"password-change-done/", http.StatusFound)
+				writeRedirect(w, r, cfg.URLPrefix()+"password-change-done/")
 				return
 			}
 		}
@@ -77,7 +77,7 @@ func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cf
 
 func servePasswordChangeDone(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)

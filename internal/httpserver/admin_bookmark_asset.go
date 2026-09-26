@@ -47,12 +47,12 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 	} else {
 		pieces := strings.Split(part, "/")
 		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		parsed, err := strconv.ParseInt(pieces[0], 10, 64)
 		if err != nil || parsed <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		id, action = parsed, pieces[1]
@@ -79,7 +79,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		var size sql.NullInt64
 		err := db.QueryRowContext(r.Context(), `SELECT bookmark_id,file,file_size,asset_type,content_type,display_name,status,gzip FROM bookmarks_bookmarkasset WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.BookmarkID, &data.File, &size, &data.AssetType, &data.ContentType, &data.DisplayName, &data.Status, &data.Gzip)
 		if errors.Is(err, sql.ErrNoRows) {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		if err != nil {
@@ -110,7 +110,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			writeRedirect(w, r, base)
 			return
 		}
 		if action == "change" && !permissions.Change {
@@ -210,7 +210,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 			} else if _, ok := r.PostForm["_continue"]; ok {
 				redirect = base + strconv.FormatInt(id, 10) + "/change/"
 			}
-			http.Redirect(w, r, redirect, http.StatusFound)
+			writeRedirect(w, r, redirect)
 			return
 		}
 	}

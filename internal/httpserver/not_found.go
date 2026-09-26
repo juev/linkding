@@ -15,6 +15,16 @@ const notFoundHTML = `
 `
 
 func writeNotFound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Del("Allow")
+	setDjangoHTMLHeaders(w, r)
+	w.Header().Set("Content-Length", "179")
+	w.WriteHeader(http.StatusNotFound)
+	if r.Method != http.MethodHead {
+		_, _ = w.Write([]byte(notFoundHTML))
+	}
+}
+
+func setDjangoHTMLHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Vary", "Accept-Language, Cookie")
 	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
@@ -22,9 +32,4 @@ func writeNotFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-	w.Header().Set("Content-Length", "179")
-	w.WriteHeader(http.StatusNotFound)
-	if r.Method != http.MethodHead {
-		_, _ = w.Write([]byte(notFoundHTML))
-	}
 }

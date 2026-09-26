@@ -32,17 +32,15 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 	part := strings.TrimPrefix(r.URL.Path, root)
 	list := part == ""
 	var id int64
+	invalidID := false
 	if !list {
 		if !strings.HasSuffix(part, "/") || strings.Count(part, "/") != 1 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		var err error
 		id, err = strconv.ParseInt(strings.TrimSuffix(part, "/"), 10, 64)
-		if err != nil || id < 1 {
-			http.NotFound(w, r)
-			return
-		}
+		invalidID = err != nil
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if list {
@@ -90,6 +88,10 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		} else {
 			writeAPIMetadata(w, "Tag Instance", "", "")
 		}
+		return
+	}
+	if invalidID {
+		writeDetail(w, http.StatusNotFound, "Not found.")
 		return
 	}
 	if list && r.Method == http.MethodPost {

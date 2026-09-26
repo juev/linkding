@@ -65,5 +65,5 @@ func serveBookmarkSearchPost(w http.ResponseWriter, r *http.Request, path string
 	if encoded := params.Encode(); encoded != "" {
 		destination += "?" + strings.ReplaceAll(encoded, "+", "%20")
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }

@@ -35,7 +35,7 @@ type oidcFlowState struct {
 
 func serveOIDC(w http.ResponseWriter, r *http.Request, root string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if !cfg.EnableOIDC {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	switch r.URL.Path {
@@ -70,9 +70,9 @@ func serveOIDC(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 			}
 		}
 		clearProxySession(w, cfg.URLPrefix())
-		http.Redirect(w, r, cfg.URLPrefix()+"login/", http.StatusFound)
+		writeRedirect(w, r, cfg.URLPrefix()+"login/")
 	default:
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 	}
 }
 
@@ -138,13 +138,13 @@ func beginOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sq
 	}
 	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: cookieKey, Path: cfg.URLPrefix() + "oidc/", MaxAge: 600, Expires: time.Now().Add(10 * time.Minute), HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
 	config := oidcOAuthConfig(r, cfg)
-	http.Redirect(w, r, config.AuthCodeURL(state, options...), http.StatusFound)
+	writeRedirect(w, r, config.AuthCodeURL(state, options...))
 }
 
 func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	flow, err := consumeOIDCState(r, cfg, db)
 	if err != nil || r.URL.Query().Get("error") != "" {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	if r.URL.Query().Get("state") != flow.State {
@@ -153,7 +153,7 @@ func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db 
 	}
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	client := oidcHTTPClient(cfg)
@@ -165,26 +165,26 @@ func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db 
 	}
 	token, err := config.Exchange(ctx, code, options...)
 	if err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok || rawIDToken == "" {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	if err := verifyOIDCIDToken(ctx, client, cfg, rawIDToken, flow.Nonce); err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	claims, err := fetchOIDCUserInfo(ctx, client, cfg, token.AccessToken)
 	if err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	if strings.Contains(" "+cfg.OIDC.Scopes+" ", " email ") {
 		if _, ok := claims["email"]; !ok {
-			http.Redirect(w, r, "/", http.StatusFound)
+			writeRedirect(w, r, "/")
 			return
 		}
 	}
@@ -200,7 +200,7 @@ func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db 
 	}
 	user, err := users.GetOrCreateOIDCUser(r.Context(), email, username)
 	if err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
+		writeRedirect(w, r, "/")
 		return
 	}
 	age := cfg.SessionCookieAge
@@ -225,7 +225,7 @@ func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db 
 	if destination == "" {
 		destination = cfg.URLPrefix() + "bookmarks"
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }
 
 func consumeOIDCState(r *http.Request, cfg config.Config, db *sql.DB) (oidcFlowState, error) {

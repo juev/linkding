@@ -46,7 +46,7 @@ func serveAdminBookmarkAction(w http.ResponseWriter, r *http.Request, cfg config
 	}
 	selected := r.PostForm["_selected_action"]
 	if len(selected) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	selectedIDs := make([]int64, 0, len(selected))
@@ -91,7 +91,7 @@ func serveAdminBookmarkAction(w http.ResponseWriter, r *http.Request, cfg config
 	}
 	count := len(selectedBookmarks)
 	if count == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	marker := func(i int) string { return assetMarker(cfg.DBEngine, i) }
@@ -143,7 +143,7 @@ func serveAdminBookmarkAction(w http.ResponseWriter, r *http.Request, cfg config
 		}
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_admin_bookmark_action", message)
-	http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+	writeRedirect(w, r, r.URL.RequestURI())
 }
 
 func adminBookmarkActionMessage(count int, singular, plural string) string {

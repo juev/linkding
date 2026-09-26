@@ -25,7 +25,7 @@ type loginData struct {
 
 func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, repo *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost && r.Method != http.MethodOptions {
@@ -35,7 +35,7 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 	}
 	if cookie, err := r.Cookie(auth.SessionCookieName); err == nil {
 		if _, err := repo.AuthenticateSession(r.Context(), cookie.Value); err == nil {
-			http.Redirect(w, r, safeNext(r.URL.Query().Get("next"), r, cfg.URLPrefix()+"bookmarks"), http.StatusFound)
+			writeRedirect(w, r, safeNext(r.URL.Query().Get("next"), r, cfg.URLPrefix()+"bookmarks"))
 			return
 		}
 	}
@@ -76,7 +76,7 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
-			http.Redirect(w, r, safeNext(data.Next, r, cfg.URLPrefix()+"bookmarks"), http.StatusFound)
+			writeRedirect(w, r, safeNext(data.Next, r, cfg.URLPrefix()+"bookmarks"))
 			return
 		}
 		data.Error = true
@@ -123,7 +123,7 @@ func establishLoginSession(w http.ResponseWriter, r *http.Request, cfg config.Co
 
 func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, repo *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if r.Method == http.MethodOptions {
@@ -155,7 +155,7 @@ func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config
 	if cfg.EnableAuthProxy && cfg.AuthProxyLogoutURL != "" {
 		destination = cfg.AuthProxyLogoutURL
 	}
-	http.Redirect(w, r, destination, http.StatusFound)
+	writeRedirect(w, r, destination)
 }
 
 func setCSRFCookie(w http.ResponseWriter, path, secret string) {

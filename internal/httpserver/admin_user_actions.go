@@ -56,7 +56,7 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 	}
 	selected := r.PostForm["_selected_action"]
 	if len(selected) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	selectedIDs := make([]int64, 0, len(selected))
@@ -100,7 +100,7 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 		return
 	}
 	if len(users) == 0 {
-		http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+		writeRedirect(w, r, r.URL.RequestURI())
 		return
 	}
 	if r.PostForm.Get("post") != "yes" {
@@ -143,5 +143,5 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 		message = "Successfully deleted 1 user."
 	}
 	settingsFlash(w, cfg.URLPrefix(), "ld_admin_user_action", message)
-	http.Redirect(w, r, r.URL.RequestURI(), http.StatusFound)
+	writeRedirect(w, r, r.URL.RequestURI())
 }

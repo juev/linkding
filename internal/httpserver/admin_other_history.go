@@ -21,7 +21,7 @@ func serveAdminOtherHistory(w http.ResponseWriter, r *http.Request, cfg config.C
 	}
 	definition, ok := findAdminModel("bookmarks", model)
 	if !ok {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", model)
@@ -35,7 +35,7 @@ func serveAdminOtherHistory(w http.ResponseWriter, r *http.Request, cfg config.C
 	}
 	if model != "feedtoken" {
 		if id, err := strconv.ParseInt(objectID, 10, 64); err != nil || id <= 0 {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 	}
@@ -73,11 +73,11 @@ func serveAdminOtherHistory(w http.ResponseWriter, r *http.Request, cfg config.C
 		err = db.QueryRowContext(r.Context(), query, objectID).Scan(&id, &displayName)
 		data.TargetName = adminBookmarkAssetRepr(id, displayName)
 	default:
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if err != nil {

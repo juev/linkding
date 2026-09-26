@@ -128,7 +128,7 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 	w.Header().Set("Vary", "Cookie, Accept-Language")
 	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	if !strings.HasPrefix(r.URL.Path, root) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if r.URL.Path == root+"logout/" {
@@ -145,7 +145,7 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 	}
 	if user.ID == 0 || !user.IsActive || !user.IsStaff {
 		next := strings.ReplaceAll(url.QueryEscape(r.URL.RequestURI()), "%2F", "/")
-		http.Redirect(w, r, root+"login/?next="+next, http.StatusFound)
+		writeRedirect(w, r, root+"login/?next="+next)
 		return
 	}
 	if r.URL.Path == root+"password_change/" {
@@ -318,12 +318,12 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		relative := strings.TrimPrefix(r.URL.Path, root)
 		parts := strings.Split(relative, "/")
 		if len(parts) != 3 || parts[2] != "" {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		definition, found := findAdminModel(parts[0], parts[1])
 		if !found {
-			http.NotFound(w, r)
+			writeNotFound(w, r)
 			return
 		}
 		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, definition.App, definition.Model)

@@ -109,6 +109,10 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	if guest.Code != 200 || !strings.Contains(guest.Body.String(), "One") || strings.Contains(guest.Body.String(), "Two") || !strings.Contains(guest.Body.String(), "Login") {
 		t.Fatalf("guest shared list: %d %q", guest.Code, guest.Body.String())
 	}
+	if !strings.Contains(guest.Body.String(), `details=`+strconv.FormatInt(first.ID, 10)+`" class="view-action"`) ||
+		!strings.Contains(guest.Body.String(), `data-turbo-frame="details-modal">View</a>`) {
+		t.Fatal("guest shared bookmark must show the details action")
+	}
 	if strings.Contains(guest.Body.String(), `id="search-shared-label"`) || strings.Contains(guest.Body.String(), `id="search-unread-label"`) {
 		t.Fatal("shared search preferences expose sort only")
 	}

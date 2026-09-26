@@ -39,7 +39,7 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		current, _ = users.AuthenticateSession(r.Context(), cookie.Value)
 	}
 	if r.Method == http.MethodGet && current.ID != 0 && current.IsActive && current.IsStaff {
-		http.Redirect(w, r, root, http.StatusFound)
+		writeRedirect(w, r, root)
 		return
 	}
 	secret := ""
@@ -92,7 +92,7 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
-			http.Redirect(w, r, safeNext(data.Next, r, cfg.URLPrefix()+"bookmarks"), http.StatusFound)
+			writeRedirect(w, r, safeNext(data.Next, r, cfg.URLPrefix()+"bookmarks"))
 			return
 		}
 		data.Error = true

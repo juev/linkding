@@ -39,7 +39,7 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 	query := `SELECT username,first_name,last_name,email,password FROM auth_user WHERE id = ` + assetMarker(cfg.DBEngine, 1)
 	err := db.QueryRowContext(r.Context(), query, id).Scan(&target, &firstName, &lastName, &email, &oldHash)
 	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if err != nil {
@@ -115,7 +115,7 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 				}
 				http.SetCookie(w, &http.Cookie{Name: auth.SessionCookieName, Value: key, Path: cfg.URLPrefix(), MaxAge: age, Expires: time.Now().Add(time.Duration(age) * time.Second), HttpOnly: true, SameSite: http.SameSiteLaxMode})
 			}
-			http.Redirect(w, r, changeURL, http.StatusFound)
+			writeRedirect(w, r, changeURL)
 			return
 		}
 	}
