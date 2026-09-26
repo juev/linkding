@@ -146,6 +146,27 @@ func TestSQLiteUnicodeFunctions(t *testing.T) {
 	if got.Valid {
 		t.Fatalf("NULL input gave %d", got.Int64)
 	}
+	for _, tc := range []struct {
+		name, query string
+		want        sql.NullInt64
+	}{
+		{"first field", "SELECT ld_ci_contains_any('SYSTEMS', 'other', 'other', 'other', 'systems')", sql.NullInt64{Int64: 1, Valid: true}},
+		{"last field", "SELECT ld_ci_contains_any('other', 'other', 'other', 'Systems URL', 'systems')", sql.NullInt64{Int64: 1, Valid: true}},
+		{"Unicode fold", "SELECT ld_ci_contains_any('other', 'kelvin', 'other', 'other', 'K')", sql.NullInt64{Int64: 1, Valid: true}},
+		{"no match", "SELECT ld_ci_contains_any('a', 'b', 'c', 'd', 'z')", sql.NullInt64{Int64: 0, Valid: true}},
+		{"unknown", "SELECT ld_ci_contains_any('a', NULL, 'c', 'd', 'z')", sql.NullInt64{}},
+		{"match beats unknown", "SELECT ld_ci_contains_any('z', NULL, 'c', 'd', 'z')", sql.NullInt64{Int64: 1, Valid: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var actual sql.NullInt64
+			if err := db.QueryRow(tc.query).Scan(&actual); err != nil {
+				t.Fatal(err)
+			}
+			if actual != tc.want {
+				t.Fatalf("got %+v, want %+v", actual, tc.want)
+			}
+		})
+	}
 }
 
 func TestASCIIContainsFoldMatchesUnicodeFallback(t *testing.T) {

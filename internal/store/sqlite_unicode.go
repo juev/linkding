@@ -41,6 +41,7 @@ func registerSQLiteUnicode() error {
 			{"ld_fold", 1, sqliteFold},
 			{"ld_ci_equal", 2, sqliteCIEqual},
 			{"ld_ci_contains", 2, sqliteCIContains},
+			{"ld_ci_contains_any", 5, sqliteCIContainsAny},
 			{"ld_like", 3, sqliteLike},
 		}
 		for _, fn := range functions {
@@ -112,16 +113,42 @@ func sqliteCIContains(_ *sqlite.FunctionContext, args []driver.Value) (driver.Va
 	if err != nil || !valid {
 		return nil, err
 	}
-	if isASCII(text) && isASCII(needle) {
-		if asciiContainsFold(text, needle) {
-			return int64(1), nil
-		}
-		return int64(0), nil
-	}
-	if strings.Contains(simpleCaseFold(text), simpleCaseFold(needle)) {
+	if ciContains(text, needle) {
 		return int64(1), nil
 	}
 	return int64(0), nil
+}
+
+func sqliteCIContainsAny(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+	needle, valid, err := sqlString(args[4])
+	if err != nil || !valid {
+		return nil, err
+	}
+	hasNull := false
+	for _, arg := range args[:4] {
+		text, valid, err := sqlString(arg)
+		if err != nil {
+			return nil, err
+		}
+		if !valid {
+			hasNull = true
+			continue
+		}
+		if ciContains(text, needle) {
+			return int64(1), nil
+		}
+	}
+	if hasNull {
+		return nil, nil
+	}
+	return int64(0), nil
+}
+
+func ciContains(text, needle string) bool {
+	if isASCII(text) && isASCII(needle) {
+		return asciiContainsFold(text, needle)
+	}
+	return strings.Contains(simpleCaseFold(text), simpleCaseFold(needle))
 }
 
 func isASCII(value string) bool {

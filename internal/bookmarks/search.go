@@ -71,6 +71,13 @@ func (f *bookmarkFilter) contains(field, term string) string {
 }
 
 func (f *bookmarkFilter) term(value string, lax bool) string {
+	if f.engine == "sqlite" {
+		parts := []string{"ld_ci_contains_any(b.title, b.description, b.notes, b.url, " + f.bind(value) + ") = 1"}
+		if lax {
+			parts = append(parts, f.exactTag(value))
+		}
+		return "(" + strings.Join(parts, " OR ") + ")"
+	}
 	parts := []string{
 		f.contains("b.title", value), f.contains("b.description", value),
 		f.contains("b.notes", value), f.contains("b.url", value),

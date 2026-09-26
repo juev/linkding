@@ -10,7 +10,7 @@ linkding is a bookmark manager you can host yourself. It keeps the interface foc
 
 This repository is an independent Go port of [linkding v1.47.0](https://github.com/sissbruecker/linkding/tree/v1.47.0). It preserves the original interface, API, and `LD_*` settings while using a Go server. The [parity specification](docs/specs/linkding-parity.md) describes the compatibility target.
 
-The [local load comparison](docs/performance/2026-09-26-linkding-comparison.md), its [optimization follow-up](docs/performance/2026-09-26-optimization-followup.md), and the [post-release SQLite investigation](docs/performance/2026-09-26-sqlite-post-release.md) measure the Python server and this Go port on the same bookmark fixture.
+The [local load comparison](docs/performance/2026-09-26-linkding-comparison.md), its [optimization follow-up](docs/performance/2026-09-26-optimization-followup.md), the [post-release SQLite investigation](docs/performance/2026-09-26-sqlite-post-release.md), and the [query and algorithm analysis](docs/performance/2026-09-26-query-algorithm-analysis.md) measure the Python server and this Go port on the same bookmark fixture.
 
 ## Features
 
