@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -70,6 +71,12 @@ func Open(ctx context.Context, cfg config.Config) (*sql.DB, error) {
 	if cfg.DBEngine == "sqlite" {
 		// A bounded pool avoids unbounded per-connection SQLite page caches.
 		db.SetMaxOpenConns(4)
+	} else {
+		// Keep expensive concurrent scans near the app's CPU budget while
+		// allowing larger deployments more database connections.
+		poolSize := min(16, max(4, 2*runtime.GOMAXPROCS(0)))
+		db.SetMaxOpenConns(poolSize)
+		db.SetMaxIdleConns(min(poolSize, 4))
 	}
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()

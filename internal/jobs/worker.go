@@ -12,6 +12,8 @@ type Handler func(context.Context, Job) error
 type Worker struct {
 	Queue       *Queue
 	Handlers    map[string]Handler
+	Kind        string
+	ExcludeKind bool
 	Lease       time.Duration
 	MaxAttempts int
 	RetryDelay  func(attempt int) time.Duration
@@ -24,7 +26,7 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	if w.Queue == nil || w.Lease <= 0 || w.MaxAttempts < 1 {
 		return false, fmt.Errorf("invalid worker configuration")
 	}
-	job, err := w.Queue.Claim(ctx, w.Lease)
+	job, err := w.Queue.ClaimByKind(ctx, w.Lease, w.Kind, w.ExcludeKind)
 	if err != nil || job == nil {
 		return false, err
 	}

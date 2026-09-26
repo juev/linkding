@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +27,8 @@ type ListOptions struct {
 	Limit         int
 	Offset        int
 }
+
+type bookmarkRef struct{ id, ownerID int64 }
 
 func ListOptionsFromValues(values url.Values, archived bool, limit, offset int) ListOptions {
 	return ListOptions{
@@ -61,7 +64,7 @@ func (f *bookmarkFilter) exactTag(name string) string {
 func (f *bookmarkFilter) contains(field, term string) string {
 	if f.engine == "postgres" {
 		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(term)
-		return field + " ILIKE " + f.bind("%"+escaped+"%") + ` ESCAPE '\'`
+		return "UPPER(" + field + "::text) LIKE UPPER(" + f.bind("%"+escaped+"%") + `) ESCAPE '\'`
 	}
 	return "ld_ci_contains(" + field + ", " + f.bind(term) + ") = 1"
 }
@@ -254,7 +257,9 @@ func (r *Repository) ListTagNamesForSearch(ctx context.Context, viewerID int64, 
 	if err != nil {
 		return nil, err
 	}
-	query := "SELECT DISTINCT t.name FROM bookmarks_bookmark b JOIN bookmarks_bookmark_tags bt ON bt.bookmark_id = b.id JOIN bookmarks_tag t ON t.id = bt.tag_id WHERE " + where
+	query := `SELECT DISTINCT t.name FROM bookmarks_tag t WHERE EXISTS (
+		SELECT 1 FROM bookmarks_bookmark_tags bt JOIN bookmarks_bookmark b ON b.id = bt.bookmark_id
+		WHERE bt.tag_id = t.id AND ` + where + `)`
 	rows, err := r.db.QueryContext(ctx, query, f.args...)
 	if err != nil {
 		return nil, fmt.Errorf("list matching tags: %w", err)
@@ -325,7 +330,6 @@ func (r *Repository) listFiltered(ctx context.Context, profileID int64, ownerID 
 	if err != nil {
 		return nil, 0, fmt.Errorf("list bookmarks: %w", err)
 	}
-	type bookmarkRef struct{ id, ownerID int64 }
 	var refs []bookmarkRef
 	for rows.Next() {
 		var ref bookmarkRef
@@ -340,15 +344,86 @@ func (r *Repository) listFiltered(ctx context.Context, profileID int64, ownerID 
 	if err != nil {
 		return nil, 0, err
 	}
-	items := make([]Bookmark, 0, len(refs))
-	for _, ref := range refs {
-		item, err := r.GetByID(ctx, ref.ownerID, ref.id)
-		if err != nil {
-			return nil, 0, fmt.Errorf("load bookmark %d: %w", ref.id, err)
-		}
-		items = append(items, item)
+	items, err := r.loadPageBookmarks(ctx, refs)
+	if err != nil {
+		return nil, 0, err
 	}
 	return items, count, nil
+}
+
+func (r *Repository) loadPageBookmarks(ctx context.Context, refs []bookmarkRef) ([]Bookmark, error) {
+	items := make([]Bookmark, len(refs))
+	// Keep each IN clause below SQLite's parameter limit, even for an API limit
+	// supplied by the caller rather than the default page size.
+	const batchSize = 500
+	for start := 0; start < len(refs); start += batchSize {
+		end := min(start+batchSize, len(refs))
+		batch := refs[start:end]
+		args := make([]any, len(batch))
+		positions := make(map[int64]int, len(batch))
+		for i, ref := range batch {
+			args[i] = ref.id
+			positions[ref.id] = start + i
+		}
+		markers := placeholders(r.engine, len(batch))
+		query := `SELECT ` + bookmarkSelectColumns + ` FROM bookmarks_bookmark WHERE id IN (` + markers + `)`
+		rows, err := r.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("load page bookmarks: %w", err)
+		}
+		for rows.Next() {
+			var item Bookmark
+			if err := scanBookmark(rows, &item); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			position, ok := positions[item.ID]
+			if !ok || item.OwnerID != refs[position].ownerID {
+				rows.Close()
+				return nil, fmt.Errorf("load bookmark %d: %w", item.ID, sql.ErrNoRows)
+			}
+			items[position] = item
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		for i, ref := range batch {
+			if items[start+i].ID != ref.id {
+				return nil, fmt.Errorf("load bookmark %d: %w", ref.id, sql.ErrNoRows)
+			}
+		}
+		query = `SELECT bt.bookmark_id, t.name FROM bookmarks_bookmark_tags AS bt
+			JOIN bookmarks_tag AS t ON t.id = bt.tag_id WHERE bt.bookmark_id IN (` + markers + `)`
+		rows, err = r.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("load page bookmark tags: %w", err)
+		}
+		for rows.Next() {
+			var id int64
+			var name string
+			if err := rows.Scan(&id, &name); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			position, ok := positions[id]
+			if !ok {
+				rows.Close()
+				return nil, fmt.Errorf("unexpected bookmark tag for %d", id)
+			}
+			items[position].TagNames = append(items[position].TagNames, name)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		for i := start; i < end; i++ {
+			slices.Sort(items[i].TagNames)
+		}
+	}
+	return items, nil
 }
 
 func (r *Repository) buildListFilter(ctx context.Context, profileID int64, ownerID *int64, sharedFeed, publicOnly bool, opts ListOptions, preview *PreviewBundle) (*bookmarkFilter, string, error) {

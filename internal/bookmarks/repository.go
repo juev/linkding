@@ -162,13 +162,9 @@ func (r *Repository) replaceTags(ctx context.Context, tx *sql.Tx, ownerID, bookm
 }
 
 func (r *Repository) GetByID(ctx context.Context, ownerID, id int64) (Bookmark, error) {
-	query := `SELECT id, owner_id, url, url_normalized, title, description, notes, unread, shared,
-		is_archived, date_added, date_modified, web_archive_snapshot_url, favicon_file, preview_image_file
-		FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) + ` AND id = ` + r.marker(2)
+	query := `SELECT ` + bookmarkSelectColumns + ` FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) + ` AND id = ` + r.marker(2)
 	var b Bookmark
-	if err := r.db.QueryRowContext(ctx, query, ownerID, id).Scan(&b.ID, &b.OwnerID, &b.URL, &b.URLNormalized,
-		&b.Title, &b.Description, &b.Notes, &b.Unread, &b.Shared, &b.IsArchived, &b.DateAdded, &b.DateModified,
-		&b.WebArchiveSnapshotURL, &b.FaviconFile, &b.PreviewImageFile); err != nil {
+	if err := scanBookmark(r.db.QueryRowContext(ctx, query, ownerID, id), &b); err != nil {
 		return Bookmark{}, err
 	}
 	query = `SELECT t.name FROM bookmarks_tag AS t JOIN bookmarks_bookmark_tags AS bt ON bt.tag_id = t.id
@@ -190,6 +186,19 @@ func (r *Repository) GetByID(ctx context.Context, ownerID, id int64) (Bookmark, 
 	}
 	slices.Sort(b.TagNames) // Python's sorted(names) uses code point order.
 	return b, nil
+}
+
+const bookmarkSelectColumns = `id, owner_id, url, url_normalized, title, description, notes, unread, shared,
+	is_archived, date_added, date_modified, web_archive_snapshot_url, favicon_file, preview_image_file`
+
+type bookmarkScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanBookmark(row bookmarkScanner, b *Bookmark) error {
+	return row.Scan(&b.ID, &b.OwnerID, &b.URL, &b.URLNormalized, &b.Title, &b.Description,
+		&b.Notes, &b.Unread, &b.Shared, &b.IsArchived, &b.DateAdded, &b.DateModified,
+		&b.WebArchiveSnapshotURL, &b.FaviconFile, &b.PreviewImageFile)
 }
 
 func placeholders(engine string, n int) string {

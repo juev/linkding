@@ -10,7 +10,7 @@ linkding is a bookmark manager you can host yourself. It keeps the interface foc
 
 This repository is an independent Go port of [linkding v1.47.0](https://github.com/sissbruecker/linkding/tree/v1.47.0). It preserves the original interface, API, and `LD_*` settings while using a Go server. The [parity specification](docs/specs/linkding-parity.md) describes the compatibility target.
 
-The [local load comparison](docs/performance/2026-09-26-linkding-comparison.md) measures the Python server and this Go port on the same bookmark fixture with SQLite and PostgreSQL.
+The [local load comparison](docs/performance/2026-09-26-linkding-comparison.md) and its [optimization follow-up](docs/performance/2026-09-26-optimization-followup.md) measure the Python server and this Go port on the same bookmark fixture with SQLite and PostgreSQL.
 
 ## Features
 
@@ -32,7 +32,7 @@ The original project also provides a [live demo](https://demo.linkding.link/), a
 
 ## Install
 
-Download a Linux, macOS, or Windows archive from the [v1.47.1 release](https://github.com/juev/linkding/releases/tag/v1.47.1), verify it with `SHA256SUMS`, and run the binary from the extracted directory. The archives include the static assets required by the server.
+Download a Linux, macOS, or Windows archive from the [v1.47.2 release](https://github.com/juev/linkding/releases/tag/v1.47.2), verify it with `SHA256SUMS`, and run the binary from the extracted directory. The archives include the static assets required by the server.
 
 For Docker, create a persistent volume and start the basic image:
 
@@ -44,10 +44,10 @@ docker run -d --name linkding -p 9090:9090 \
   -v linkding-data:/etc/linkding/data \
   -e LD_SUPERUSER_NAME=admin \
   -e LD_SUPERUSER_PASSWORD='replace-this-password' \
-  ghcr.io/juev/linkding:v1.47.1
+  ghcr.io/juev/linkding:v1.47.2
 ```
 
-Open `http://localhost:9090/`. The basic image supports SQLite and PostgreSQL, uploads, previews, favicons, and backups. Use `ghcr.io/juev/linkding-plus:v1.47.1` for automatic HTML snapshots with Chromium and SingleFile. Both images support linux/amd64 and linux/arm64, a read-only root filesystem, and a non-root UID.
+Open `http://localhost:9090/`. The basic image supports SQLite and PostgreSQL, uploads, previews, favicons, and backups. Use `ghcr.io/juev/linkding-plus:v1.47.2` for automatic HTML snapshots with Chromium and SingleFile. Both images support linux/amd64 and linux/arm64, a read-only root filesystem, and a non-root UID.
 
 The [installation guide](docs/installation.md) covers binaries, Docker Compose, PostgreSQL, persistent files, proxy paths, health checks, and configuration. See [migration](docs/migration.md) before replacing a Python linkding installation and [backups](docs/backups.md) for backup and restore commands. The [original documentation](https://linkding.link/) covers common linkding features; use this repository's installation guide for the Go port.
 

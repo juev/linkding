@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/juev/linkding/internal/config"
@@ -144,6 +145,62 @@ func TestSQLiteUnicodeFunctions(t *testing.T) {
 	}
 	if got.Valid {
 		t.Fatalf("NULL input gave %d", got.Int64)
+	}
+}
+
+func TestASCIIContainsFoldMatchesUnicodeFallback(t *testing.T) {
+	for left := byte(0); left < 128; left++ {
+		for right := byte(0); right < 128; right++ {
+			text, needle := string([]byte{left}), string([]byte{right})
+			want := strings.Contains(simpleCaseFold(text), simpleCaseFold(needle))
+			if got := asciiContainsFold(text, needle); got != want {
+				t.Fatalf("ASCII fold mismatch for %q and %q: got %t, want %t", text, needle, got, want)
+			}
+		}
+	}
+	for _, tc := range []struct{ text, needle string }{
+		{"Systems article", "systems"},
+		{"SYSTEMS article", "TeMs"},
+		{"systematic", "systems"},
+		{"A short personal note", ""},
+		{"path/100%_value", "%_VAL"},
+	} {
+		want := strings.Contains(simpleCaseFold(tc.text), simpleCaseFold(tc.needle))
+		if got := asciiContainsFold(tc.text, tc.needle); got != want {
+			t.Fatalf("ASCII fold mismatch for %q and %q: got %t, want %t", tc.text, tc.needle, got, want)
+		}
+	}
+	db := openTestSQLite(t)
+	var found int
+	if err := db.QueryRow(`SELECT ld_ci_contains('kelvin', 'K')`).Scan(&found); err != nil || found != 1 {
+		t.Fatalf("Unicode fallback changed: found=%d err=%v", found, err)
+	}
+}
+
+func TestASCIIEqualFoldMatchesUnicodeFallback(t *testing.T) {
+	for left := byte(0); left < 128; left++ {
+		for right := byte(0); right < 128; right++ {
+			first, second := string([]byte{left}), string([]byte{right})
+			want := simpleCaseFold(first) == simpleCaseFold(second)
+			if got := strings.EqualFold(first, second); got != want {
+				t.Fatalf("ASCII equality mismatch for %q and %q: got %t, want %t", first, second, got, want)
+			}
+		}
+	}
+	for _, tc := range []struct{ left, right string }{
+		{"tag-008", "TAG-008"},
+		{"tag-008", "tag-009"},
+		{"Systems", "systems"},
+	} {
+		want := simpleCaseFold(tc.left) == simpleCaseFold(tc.right)
+		if got := strings.EqualFold(tc.left, tc.right); got != want {
+			t.Fatalf("ASCII equality mismatch for %q and %q: got %t, want %t", tc.left, tc.right, got, want)
+		}
+	}
+	db := openTestSQLite(t)
+	var found int
+	if err := db.QueryRow(`SELECT ld_ci_equal('kelvin', 'KELVIN')`).Scan(&found); err != nil || found != 1 {
+		t.Fatalf("Unicode equality fallback changed: found=%d err=%v", found, err)
 	}
 }
 

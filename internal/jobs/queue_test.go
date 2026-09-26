@@ -86,6 +86,39 @@ func TestQueueClaimsOnceAndCompletes(t *testing.T) {
 	})
 }
 
+func TestQueueClaimsSeparateSnapshotAndNormalLanes(t *testing.T) {
+	testQueues(t, func(t *testing.T, q *Queue) {
+		ctx := context.Background()
+		for _, kind := range []string{"process_snapshot", "refresh_metadata", "process_snapshot"} {
+			if _, err := q.Enqueue(ctx, kind, json.RawMessage(`{}`)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		normal, err := q.ClaimByKind(ctx, time.Minute, "process_snapshot", true)
+		if err != nil || normal == nil || normal.Kind != "refresh_metadata" {
+			t.Fatalf("normal lane claimed %v: %v", normal, err)
+		}
+		if another, err := q.ClaimByKind(ctx, time.Minute, "process_snapshot", true); err != nil || another != nil {
+			t.Fatalf("normal lane took snapshot: %v, %v", another, err)
+		}
+		for range 2 {
+			snapshot, err := q.ClaimByKind(ctx, time.Minute, "process_snapshot", false)
+			if err != nil || snapshot == nil || snapshot.Kind != "process_snapshot" {
+				t.Fatalf("snapshot lane claimed %v: %v", snapshot, err)
+			}
+			if err := q.Complete(ctx, *snapshot); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := q.Complete(ctx, *normal); err != nil {
+			t.Fatal(err)
+		}
+		if remaining, err := q.Claim(ctx, time.Minute); err != nil || remaining != nil {
+			t.Fatalf("lane claims left a job: %v, %v", remaining, err)
+		}
+	})
+}
+
 func TestQueueRetryLeaseAndTerminalFailure(t *testing.T) {
 	testQueues(t, func(t *testing.T, q *Queue) {
 		ctx := context.Background()

@@ -113,13 +113,24 @@ func run() error {
 		worker := jobs.Worker{
 			Queue:       jobs.New(db, cfg.DBEngine),
 			Handlers:    processor.Handlers(),
+			Kind:        "process_snapshot",
+			ExcludeKind: true,
 			Lease:       3 * time.Minute,
 			MaxAttempts: 6,
 			OnError:     func(err error) { log.Printf("background job: %v", err) },
 		}
+		for range 2 {
+			go func(normalWorker jobs.Worker) {
+				if err := normalWorker.Run(ctx, 500*time.Millisecond); err != nil {
+					log.Printf("background worker stopped: %v", err)
+				}
+			}(worker)
+		}
+		worker.Kind = "process_snapshot"
+		worker.ExcludeKind = false
 		go func() {
 			if err := worker.Run(ctx, 500*time.Millisecond); err != nil {
-				log.Printf("background worker stopped: %v", err)
+				log.Printf("snapshot worker stopped: %v", err)
 			}
 		}()
 	}

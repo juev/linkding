@@ -153,6 +153,17 @@ func TestListFilteredSearchGrammarAndFilters(t *testing.T) {
 			}
 			assertTitles(ListOptions{Query: "Go or Rust"})
 			assertTitles(ListOptions{Query: "!unread #coding"}, "Go language")
+			for _, input := range []CreateInput{
+				{URL: "https://example.com/literal", Title: "100%_match"},
+				{URL: "https://example.com/wildcard", Title: "100xxmatch"},
+				{URL: "https://example.com/unicode", Title: "Äpfel"},
+			} {
+				if _, _, err := repo.CreateOrUpdateData(ctx, user.ID, input); err != nil {
+					t.Fatal(err)
+				}
+			}
+			assertTitles(ListOptions{Query: "100%_match"}, "100%_match")
+			assertTitles(ListOptions{Query: "äpfel"}, "Äpfel")
 		})
 	}
 }

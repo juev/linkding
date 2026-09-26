@@ -91,6 +91,12 @@ func sqliteCIEqual(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value
 	if err != nil || !valid {
 		return nil, err
 	}
+	if isASCII(left) && isASCII(right) {
+		if strings.EqualFold(left, right) {
+			return int64(1), nil
+		}
+		return int64(0), nil
+	}
 	if simpleCaseFold(left) == simpleCaseFold(right) {
 		return int64(1), nil
 	}
@@ -106,10 +112,51 @@ func sqliteCIContains(_ *sqlite.FunctionContext, args []driver.Value) (driver.Va
 	if err != nil || !valid {
 		return nil, err
 	}
+	if isASCII(text) && isASCII(needle) {
+		if asciiContainsFold(text, needle) {
+			return int64(1), nil
+		}
+		return int64(0), nil
+	}
 	if strings.Contains(simpleCaseFold(text), simpleCaseFold(needle)) {
 		return int64(1), nil
 	}
 	return int64(0), nil
+}
+
+func isASCII(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if value[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+func asciiContainsFold(text, needle string) bool {
+	if needle == "" {
+		return true
+	}
+	for i := 0; i+len(needle) <= len(text); i++ {
+		matched := true
+		for j := 0; j < len(needle); j++ {
+			left, right := text[i+j], needle[j]
+			if left >= 'a' && left <= 'z' {
+				left -= 'a' - 'A'
+			}
+			if right >= 'a' && right <= 'z' {
+				right -= 'a' - 'A'
+			}
+			if left != right {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 // sqliteLike is the first pure-Go candidate for SQLite ICU LIKE. The differential

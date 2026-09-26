@@ -68,8 +68,17 @@ func (q *Queue) Enqueue(ctx context.Context, kind string, payload json.RawMessag
 // Claim atomically takes one ready job. An expired lease is eligible again,
 // so handlers must make externally visible effects idempotent.
 func (q *Queue) Claim(ctx context.Context, lease time.Duration) (*Job, error) {
+	return q.ClaimByKind(ctx, lease, "", false)
+}
+
+// ClaimByKind scopes a worker lane to one kind, or excludes that kind. An
+// empty kind keeps the original all-jobs claim behavior.
+func (q *Queue) ClaimByKind(ctx context.Context, lease time.Duration, kind string, exclude bool) (*Job, error) {
 	if lease <= 0 {
 		return nil, fmt.Errorf("job lease must be positive")
+	}
+	if exclude && kind == "" {
+		return nil, fmt.Errorf("excluded job kind is required")
 	}
 	var tokenBytes [16]byte
 	if _, err := rand.Read(tokenBytes[:]); err != nil {
@@ -80,25 +89,45 @@ func (q *Queue) Claim(ctx context.Context, lease time.Duration) (*Job, error) {
 	until := now.Add(lease)
 	var row *sql.Row
 	if q.engine == "postgres" {
+		kindClause := ""
+		args := []any{now, token, until}
+		if kind != "" {
+			comparison := "="
+			if exclude {
+				comparison = "<>"
+			}
+			kindClause = " AND kind " + comparison + " $4"
+			args = append(args, kind)
+		}
 		row = q.db.QueryRowContext(ctx, `WITH selected AS (
 			SELECT id FROM linkding_job
-			WHERE (status = 'pending' AND available_at <= $1)
-			   OR (status = 'running' AND leased_until <= $1)
+			WHERE ((status = 'pending' AND available_at <= $1)
+			   OR (status = 'running' AND leased_until <= $1))`+kindClause+`
 			ORDER BY available_at, id FOR UPDATE SKIP LOCKED LIMIT 1
 		)
 		UPDATE linkding_job AS j SET status = 'running', attempts = j.attempts + 1,
 			lease_token = $2, leased_until = $3, updated_at = $1
 		FROM selected WHERE j.id = selected.id
-		RETURNING j.id, j.kind, j.payload, j.attempts, j.lease_token`, now, token, until)
+		RETURNING j.id, j.kind, j.payload, j.attempts, j.lease_token`, args...)
 	} else {
+		kindClause := ""
+		args := []any{token, until, now, now, now}
+		if kind != "" {
+			comparison := "="
+			if exclude {
+				comparison = "<>"
+			}
+			kindClause = " AND kind " + comparison + " ?"
+			args = append(args, kind)
+		}
 		row = q.db.QueryRowContext(ctx, `UPDATE linkding_job
 			SET status = 'running', attempts = attempts + 1,
 				lease_token = ?, leased_until = ?, updated_at = ?
 			WHERE id = (SELECT id FROM linkding_job
-				WHERE (status = 'pending' AND available_at <= ?)
-				   OR (status = 'running' AND leased_until <= ?)
+				WHERE ((status = 'pending' AND available_at <= ?)
+				   OR (status = 'running' AND leased_until <= ?))`+kindClause+`
 				ORDER BY available_at, id LIMIT 1)
-			RETURNING id, kind, payload, attempts, lease_token`, token, until, now, now, now)
+			RETURNING id, kind, payload, attempts, lease_token`, args...)
 	}
 	var job Job
 	var payload string
