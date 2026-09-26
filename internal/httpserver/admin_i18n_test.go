@@ -8,9 +8,13 @@ import (
 )
 
 func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
-	for _, domain := range []string{"core", "auth", "admin"} {
+	for _, domain := range []string{"core", "auth", "admin", "contenttypes", "sessions", "rest_framework"} {
 		files, err := adminLocaleFiles.ReadDir("admin_locale/" + domain)
-		if err != nil || len(files) < 90 {
+		minimum := 90
+		if domain == "rest_framework" {
+			minimum = 60
+		}
+		if err != nil || len(files) < minimum {
 			t.Fatalf("%s locale files: %d %v", domain, len(files), err)
 		}
 		for _, file := range files {
@@ -52,6 +56,9 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	if got := adminTranslate("fr", "Log in"); got != "Connexion" {
 		t.Fatalf("French catalog: %q", got)
 	}
+	if got := adminTranslate("ru", "Content Types"); got != "Типы содержимого" {
+		t.Fatalf("Russian content types catalog: %q", got)
+	}
 	if got := adminTranslate("ru", "linkding administration"); got != "linkding administration" {
 		t.Fatalf("unknown text changed: %q", got)
 	}
@@ -63,6 +70,9 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	}
 	if got := adminRelatedTitle("ru", "Add another", "user"); got != "Добавить ещё один объект типа " {
 		t.Fatalf("Russian related title: %q", got)
+	}
+	if got := adminPermissionLabel("ru", "Content Types | content type | Can add content type"); got != "Типы содержимого | тип содержимого | Can add content type" {
+		t.Fatalf("Russian permission label: %q", got)
 	}
 	if _, err := parseAdminMO([]byte("broken")); err == nil {
 		t.Fatal("accepted a truncated gettext catalog")

@@ -274,7 +274,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	}
 	data.PluralLabel = definition.Plural
 	if definition.App == "auth" && definition.Model == "user" {
-		data.PluralLabel = adminTranslate(data.Language, "Users")
+		data.PluralLabel = adminCapTranslate(data.Language, "users")
 	}
 	if definition.Model == "apitoken" {
 		data.PluralLabel = "Api tokens"

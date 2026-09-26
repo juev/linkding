@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -105,7 +106,7 @@ func TestAdminUserAddAndChange(t *testing.T) {
 		"Enter the same password as before, for verification.",
 		`name="_save"`, `name="_addanother"`, `name="_continue"`,
 	} {
-		if !strings.Contains(addPage.Body.String(), expected) {
+		if !strings.Contains(html.UnescapeString(addPage.Body.String()), expected) {
 			t.Fatalf("add page missing %q", expected)
 		}
 	}

@@ -14,8 +14,8 @@ import (
 	"unicode/utf8"
 )
 
-// These compiled Django 6.0.7 catalogs are copied from the pinned v1.47.0
-// runtime. Their BSD-3-Clause notice is in docs/third-party/django-LICENSE.
+// These compiled Django 6.0.7 and DRF 3.17.2 catalogs are copied from the
+// pinned v1.47.0 runtime. Their BSD-3-Clause notices are in docs/third-party.
 //
 //go:embed admin_locale/*/*.mo
 var adminLocaleFiles embed.FS
@@ -114,7 +114,7 @@ func adminTranslate(language, key string) string {
 	if !ok {
 		catalog := make(map[string]string)
 		fileCode := strings.ReplaceAll(language, "-", "_")
-		for _, domain := range []string{"core", "auth", "admin"} {
+		for _, domain := range []string{"core", "contenttypes", "sessions", "rest_framework", "auth", "admin"} {
 			data, err := adminLocaleFiles.ReadFile("admin_locale/" + domain + "/" + fileCode + ".mo")
 			if err != nil {
 				continue
@@ -230,6 +230,9 @@ func adminFilterTitle(language, title string) string {
 func adminFormTitle(language, title string) string {
 	for _, verb := range []string{"Add", "Change", "View", "Delete"} {
 		if name, ok := strings.CutPrefix(title, verb+" "); ok {
+			if name == "user" {
+				name = adminTranslate(language, name)
+			}
 			translated := adminTranslate(language, verb+" %s")
 			if translated == verb+" %s" {
 				translated = adminTranslate(language, verb) + " %s"
@@ -251,4 +254,31 @@ func adminRelatedTitle(language, action, model string) string {
 	translated := adminTranslate(language, key)
 	translated = strings.ReplaceAll(translated, `"%(model)s"`, "")
 	return strings.ReplaceAll(translated, "%(model)s", model)
+}
+
+func adminCapTranslate(language, key string) string {
+	return adminCapitalized(adminTranslate(language, key))
+}
+
+func adminPermissionLabel(language, label string) string {
+	parts := strings.Split(label, " | ")
+	if len(parts) != 3 {
+		return label
+	}
+	app, model := adminTranslate(language, parts[0]), adminTranslate(language, parts[1])
+	if language == "ru" {
+		switch parts[0] {
+		case "Auth Token":
+			app = "Токен аутентификации"
+		case "Sessions":
+			app = "Сессии"
+		}
+		switch parts[1] {
+		case "Token":
+			model = "Токен"
+		case "session":
+			model = "сессия"
+		}
+	}
+	return app + " | " + model + " | " + parts[2]
 }

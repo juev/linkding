@@ -158,6 +158,19 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 			t.Fatalf("Russian admin tag form missing %q: status=%d", want, ruForm.Code)
 		}
 	}
+	ruUserRequest := httptest.NewRequest(http.MethodGet, "/admin/auth/user/"+strconv.FormatInt(user.ID, 10)+"/change/", nil)
+	ruUserRequest.Header.Set("Accept-Language", "ru")
+	ruUserRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	ruUser := httptest.NewRecorder()
+	handler.ServeHTTP(ruUser, ruUserRequest)
+	for _, want := range []string{
+		"Изменить пользователь", "Пользователи и группы", `href="/admin/auth/user/">Пользователи</a>`, "Имя пользователя:",
+		"Пароль:", "Персональная информация", "Права доступа", "Важные даты",
+	} {
+		if ruUser.Code != http.StatusOK || !strings.Contains(ruUser.Body.String(), want) {
+			t.Fatalf("Russian admin user form missing %q: status=%d", want, ruUser.Code)
+		}
+	}
 	password := request(http.MethodGet, "/admin/password_change/", nil)
 	if password.Code != http.StatusOK || !strings.Contains(password.Body.String(), `action="/change-password/"`) {
 		t.Fatalf("admin password alias: status=%d", password.Code)
