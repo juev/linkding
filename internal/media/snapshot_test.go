@@ -196,6 +196,90 @@ func TestQueuedSnapshotRunsThroughWorker(t *testing.T) {
 	}
 }
 
+func TestQueuedSnapshotRetriesTransientFailure(t *testing.T) {
+	web := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if r.Method != http.MethodHead {
+			_, _ = w.Write([]byte("<html>source</html>"))
+		}
+	}))
+	defer web.Close()
+	script := filepath.Join(t.TempDir(), "single-file")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), AllowedInternalHosts: "127.0.0.1", EnableSnapshots: true, SingleFilePath: script}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	user, err := auth.NewRepository(db, "sqlite").CreateUser(ctx, auth.NewUser{Username: "retry", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE bookmarks_userprofile SET enable_favicons = 0,
+		enable_preview_images = 0, web_archive_integration = 'disabled',
+		enable_automatic_html_snapshots = 1 WHERE user_id = ?`, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	item, _, err := bookmarks.NewRepositoryWithTasks(db, "sqlite", bookmarks.TaskPolicy{SnapshotsEnabled: true}).CreateOrUpdateData(ctx, user.ID, bookmarks.CreateInput{URL: web.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker := jobs.Worker{Queue: jobs.New(db, "sqlite"), Handlers: New(db, "sqlite", cfg).Handlers(), Lease: time.Minute, MaxAttempts: 2,
+		RetryDelay: func(int) time.Duration { return 0 }}
+	if processed, err := worker.ProcessOne(ctx); !processed || err == nil {
+		t.Fatalf("first snapshot attempt: processed=%t err=%v", processed, err)
+	}
+	var assetStatus, jobStatus string
+	if err := db.QueryRowContext(ctx, `SELECT a.status, j.status FROM bookmarks_bookmarkasset a
+		JOIN linkding_job j ON j.kind = 'process_snapshot' AND json_extract(j.payload, '$.asset_id') = a.id
+		WHERE a.bookmark_id = ?`, item.ID).Scan(&assetStatus, &jobStatus); err != nil {
+		t.Fatal(err)
+	}
+	if assetStatus != "pending" || jobStatus != "pending" {
+		t.Fatalf("retryable snapshot: asset=%q job=%q", assetStatus, jobStatus)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nfor last; do :; done\nprintf '<html>recovered</html>' > \"$last\"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if processed, err := worker.ProcessOne(ctx); !processed || err != nil {
+		t.Fatalf("second snapshot attempt: processed=%t err=%v", processed, err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT a.status, j.status FROM bookmarks_bookmarkasset a
+		JOIN linkding_job j ON j.kind = 'process_snapshot' AND json_extract(j.payload, '$.asset_id') = a.id
+		WHERE a.bookmark_id = ?`, item.ID).Scan(&assetStatus, &jobStatus); err != nil {
+		t.Fatal(err)
+	}
+	if assetStatus != "complete" || jobStatus != "complete" {
+		t.Fatalf("recovered snapshot: asset=%q job=%q", assetStatus, jobStatus)
+	}
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	terminal, _, err := bookmarks.NewRepositoryWithTasks(db, "sqlite", bookmarks.TaskPolicy{SnapshotsEnabled: true}).CreateOrUpdateData(ctx, user.ID, bookmarks.CreateInput{URL: web.URL + "/terminal"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker.MaxAttempts = 1
+	if processed, err := worker.ProcessOne(ctx); !processed || err == nil {
+		t.Fatalf("terminal snapshot attempt: processed=%t err=%v", processed, err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT a.status, j.status FROM bookmarks_bookmarkasset a
+		JOIN linkding_job j ON j.kind = 'process_snapshot' AND json_extract(j.payload, '$.asset_id') = a.id
+		WHERE a.bookmark_id = ?`, terminal.ID).Scan(&assetStatus, &jobStatus); err != nil {
+		t.Fatal(err)
+	}
+	if assetStatus != "failure" || jobStatus != "failed" {
+		t.Fatalf("terminal snapshot: asset=%q job=%q", assetStatus, jobStatus)
+	}
+}
+
 func TestSnapshotDisabledOrCanceledKeepsAssetPending(t *testing.T) {
 	web := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")

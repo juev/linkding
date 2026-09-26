@@ -14,11 +14,13 @@ import (
 var ErrLeaseLost = errors.New("job lease lost")
 
 type Job struct {
-	ID         int64
-	Kind       string
-	Payload    json.RawMessage
-	Attempts   int
-	LeaseToken string
+	ID       int64
+	Kind     string
+	Payload  json.RawMessage
+	Attempts int
+	// MaxAttempts is set by the worker before dispatch; it is not stored in the queue.
+	MaxAttempts int
+	LeaseToken  string
 }
 
 type Queue struct {

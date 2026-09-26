@@ -38,6 +38,7 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		}
 		return true, failure
 	}
+	job.MaxAttempts = w.MaxAttempts
 
 	jobCtx, cancelJob := context.WithCancel(ctx)
 	done := make(chan struct{})

@@ -78,7 +78,7 @@ func (p *Processor) ProcessSnapshot(ctx context.Context, job jobs.Job) (resultEr
 		return nil
 	}
 	defer func() {
-		if resultErr != nil && ctx.Err() == nil {
+		if resultErr != nil && ctx.Err() == nil && (job.MaxAttempts == 0 || job.Attempts >= job.MaxAttempts) {
 			failureCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			resultErr = errors.Join(resultErr, p.markSnapshotFailure(failureCtx, asset.ID))
