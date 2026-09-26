@@ -155,7 +155,7 @@ func TestAdminDeleteUnusedTagsRespectsFilteredSelectionAndViewPermission(t *test
 	form.Add("_selected_action", strconv.FormatInt(tagIDs["match-used"], 10))
 	form.Add("_selected_action", strconv.FormatInt(tagIDs["plain-unused"], 10))
 	confirmation := request(http.MethodPost, path, viewerSession, form, true)
-	if confirmation.Code != http.StatusOK || !strings.Contains(confirmation.Body.String(), `name="post" value="yes"`) || !strings.Contains(confirmation.Body.String(), `Tag: match-used`) || strings.Contains(confirmation.Body.String(), `Tag: plain-unused`) {
+	if confirmation.Code != http.StatusOK || !strings.Contains(confirmation.Body.String(), `name="post" value="yes"`) || !strings.Contains(confirmation.Body.String(), `href="/admin/bookmarks/tag/`+strconv.FormatInt(tagIDs["match-used"], 10)+`/change/">match-used</a>`) || strings.Contains(confirmation.Body.String(), `plain-unused`) {
 		t.Fatalf("filtered delete confirmation: %d %s", confirmation.Code, confirmation.Body.String())
 	}
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM bookmarks_bookmark_tags WHERE tag_id=?`, tagIDs["match-used"]).Scan(&count); err != nil || count != 1 {

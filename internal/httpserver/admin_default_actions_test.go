@@ -341,7 +341,7 @@ func TestAdminDefaultDeleteSelectedFilteredAcross(t *testing.T) {
 			t.Fatalf("%s bulk delete without CSRF: %d", item.model, got.Code)
 		}
 		confirm := request(http.MethodPost, path, form, true)
-		if confirm.Code != http.StatusOK || !strings.Contains(confirm.Body.String(), item.matchingRepr) || strings.Contains(confirm.Body.String(), "other") {
+		if confirm.Code != http.StatusOK || !strings.Contains(confirm.Body.String(), item.matchingRepr) || strings.Contains(confirm.Body.String(), "other") || !strings.Contains(confirm.Body.String(), "<h1>Delete multiple objects</h1>") || !strings.Contains(confirm.Body.String(), `href="/admin/bookmarks/`+item.model+`/`+matchID+`/change/"`) || !strings.Contains(confirm.Body.String(), `role="button" href="#" class="button cancel-link"`) {
 			t.Fatalf("%s filtered select_across confirmation: %d %s", item.model, confirm.Code, confirm.Body.String())
 		}
 		form.Set("post", "yes")

@@ -26,6 +26,8 @@ type adminUserSelected struct {
 type adminUserDeleteSelectedData struct {
 	Prefix, Username, Action, CSRFToken string
 	Users                               []adminUserSelected
+	Summary                             []adminDeletionSummary
+	Nodes                               []adminDeletionNode
 	DashboardApps                       []adminDashboardApp
 }
 
@@ -103,6 +105,11 @@ func serveAdminUserAction(w http.ResponseWriter, r *http.Request, cfg config.Con
 	}
 	if r.PostForm.Get("post") != "yes" {
 		data := adminUserDeleteSelectedData{Prefix: cfg.URLPrefix(), Username: actor.Username, Action: r.URL.RequestURI(), CSRFToken: r.PostForm.Get("csrfmiddlewaretoken"), Users: users}
+		data.Summary, data.Nodes, err = adminUserDeletionGraph(r.Context(), db, cfg.DBEngine, cfg.URLPrefix(), users)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
 		models, err := loadAdminModels(r, db, cfg, actor)
 		if err != nil {
 			http.Error(w, "Server error", 500)

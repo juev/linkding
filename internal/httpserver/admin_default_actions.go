@@ -24,6 +24,7 @@ type adminDefaultSelected struct {
 
 type adminDefaultDeleteSelectedData struct {
 	Prefix, Username, Action, CSRFToken, Model, Plural string
+	ModelSlug, Singular                                string
 	Objects                                            []adminDefaultSelected
 	DashboardApps                                      []adminDashboardApp
 }
@@ -90,7 +91,12 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 	if r.PostForm.Get("post") != "yes" {
 		data := adminDefaultDeleteSelectedData{
 			Prefix: cfg.URLPrefix(), Username: actor.Username, Action: r.URL.RequestURI(), CSRFToken: r.PostForm.Get("csrfmiddlewaretoken"),
-			Model: definition.Label, Plural: strings.ToLower(definition.Plural), Objects: objects,
+			Model: definition.Label, Plural: definition.Plural, Objects: objects,
+			ModelSlug: definition.Model, Singular: strings.ToLower(definition.Label),
+		}
+		if definition.Model == "apitoken" {
+			data.Model = "Api token"
+			data.Plural = "Api tokens"
 		}
 		models, err := loadAdminModels(r, db, cfg, actor)
 		if err != nil {

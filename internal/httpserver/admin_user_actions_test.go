@@ -76,7 +76,7 @@ func TestAdminUserBulkDeleteFiltered(t *testing.T) {
 		t.Fatalf("action without CSRF: %d", got.Code)
 	}
 	confirm := request(http.MethodPost, form, true)
-	if confirm.Code != http.StatusOK || !strings.Contains(confirm.Body.String(), "match-user") || strings.Contains(confirm.Body.String(), `User: other-user`) {
+	if confirm.Code != http.StatusOK || !strings.Contains(confirm.Body.String(), "match-user") || strings.Contains(confirm.Body.String(), `other-user`) || !strings.Contains(confirm.Body.String(), "<h1>Delete multiple objects</h1>") || !strings.Contains(confirm.Body.String(), `href="/admin/auth/user/`+strconv.FormatInt(match.ID, 10)+`/change/">match-user</a>`) || !strings.Contains(confirm.Body.String(), `Users: 1`) {
 		t.Fatalf("filtered confirmation: %d %s", confirm.Code, confirm.Body.String())
 	}
 	form.Set("post", "yes")
@@ -138,6 +138,10 @@ func TestAdminUserBulkDeletePostgres(t *testing.T) {
 			}
 		}
 	})
+	summary, nodes, err := adminUserDeletionGraph(ctx, db, "postgres", "/", []adminUserSelected{{ID: match.ID, Username: match.Username}})
+	if err != nil || len(summary) == 0 || len(nodes) != 1 || nodes[0].URL != "/admin/auth/user/"+strconv.FormatInt(match.ID, 10)+"/change/" {
+		t.Fatalf("PostgreSQL deletion graph: summary=%#v nodes=%#v err=%v", summary, nodes, err)
+	}
 	session, err := users.CreateSession(ctx, admin.ID, time.Hour)
 	if err != nil {
 		t.Fatal(err)

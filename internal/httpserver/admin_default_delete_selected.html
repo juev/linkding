@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
-  <title>Are you sure? | linkding Admin</title>
+  <title>Delete multiple objects | linkding Admin</title>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
   <script src="{{.Prefix}}static/admin/js/theme.js"></script>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/nav_sidebar.css">
   <script src="{{.Prefix}}static/admin/js/nav_sidebar.js" defer></script>
+  <script src="{{.Prefix}}static/admin/js/cancel.js" defer></script>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
-<body class="app-bookmarks delete-confirmation">
+<body class="app-bookmarks model-{{.ModelSlug}} delete-confirmation">
 <a href="#content-start" class="skip-to-content-link">Skip to main content</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">
@@ -30,11 +31,11 @@
   </div></header>
   <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.Action}}">{{.Plural}}</a> &rsaquo; Delete multiple objects</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
-    <h1>Are you sure?</h1>
-    <p>Are you sure you want to delete the selected {{.Plural}}? All of the following objects and their related items will be deleted:</p>
+    <h1>Delete multiple objects</h1>
+    <p>Are you sure you want to delete the selected {{.Singular}}? All of the following objects and their related items will be deleted:</p>
     <h2>Summary</h2><ul><li>{{.Plural}}: {{len .Objects}}</li></ul>
-    <h2>Objects</h2><ul>{{range .Objects}}<li>{{$.Model}}: {{.Repr}}</li>{{end}}</ul>
-    <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="action" value="delete_selected"><input type="hidden" name="post" value="yes"><input type="hidden" name="select_across" value="0">{{range .Objects}}<input type="hidden" name="_selected_action" value="{{.ID}}">{{end}}<div><input type="submit" value="Yes, I’m sure"> <a href="{{.Action}}" class="button cancel-link">No, take me back</a></div></form>
+    <h2>Objects</h2><ul>{{range .Objects}}<li>{{$.Model}}: <a href="{{$.Prefix}}admin/bookmarks/{{$.ModelSlug}}/{{.ID}}/change/">{{.Repr}}</a></li>{{end}}</ul>
+    <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="action" value="delete_selected"><input type="hidden" name="post" value="yes"><input type="hidden" name="select_across" value="0">{{range .Objects}}<input type="hidden" name="_selected_action" value="{{.ID}}">{{end}}<div><input type="submit" value="Yes, I’m sure"> <a role="button" href="#" class="button cancel-link">No, take me back</a></div></form>
     <br class="clear">
   </div></main></div><footer id="footer"></footer>
 </div>

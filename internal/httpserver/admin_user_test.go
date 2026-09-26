@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -563,6 +564,18 @@ func TestAdminUserDeleteCascade(t *testing.T) {
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO bookmarks_feedtoken(key,created,user_id) VALUES ('feed-token',?,?)`, added, target.ID); err != nil {
 		t.Fatal(err)
+	}
+	summary, nodes, err := adminUserDeletionGraph(ctx, db, "sqlite", "/", []adminUserSelected{{ID: target.ID, Username: target.Username}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 || len(nodes[0].Children) < 5 || len(nodes[0].Children[0].Children) != 1 || nodes[0].Children[0].Children[0].Repr != "Bookmark_tags object (1)" {
+		t.Fatalf("deletion graph did not include nested cross-owner relation: %#v", nodes)
+	}
+	for _, want := range []adminDeletionSummary{{"Users", 1}, {"Tags", 1}, {"Bookmark-tag relationships", 1}, {"Bookmarks", 1}, {"Bookmark assets", 1}, {"User profiles", 1}, {"Feed tokens", 1}, {"Api tokens", 1}} {
+		if !slices.Contains(summary, want) {
+			t.Errorf("deletion summary missing %#v: %#v", want, summary)
+		}
 	}
 	for _, item := range []struct{ directory, name string }{{"assets", "snapshot.html"}, {"previews", "preview.png"}} {
 		directory := filepath.Join(cfg.DataDir, item.directory)
