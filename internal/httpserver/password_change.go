@@ -28,7 +28,11 @@ func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cf
 	if !ok {
 		return
 	}
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+	if r.Method == http.MethodOptions {
+		writeDjangoOptions(w, "GET, POST, PUT, HEAD, OPTIONS")
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", 405)
 		return
 	}
@@ -78,6 +82,10 @@ func servePasswordChangeDone(w http.ResponseWriter, r *http.Request, path string
 	}
 	user, ok := settingsSession(w, r, path, users, cfg)
 	if !ok {
+		return
+	}
+	if r.Method == http.MethodOptions {
+		writeDjangoOptions(w, "GET, HEAD, OPTIONS")
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {

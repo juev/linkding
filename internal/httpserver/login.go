@@ -28,8 +28,8 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		w.Header().Set("Allow", "GET, HEAD, POST, OPTIONS")
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost && r.Method != http.MethodOptions {
+		w.Header().Set("Allow", "GET, POST, PUT, HEAD, OPTIONS")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -38,6 +38,10 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 			http.Redirect(w, r, safeNext(r.URL.Query().Get("next"), r, cfg.URLPrefix()+"bookmarks"), http.StatusFound)
 			return
 		}
+	}
+	if r.Method == http.MethodOptions {
+		writeDjangoOptions(w, "GET, POST, PUT, HEAD, OPTIONS")
+		return
 	}
 	secret := ""
 	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
@@ -92,7 +96,9 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		status = http.StatusUnauthorized
 	}
 	w.WriteHeader(status)
-	_ = loginTemplate.Execute(w, data)
+	if r.Method != http.MethodHead {
+		_ = loginTemplate.Execute(w, data)
+	}
 }
 
 func establishLoginSession(w http.ResponseWriter, r *http.Request, cfg config.Config, repo *auth.Repository, user auth.User) error {
@@ -118,6 +124,10 @@ func establishLoginSession(w http.ResponseWriter, r *http.Request, cfg config.Co
 func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, repo *auth.Repository) {
 	if r.URL.Path != path {
 		http.NotFound(w, r)
+		return
+	}
+	if r.Method == http.MethodOptions {
+		writeDjangoOptions(w, "POST, OPTIONS")
 		return
 	}
 	if r.Method != http.MethodPost {

@@ -183,5 +183,5 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 			serveOIDC(w, r, oidcRoot, cfg, db, authRepo)
 		})
 	}
-	return corsMiddleware(authProxyMiddleware(mux, cfg, authRepo), cfg)
+	return corsMiddleware(authProxyMiddleware(uiReadMethodCompatibility(mux, prefix), cfg, authRepo), cfg)
 }

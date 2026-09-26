@@ -155,7 +155,7 @@ func serveBundlesIndexUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 
 func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Redirect(w, r, cfg.URLPrefix()+"bundles", http.StatusFound)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)

@@ -25,8 +25,10 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	if !ok {
 		return
 	}
+	shared := strings.Contains(path, "/shared/")
+	archived := strings.Contains(path, "/archived/")
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		redirectBookmarkAction(w, r, cfg, archived, shared)
 		return
 	}
 	var parseErr error
@@ -47,8 +49,6 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 		http.Error(w, "CSRF verification failed", 403)
 		return
 	}
-	shared := strings.Contains(path, "/shared/")
-	archived := strings.Contains(path, "/archived/")
 	if raw, ok := r.PostForm["remove_asset"]; ok && len(raw) > 0 {
 		assetID, err := strconv.ParseInt(raw[0], 10, 64)
 		if err != nil || assetID <= 0 {
