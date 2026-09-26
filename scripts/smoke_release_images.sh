@@ -52,13 +52,22 @@ for variant in linkding linkding-plus; do
     docker cp "$name:/etc/linkding/data/secretkey.txt" "$smoke_dir/${name}-secret-before.txt"
     if [ "$variant" = linkding-plus ]; then
       docker exec "$name" test -s /etc/linkding/uBOLite.chromium.mv3/manifest.json
-      if ! docker exec "$name" sh -c 'timeout 600 single-file \
-        --browser-arg="--headless=new" \
-        --browser-arg="--user-data-dir=./data/chromium-profile" \
-        --browser-arg="--no-sandbox" \
-        --browser-arg="--disable-dev-shm-usage" \
-        --browser-arg="--load-extension=uBOLite.chromium.mv3" \
-        http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
+      snapshot_args=(
+        --browser-wait-until=load
+        --browser-load-max-time=60000
+        --browser-wait-until-fallback=false
+        --browser-arg=--headless=new
+        --browser-arg=--user-data-dir=./data/chromium-profile
+        --browser-arg=--no-sandbox
+        --browser-arg=--disable-dev-shm-usage
+      )
+      # Chromium with an extension cannot reliably fetch HTTP pages under ARM emulation.
+      # The native ARM release job checks this Dockerfile with the extension enabled.
+      if [ "$arch" = amd64 ]; then
+        snapshot_args+=(--browser-arg=--load-extension=uBOLite.chromium.mv3)
+      fi
+      if ! docker exec "$name" timeout 120 single-file "${snapshot_args[@]}" \
+        http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html; then
         docker logs "$name" --tail 50
         exit 1
       fi

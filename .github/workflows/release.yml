@@ -39,9 +39,71 @@ jobs:
       - name: Check release images
         run: bash scripts/smoke_release_images.sh
 
+  release-arm64-smoke:
+    needs: ci
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: docker/setup-buildx-action@v4
+      - run: npm ci && npm run build
+      - name: Build the release image on native ARM
+        run: |
+          context=$(mktemp -d /tmp/linkding-arm64-context.XXXXXX)
+          mkdir -p "$context/docs" "$context/web" "$context/linux/arm64"
+          cp Dockerfile.release LICENSE.txt "$context/"
+          cp -R docs/third-party "$context/docs/"
+          cp -R web/static "$context/web/"
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false -o "$context/linux/arm64/linkding" ./cmd/linkding
+          docker buildx build --platform linux/arm64 --target linkding-plus \
+            -f "$context/Dockerfile.release" -t linkding-plus-arm64:smoke --load "$context"
+      - name: Check HTML capture with Chromium and uBlock on native ARM
+        run: |
+          docker volume create linkding-arm64-smoke-data >/dev/null
+          docker run --rm -d --name linkding-arm64-smoke -p 127.0.0.1:9090:9090 \
+            --read-only --user 10001:10001 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -v linkding-arm64-smoke-data:/etc/linkding/data \
+            -e LD_CONTEXT_PATH=linkding/ \
+            -e LD_SUPERUSER_NAME=admin \
+            -e LD_SUPERUSER_PASSWORD=smoke-pass \
+            linkding-plus-arm64:smoke >/dev/null
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9090/linkding/health >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then docker logs linkding-arm64-smoke --tail 50; exit 1; fi
+          curl -fsS -o /dev/null http://127.0.0.1:9090/linkding/static/bundle.js
+          docker exec linkding-arm64-smoke test -s /etc/linkding/uBOLite.chromium.mv3/manifest.json
+          if ! docker exec linkding-arm64-smoke timeout 120 single-file \
+            --browser-wait-until=load \
+            --browser-load-max-time=60000 \
+            --browser-wait-until-fallback=false \
+            --browser-arg=--headless=new \
+            --browser-arg=--user-data-dir=./data/chromium-profile \
+            --browser-arg=--no-sandbox \
+            --browser-arg=--disable-dev-shm-usage \
+            --browser-arg=--load-extension=uBOLite.chromium.mv3 \
+            http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html; then
+            docker logs linkding-arm64-smoke --tail 50
+            exit 1
+          fi
+          docker exec linkding-arm64-smoke test -s /tmp/smoke.html
+          docker exec linkding-arm64-smoke sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"
+
   goreleaser:
     if: github.event_name == 'push'
-    needs: [ci, release-snapshot]
+    needs: [ci, release-snapshot, release-arm64-smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write
