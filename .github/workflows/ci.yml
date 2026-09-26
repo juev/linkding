@@ -105,7 +105,6 @@ jobs:
         run: |
           if docker exec linkding-smoke sh -c 'timeout 600 single-file \
             --browser-arg="--headless=new" \
-            --browser-wait-until=domContentLoaded \
             --browser-arg="--user-data-dir=./data/chromium-profile" \
             --browser-arg="--no-sandbox" \
             --browser-arg="--disable-dev-shm-usage" \

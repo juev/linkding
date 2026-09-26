@@ -54,7 +54,6 @@ for variant in linkding linkding-plus; do
       docker exec "$name" test -s /etc/linkding/uBOLite.chromium.mv3/manifest.json
       if ! docker exec "$name" sh -c 'timeout 600 single-file \
         --browser-arg="--headless=new" \
-        --browser-wait-until=domContentLoaded \
         --browser-arg="--user-data-dir=./data/chromium-profile" \
         --browser-arg="--no-sandbox" \
         --browser-arg="--disable-dev-shm-usage" \
