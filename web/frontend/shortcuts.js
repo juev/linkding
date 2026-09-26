@@ -57,6 +57,9 @@ document.addEventListener("keydown", (event) => {
 
   // Handle shortcut for adding new bookmark
   if (event.key === "n") {
-    window.location.assign("/bookmarks/new");
+    const apiBaseUrl = document.documentElement.dataset.apiBaseUrl || "/api/";
+    window.location.assign(
+      new URL("../bookmarks/new", new URL(apiBaseUrl, window.location.href)),
+    );
   }
 });
