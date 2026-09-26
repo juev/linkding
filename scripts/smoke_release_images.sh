@@ -52,6 +52,7 @@ for variant in linkding linkding-plus; do
     if [ "$variant" = linkding-plus ]; then
       if ! docker exec "$name" sh -c 'timeout 600 single-file \
         --browser-arg="--headless=new" \
+        --browser-wait-until=domContentLoaded \
         --browser-arg="--user-data-dir=./data/chromium-profile" \
         --browser-arg="--no-sandbox" \
         --browser-arg="--disable-dev-shm-usage" \
@@ -60,6 +61,7 @@ for variant in linkding linkding-plus; do
         docker logs "$name" --tail 50
         exit 1
       fi
+      docker exec "$name" test -s /tmp/smoke.html
       docker exec "$name" sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"
     fi
     docker restart "$name" >/dev/null
