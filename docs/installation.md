@@ -100,4 +100,17 @@ When serving under a proxy path, set `LD_CONTEXT_PATH=linkding/`, forward reques
 
 ## Release workflow
 
-Every push and pull request runs the Go/frontend checks and basic/plus image smoke tests. A `vX.Y.Z` tag runs the checks again, builds six cross-platform archives, creates `SHA256SUMS`, publishes the files to GitHub Releases, and pushes linux/amd64 and linux/arm64 basic and plus images to GHCR. Tag a commit only after the parity checks in the [specification](specs/linkding-parity.md) pass.
+Every push and pull request runs the Go/frontend checks, `goreleaser check`, and basic/plus image smoke tests. After the parity checks in the [specification](specs/linkding-parity.md) pass, use [GoReleaser v2](https://goreleaser.com/) to inspect a local snapshot without publishing:
+
+```sh
+npm ci
+npm run build
+goreleaser check
+goreleaser release --snapshot --clean
+python3 scripts/verify_release.py dist
+bash scripts/smoke_release_images.sh
+```
+
+The verifier checks all six archives, required runtime files, and `SHA256SUMS`. The smoke script starts both locally built image variants on amd64 and arm64 with a read-only root, arbitrary UID, and persistent volume; it also checks SingleFile in the plus image. The snapshot build requires Docker Buildx and a running Docker daemon. It does not publish a GitHub Release or push GHCR images.
+
+Push a `vX.Y.Z` tag on the checked commit to start [the release workflow](../.github/workflows/release.yml). The workflow reruns CI and a GoReleaser snapshot on linux/amd64 and linux/arm64 before its publish job. GoReleaser builds the six binaries with `CGO_ENABLED=0`, packages the static files and notices, creates `SHA256SUMS`, publishes the archives to GitHub Releases, and pushes multiarch basic and plus images to GHCR. The workflow then checks the published files and image architectures. The release job uses the repository `GITHUB_TOKEN` with `contents: write` and `packages: write`; it needs no personal token. Review the GitHub Actions result and published release before announcing the tag.

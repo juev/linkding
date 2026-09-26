@@ -17,6 +17,8 @@ CGO_ENABLED=0 go test ./...
 
 The frontend build writes generated JavaScript and CSS into `web/static/`; those files are not committed. The Go binary serves static files from that directory relative to its working directory.
 
+Tagged releases use GoReleaser; see the [release workflow](docs/installation.md#release-workflow) for local verification and publication.
+
 ## Docker
 
 Build either image from this checkout:

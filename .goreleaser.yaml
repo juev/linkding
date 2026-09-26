@@ -1,0 +1,86 @@
+version: 2
+
+project_name: linkding
+
+builds:
+  - id: linkding
+    main: ./cmd/linkding
+    binary: linkding
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -buildid=
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - ids:
+      - linkding
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: 'linkding_{{ .Tag }}_{{ .Os }}_{{ .Arch }}'
+    wrap_in_directory: true
+    files:
+      - LICENSE.txt
+      - README.md
+      - docs/installation.md
+      - docs/backups.md
+      - docs/migration.md
+      - docs/third-party/*
+      - web/static/*
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+dockers_v2:
+  - id: linkding
+    ids:
+      - linkding
+    dockerfile: Dockerfile.release
+    images:
+      - ghcr.io/juev/linkding
+    tags:
+      - '{{ .Tag }}'
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - LICENSE.txt
+      - docs/third-party
+      - web/static
+    flags:
+      - --target=linkding
+    labels:
+      org.opencontainers.image.version: '{{ .Tag }}'
+  - id: linkding-plus
+    ids:
+      - linkding
+    dockerfile: Dockerfile.release
+    images:
+      - ghcr.io/juev/linkding-plus
+    tags:
+      - '{{ .Tag }}'
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - LICENSE.txt
+      - docs/third-party
+      - web/static
+    flags:
+      - --target=linkding-plus
+    labels:
+      org.opencontainers.image.version: '{{ .Tag }}'

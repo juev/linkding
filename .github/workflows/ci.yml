@@ -28,6 +28,8 @@ jobs:
       LINKDING_TEST_POSTGRES_DSN: postgres://postgres:postgres@127.0.0.1:5432/linkding_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -37,6 +39,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.15.4
+          install-only: true
+      - run: goreleaser check
+      - run: goreleaser release --snapshot --clean --skip=docker
+      - run: python3 scripts/verify_release.py dist
       - run: CGO_ENABLED=0 go test -p 1 ./...
       - run: go vet ./...
       - run: CGO_ENABLED=0 go build ./...
