@@ -1,6 +1,6 @@
 # linkding v1.47.0 migration contract
 
-Status: target behavior; implementation and verification are incomplete.
+Status: the Go port was released as `v1.47.0` on 2026-09-26.
 
 Sources: the user's decision on 2026-09-25 and the [linkding v1.47.0 source](https://github.com/sissbruecker/linkding/tree/v1.47.0), commit `24b5ad6cc9bde497b5d1b1e86aed5a2fb7d25c2f`. If documentation and code disagree, responses from a running upstream instance at the pinned version are the reference. This document defines acceptance criteria for one complete release, not a sequence of partial releases.
 
@@ -50,4 +50,4 @@ Upstream SQLite uses ICU for Unicode `lower()`, `LIKE`, and sorting. The pure Go
 - R7: open every UI route on desktop and mobile, submit forms, and use keyboard actions. Compare DOM, Turbo responses, and screenshots against the original server with fixed data. Check Admin pages with English and Russian request languages and a language cookie that overrides the request header.
 - R8–R9: migrate populated SQLite and PostgreSQL installations while the Python server is stopped. Compare counts, IDs, relationships, hashes, files, login, and tokens. Start both container variants with `CGO_ENABLED=0`; verify the previous URL and `LD_CONTEXT_PATH`. Test linux/amd64 and linux/arm64 images with health, login, restart, persistent SQLite/PostgreSQL, arbitrary non-root UID, read-only root with writable mounts, and plus SingleFile jobs. Run a GoReleaser snapshot, inspect six OS/architecture archives with static files and SHA-256 checksums, and start its basic and plus images. Rehearse the tag workflow and verify GitHub Release assets and GHCR manifests/digests. Keep the source installation available for rollback before enabling Go writes.
 
-No test described here yet establishes full parity. Extend the response matrix and fixtures with observations from the running upstream server as implementation proceeds.
+The [release workflow](../../.github/workflows/release.yml) passed Go and image CI, a GoReleaser snapshot, and native ARM Chromium and SingleFile checks on the tagged commit. The [published release](https://github.com/juev/linkding/releases/tag/v1.47.0) contains six verified, checksummed archives and public basic and plus GHCR images for linux/amd64 and linux/arm64. Acceptance also compared API and UI responses with the pinned Python server, migrated populated SQLite and PostgreSQL installations, and restored a full backup into a fresh server.
