@@ -49,6 +49,7 @@ type adminListHeader struct {
 type adminUserFilter struct {
 	Username, URL string
 	Selected      bool
+	Count         int64
 }
 
 type adminFilterGroup struct {
@@ -222,6 +223,16 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			ownerRows.Close()
 		}
 	}
+	data.ShowFacets = r.URL.Query().Get("_facets") == "True"
+	data.ShowCountsLabel, data.ShowCountsURL = "Show counts", adminListURL(r.URL.Query(), "_facets", "True")
+	if data.ShowFacets {
+		data.ShowCountsLabel, data.ShowCountsURL = "Hide counts", adminListURL(r.URL.Query(), "_facets", "")
+		if err := populateAdminFacetCounts(r.Context(), db, cfg.DBEngine, definition.Model, data.SearchQuery, &data); err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+	}
+	data.HasActiveFilters, data.ClearFiltersURL = adminClearFiltersURL(r.URL.Query(), data)
 	var total int64
 	if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM (`+baseQuery+`) AS records`, args...).Scan(&total); err != nil {
 		http.Error(w, "Server error", 500)
@@ -323,10 +334,6 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		filterSuffix = "?_changelist_filters=" + url.QueryEscape(r.URL.RawQuery)
 	}
 	data.AddURL = data.ModelPath + "add/" + filterSuffix
-	data.ShowCountsLabel, data.ShowCountsURL = "Show counts", adminListURL(r.URL.Query(), "_facets", "True")
-	if r.URL.Query().Get("_facets") == "True" {
-		data.ShowCountsLabel, data.ShowCountsURL = "Hide counts", adminListURL(r.URL.Query(), "_facets", "")
-	}
 	for rows.Next() {
 		values := make([]any, len(definition.Columns)+1)
 		pointers := make([]any, len(values))

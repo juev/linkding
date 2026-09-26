@@ -190,4 +190,15 @@ func TestAdminOtherHistoryPostgres(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Added.") || !strings.Contains(w.Body.String(), "Change history: Toast object") {
 		t.Fatalf("PostgreSQL history: %d %s", w.Code, w.Body.String())
 	}
+	session, err := auth.NewRepository(db, "postgres").CreateSession(ctx, admin.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r = httptest.NewRequest(http.MethodGet, "/admin/bookmarks/toast/?_facets=True", nil)
+	r.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	w = httptest.NewRecorder()
+	New(db, config.Config{DBEngine: "postgres", TimeZone: "UTC"}, t.TempDir()).ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), admin.Username+" (1)") {
+		t.Fatalf("PostgreSQL facets: %d %s", w.Code, w.Body.String())
+	}
 }

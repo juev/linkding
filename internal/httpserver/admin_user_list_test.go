@@ -106,6 +106,18 @@ func TestAdminUserListSearchAndFilters(t *testing.T) {
 	if !strings.Contains(body, html.EscapeString(filterURL)) {
 		t.Fatalf("filter links do not preserve search and current filters: %s", body)
 	}
+	facetRequest := httptest.NewRequest(http.MethodGet, "/admin/auth/user/?_facets=True&q=alice&is_staff__exact=1&groups__id__exact="+strconv.FormatInt(groupID, 10), nil)
+	facetRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	facetResponse := httptest.NewRecorder()
+	New(db, cfg, t.TempDir()).ServeHTTP(facetResponse, facetRequest)
+	if facetResponse.Code != http.StatusOK {
+		t.Fatalf("user facets: %d %s", facetResponse.Code, facetResponse.Body.String())
+	}
+	for _, label := range []string{"Editors (1)", "Yes (1)", "No (0)", "✖ Clear all filters"} {
+		if !strings.Contains(facetResponse.Body.String(), label) {
+			t.Errorf("user facets missing %q", label)
+		}
+	}
 }
 
 func TestAdminUserListQueryPostgres(t *testing.T) {

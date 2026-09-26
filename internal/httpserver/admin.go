@@ -34,6 +34,7 @@ type adminPageData struct {
 	UserFilterParam, UserFilterTitle, AddLabel                 string
 	PreviousPageURL, NextPageURL                               string
 	ShowCountsURL, ShowCountsLabel                             string
+	ClearFiltersURL                                            string
 	CSRFToken, ActionMessage                                   string
 	Tasks                                                      []adminTask
 	Models                                                     []adminModelLink
@@ -51,6 +52,7 @@ type adminPageData struct {
 	AppLabel, AppPath, ModelSlug, PluralLabel                  string
 	IsTagList, IsBookmarkList, IsUserList, IsDefaultActionList bool
 	CanAdd, CanDelete, IsEditableModel                         bool
+	ShowFacets, HasActiveFilters                               bool
 }
 
 func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {

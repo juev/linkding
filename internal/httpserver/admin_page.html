@@ -31,11 +31,11 @@
             {{if .IsSearchableList}}
             <search id="changelist-filter" aria-labelledby="changelist-filter-header">
               <h2 id="changelist-filter-header">Filter</h2>
-              <div id="changelist-filter-extra-actions"><h3><a href="{{.ShowCountsURL}}" class="{{if eq .ShowCountsLabel "Show counts"}}viewlink{{else}}hidelink{{end}}">{{.ShowCountsLabel}}</a></h3></div>
+              <div id="changelist-filter-extra-actions"><h3><a href="{{.ShowCountsURL}}" class="{{if eq .ShowCountsLabel "Show counts"}}viewlink{{else}}hidelink{{end}}">{{.ShowCountsLabel}}</a></h3>{{if .HasActiveFilters}}<h3><a href="{{.ClearFiltersURL}}" class="hidelink">✖ Clear all filters</a></h3>{{end}}</div>
               {{if or .IsBookmarkList .IsUserList}}
-                {{range .ListFilters}}<details data-filter-title="{{.Title}}" open><summary> {{.Title}} </summary><ul><li class="{{if and (not .Value) (not .IsNull)}}selected{{end}}"><a href="{{.AllURL}}">All</a></li>{{range .Options}}<li class="{{if .Selected}}selected{{end}}"><a href="{{.URL}}">{{.Username}}</a></li>{{end}}</ul></details>{{end}}
+                {{range .ListFilters}}<details data-filter-title="{{.Title}}" open><summary> {{.Title}} </summary><ul><li class="{{if and (not .Value) (not .IsNull)}}selected{{end}}"><a href="{{.AllURL}}">All</a></li>{{range .Options}}<li class="{{if .Selected}}selected{{end}}"><a href="{{.URL}}">{{.Username}}{{if $.ShowFacets}} ({{.Count}}){{end}}</a></li>{{end}}</ul></details>{{end}}
               {{else}}
-                <details data-filter-title="{{.UserFilterTitle}}" open><summary> {{.UserFilterTitle}} </summary><ul><li class="{{if not .UserFilter}}selected{{end}}"><a href="{{.AllUsersURL}}">All</a></li>{{range .UserFilters}}<li class="{{if .Selected}}selected{{end}}"><a href="{{.URL}}">{{.Username}}</a></li>{{end}}</ul></details>
+                <details data-filter-title="{{.UserFilterTitle}}" open><summary> {{.UserFilterTitle}} </summary><ul><li class="{{if not .UserFilter}}selected{{end}}"><a href="{{.AllUsersURL}}">All</a></li>{{range .UserFilters}}<li class="{{if .Selected}}selected{{end}}"><a href="{{.URL}}">{{.Username}}{{if $.ShowFacets}} ({{.Count}}){{end}}</a></li>{{end}}</ul></details>
               {{end}}
             </search>
             {{end}}
