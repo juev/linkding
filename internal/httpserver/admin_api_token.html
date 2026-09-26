@@ -38,6 +38,7 @@
     <h1>{{.Title}}</h1>
     {{if and .ID (not .ConfirmDelete)}}<h2>{{.Name}} ({{.OwnerName}})</h2>{{end}}
     <div id="content-main">
+    {{if and .ID (not .ConfirmDelete)}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">History</a></li></ul>{{end}}
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .ConfirmDelete}}
       <p>Are you sure you want to delete the API token “{{.Name}} ({{.OwnerName}})”?</p>

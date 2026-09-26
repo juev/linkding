@@ -87,6 +87,16 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		serveAdminUserHistory(w, r, cfg, db, user)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, root+"bookmarks/") && strings.HasSuffix(r.URL.Path, "/history/") {
+		pieces := strings.Split(strings.TrimPrefix(r.URL.Path, root+"bookmarks/"), "/")
+		if len(pieces) == 4 && pieces[2] == "history" && pieces[3] == "" {
+			switch pieces[0] {
+			case "toast", "apitoken", "feedtoken", "bookmarkbundle", "bookmarkasset":
+				serveAdminOtherHistory(w, r, cfg, db, user, pieces[0], pieces[1])
+				return
+			}
+		}
+	}
 	if strings.HasPrefix(r.URL.Path, root+"bookmarks/toast/") && r.URL.Path != root+"bookmarks/toast/" {
 		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "toast")
 		if err != nil {

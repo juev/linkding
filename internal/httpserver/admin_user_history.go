@@ -21,7 +21,8 @@ var adminUserHistoryTemplate = template.Must(template.ParseFS(adminUserHistoryFi
 
 type adminUserHistoryData struct {
 	Prefix, Username, CSRFToken, TargetName, ListURL string
-	TargetID                                         int64
+	AppPath, AppLabel, AppSlug, ModelSlug            string
+	PluralLabel, ModelSingular, TargetPath           string
 	DashboardApps                                    []adminDashboardApp
 	Rows                                             []adminTagHistoryRow
 }
@@ -48,7 +49,7 @@ func serveAdminUserHistory(w http.ResponseWriter, r *http.Request, cfg config.Co
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
-	data := adminUserHistoryData{Prefix: cfg.URLPrefix(), Username: user.Username, TargetID: id, ListURL: base}
+	data := adminUserHistoryData{Prefix: cfg.URLPrefix(), Username: user.Username, TargetPath: strconv.FormatInt(id, 10), ListURL: base, AppPath: cfg.URLPrefix() + "admin/auth/", AppLabel: "Authentication and Authorization", AppSlug: "auth", ModelSlug: "user", PluralLabel: "Users", ModelSingular: "user"}
 	if err := db.QueryRowContext(r.Context(), `SELECT username FROM auth_user WHERE id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.TargetName); errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return

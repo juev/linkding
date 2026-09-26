@@ -11,7 +11,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
-<body class="app-auth model-user change-list">
+<body class="app-{{.AppSlug}} model-{{.ModelSlug}} change-list">
 <a href="#content-start" class="skip-to-content-link">Skip to main content</a>
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">
@@ -28,10 +28,10 @@
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/auth/">Authentication and Authorization</a> &rsaquo; <a href="{{.ListURL}}">Users</a> &rsaquo; <a href="{{.ListURL}}{{.TargetID}}/change/">{{.TargetName}}</a> &rsaquo; History</div></nav>
+  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.AppPath}}">{{.AppLabel}}</a> &rsaquo; <a href="{{.ListURL}}">{{.PluralLabel}}</a> &rsaquo; <a href="{{.ListURL}}{{.TargetPath}}/change/">{{.TargetName}}</a> &rsaquo; History</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     <h1>Change history: {{.TargetName}}</h1>
-    <div id="content-main"><div id="change-history" class="module">{{if .Rows}}<table><thead><tr><th scope="col">Date/time</th><th scope="col">User</th><th scope="col">Action</th></tr></thead><tbody>{{range .Rows}}<tr><th scope="row">{{.Date}}</th><td>{{.Username}}</td><td>{{.Action}}</td></tr>{{end}}</tbody></table><nav class="paginator" aria-labelledby="pagination"><h2 id="pagination" class="visually-hidden">Pagination user entries</h2>{{len .Rows}} {{if eq (len .Rows) 1}}entry{{else}}entries{{end}}</nav>{{else}}<p>This object doesn’t have a change history. It probably wasn’t added via this admin site.</p>{{end}}</div></div>
+    <div id="content-main"><div id="change-history" class="module">{{if .Rows}}<table><thead><tr><th scope="col">Date/time</th><th scope="col">User</th><th scope="col">Action</th></tr></thead><tbody>{{range .Rows}}<tr><th scope="row">{{.Date}}</th><td>{{.Username}}</td><td>{{.Action}}</td></tr>{{end}}</tbody></table><nav class="paginator" aria-labelledby="pagination"><h2 id="pagination" class="visually-hidden">Pagination {{.ModelSingular}} entries</h2>{{len .Rows}} {{if eq (len .Rows) 1}}entry{{else}}entries{{end}}</nav>{{else}}<p>This object doesn’t have a change history. It probably wasn’t added via this admin site.</p>{{end}}</div></div>
     <br class="clear">
   </div></main></div><footer id="footer"></footer>
 </div>

@@ -26,7 +26,7 @@ type adminOwnerOption struct {
 type adminToastData struct {
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
-	Key, Message, Error                                 string
+	Key, Message, ObjectName, Error                     string
 	ID, OwnerID                                         int64
 	Acknowledged, ConfirmDelete, CanChange, CanDelete   bool
 	Owners                                              []adminOwnerOption
@@ -80,6 +80,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 			http.Error(w, "Server error", 500)
 			return
 		}
+		data.ObjectName = "Toast object (" + strconv.FormatInt(id, 10) + ")"
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)

@@ -38,6 +38,7 @@
     <h1>{{.Title}}</h1>
     {{if and .Key (not .ConfirmDelete)}}<h2>{{.Key}}</h2>{{end}}
     <div id="content-main">
+    {{if and .Key (not .ConfirmDelete)}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.KeyPath}}/history/" class="historylink">History</a></li></ul>{{end}}
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .ConfirmDelete}}
       <p>Are you sure you want to delete the Feed token “{{.Key}} ({{.OwnerName}})”?</p>

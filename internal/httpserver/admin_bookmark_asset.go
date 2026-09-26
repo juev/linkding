@@ -30,7 +30,7 @@ type adminBookmarkAssetData struct {
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	File, FileSize, AssetType, ContentType              string
-	DisplayName, Status, Error                          string
+	DisplayName, ObjectName, Status, Error              string
 	ID, BookmarkID                                      int64
 	Gzip, ConfirmDelete, CanChange, CanDelete           bool
 	Bookmarks                                           []adminAssetBookmarkOption
@@ -88,6 +88,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		if size.Valid {
 			data.FileSize = strconv.FormatInt(size.Int64, 10)
 		}
+		data.ObjectName = adminBookmarkAssetRepr(id, data.DisplayName)
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
