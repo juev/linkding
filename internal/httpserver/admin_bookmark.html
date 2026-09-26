@@ -36,7 +36,7 @@
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Bookmarks</a> &rsaquo; {{if .History}}<a href="{{.ListURL}}{{.ID}}/change/">{{.ObjectName}}</a> &rsaquo; {{tr .Language "History"}}{{else}}{{if .ID}}{{.ObjectName}}{{else}}{{formTitle .Language .Title}}{{end}}{{end}}</div></nav>
+  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Bookmarks</a> &rsaquo; {{if .History}}<a href="{{.ListURL}}{{.ID}}/change/">{{.ObjectName}}</a> &rsaquo; {{tr .Language "History"}}{{else if .ConfirmDelete}}<a href="{{.Deletion.ChangeURL}}">{{.Deletion.Repr}}</a> &rsaquo; {{tr .Language "Delete"}}{{else}}{{if .ID}}{{.ObjectName}}{{else}}{{formTitle .Language .Title}}{{end}}{{end}}</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     <h1>{{formTitle .Language .Title}}</h1>
     {{if and .ID (not .ConfirmDelete) (not .History)}}<h2>{{.ObjectName}}</h2>{{end}}
@@ -46,8 +46,7 @@
     {{if .History}}
       <div id="change-history" class="module">{{if .HistoryRows}}<table><thead><tr><th scope="col">{{tr .Language "Date/time"}}</th><th scope="col">{{tr .Language "User"}}</th><th scope="col">{{tr .Language "Action"}}</th></tr></thead><tbody>{{range .HistoryRows}}<tr><th scope="row">{{.Date}}</th><td>{{.Username}}</td><td>{{.Action}}</td></tr>{{end}}</tbody></table><nav class="paginator" aria-labelledby="pagination"><h2 id="pagination" class="visually-hidden">Pagination bookmark entries</h2>{{len .HistoryRows}} {{if eq (len .HistoryRows) 1}}entry{{else}}entries{{end}}</nav>{{else}}<p>{{tr .Language "This object doesn’t have a change history. It probably wasn’t added via this admin site."}}</p>{{end}}</div>
     {{else if .ConfirmDelete}}
-      <p>Are you sure you want to delete the bookmark “{{if .BookmarkTitle}}{{.BookmarkTitle}}{{else}}{{.URL}}{{end}}”?</p>
-      <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="post" value="yes"><div class="submit-row"><input type="submit" value="Yes, I’m sure"><a href="{{.ListURL}}" class="button cancel-link">No, take me back</a></div></form>
+      {{template "admin_single_delete" .}}
     {{else}}
       <form method="post" action="{{.Action}}" id="bookmark_form" novalidate>
         <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">

@@ -34,6 +34,7 @@ type adminBookmarkAssetData struct {
 	ID, BookmarkID                                      int64
 	Gzip, ConfirmDelete, CanChange, CanDelete           bool
 	Bookmarks                                           []adminAssetBookmarkOption
+	Deletion                                            adminSingleDeletion
 }
 
 func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, permissions adminPermissions) {
@@ -268,6 +269,14 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		return
 	}
 	data.Language = selectedAdminLanguage(r).Code
+	if data.ConfirmDelete {
+		data.Deletion, err = adminSingleDeletionGraph(r.Context(), db, cfg.DBEngine, cfg.URLPrefix(), "bookmarkasset", strconv.FormatInt(id, 10), data.ObjectName)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		localizeAdminDeletionGraph(data.Language, data.Deletion.Summary, data.Deletion.Nodes)
+	}
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

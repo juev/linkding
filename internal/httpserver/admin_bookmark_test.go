@@ -219,6 +219,9 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	if got := request(http.MethodGet, deletePath, viewerSession, nil, true); got.Code != http.StatusForbidden {
 		t.Fatalf("view-only delete: %d", got.Code)
 	}
+	if got := request(http.MethodGet, deletePath, adminSession, nil, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "<h2>Summary</h2>") || !strings.Contains(got.Body.String(), "Bookmark-tag relationships: 1") || !strings.Contains(got.Body.String(), "Bookmark assets: 1") {
+		t.Fatalf("bookmark deletion graph: %d %s", got.Code, got.Body.String())
+	}
 	if got := request(http.MethodPost, deletePath, adminSession, url.Values{"post": {"yes"}, "csrfmiddlewaretoken": {csrf}}, true); got.Code != http.StatusFound {
 		t.Fatalf("delete: %d %s", got.Code, got.Body.String())
 	}

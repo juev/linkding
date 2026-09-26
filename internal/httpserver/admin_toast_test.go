@@ -141,6 +141,9 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 		t.Fatalf("updated toast: %q %t %v", message, acknowledged, err)
 	}
 	deletePath := base + strconv.FormatInt(id, 10) + "/delete/"
+	if got := request(http.MethodGet, deletePath, adminKey, nil, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "<h2>Summary</h2>") || !strings.Contains(got.Body.String(), "Toasts: 1") {
+		t.Fatalf("toast deletion graph: %d %s", got.Code, got.Body.String())
+	}
 	if got := request(http.MethodPost, deletePath, adminKey, url.Values{"post": {"yes"}, "csrfmiddlewaretoken": {csrf}}, true); got.Code != 302 {
 		t.Fatalf("delete toast: %d", got.Code)
 	}

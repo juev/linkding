@@ -16,19 +16,20 @@ import (
 //go:embed admin_page.html admin_sidebar.html
 var adminPageFile embed.FS
 var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(template.FuncMap{
-	"add":             func(a, b int) int { return a + b },
-	"sub":             func(a, b int) int { return a - b },
-	"lower":           strings.ToLower,
-	"tr":              adminTranslate,
-	"appTitle":        adminAppTitle,
-	"selectTitle":     adminSelectTitle,
-	"addTitle":        adminAddTitle,
-	"searchTitle":     adminSearchTitle,
-	"actionCounter":   adminActionCounter,
-	"deleteSelected":  adminDeleteSelected,
-	"paginationTitle": adminPaginationTitle,
-	"rowActionAria":   adminRowActionAria,
-	"filterTitle":     adminFilterTitle,
+	"add":                func(a, b int) int { return a + b },
+	"sub":                func(a, b int) int { return a - b },
+	"lower":              strings.ToLower,
+	"tr":                 adminTranslate,
+	"appTitle":           adminAppTitle,
+	"selectTitle":        adminSelectTitle,
+	"addTitle":           adminAddTitle,
+	"searchTitle":        adminSearchTitle,
+	"actionCounter":      adminActionCounter,
+	"deleteSelected":     adminDeleteSelected,
+	"paginationTitle":    adminPaginationTitle,
+	"rowActionAria":      adminRowActionAria,
+	"filterTitle":        adminFilterTitle,
+	"singleDeletePrompt": adminSingleDeletePrompt,
 }).ParseFS(adminPageFile, "admin_page.html", "admin_sidebar.html"))
 
 func adminSidebarTemplate(files embed.FS, name string) *template.Template {

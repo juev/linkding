@@ -26,6 +26,7 @@ type adminBundleData struct {
 	ID, OwnerID                                         int64
 	ConfirmDelete, CanChange, CanDelete                 bool
 	Owners                                              []adminOwnerOption
+	Deletion                                            adminSingleDeletion
 }
 
 func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User, permissions adminPermissions) {
@@ -264,6 +265,14 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 		return
 	}
 	data.Language = selectedAdminLanguage(r).Code
+	if data.ConfirmDelete {
+		data.Deletion, err = adminSingleDeletionGraph(r.Context(), db, cfg.DBEngine, cfg.URLPrefix(), "bookmarkbundle", strconv.FormatInt(id, 10), data.Name)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		localizeAdminDeletionGraph(data.Language, data.Deletion.Summary, data.Deletion.Nodes)
+	}
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
