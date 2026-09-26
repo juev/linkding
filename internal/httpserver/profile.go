@@ -16,7 +16,7 @@ func serveProfile(w http.ResponseWriter, r *http.Request, path string, repo *aut
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Allow", "GET, HEAD, OPTIONS")
 	w.Header().Set("Vary", "Accept, Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
@@ -73,6 +73,7 @@ func serveProfile(w http.ResponseWriter, r *http.Request, path string, repo *aut
 }
 
 func writeDetail(w http.ResponseWriter, status int, detail string) {
+	detail = localizedAPIDetail(w.Header().Get("Content-Language"), detail)
 	w.WriteHeader(status)
 	_ = writeJSON(w, map[string]string{"detail": detail})
 }

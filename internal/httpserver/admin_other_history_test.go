@@ -121,8 +121,8 @@ func TestAdminOtherModelChangeAndHistory(t *testing.T) {
 			if history.Code != 200 || !strings.Contains(history.Body.String(), "Added.") || !strings.Contains(history.Body.String(), "1 entry") {
 				t.Fatalf("logged history: %d %s", history.Code, history.Body.String())
 			}
-			if got := request(http.MethodPost, base+"history/", adminSession); got.Code != http.StatusMethodNotAllowed {
-				t.Fatalf("history accepted POST: %d", got.Code)
+			if got := request(http.MethodPost, base+"history/", adminSession); got.Code != http.StatusForbidden {
+				t.Fatalf("history POST without CSRF: %d", got.Code)
 			}
 		})
 	}

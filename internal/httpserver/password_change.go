@@ -44,7 +44,7 @@ func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cf
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		old, new1, new2 := r.PostForm.Get("old_password"), r.PostForm.Get("new_password1"), r.PostForm.Get("new_password2")
@@ -131,7 +131,7 @@ func renderPasswordPage(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		http.Error(w, "Server error", 500)
 		return
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	status := 200

@@ -53,7 +53,7 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if r.PostForm.Get("post") != "yes" {

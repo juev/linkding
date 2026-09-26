@@ -136,7 +136,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if action == "delete" {

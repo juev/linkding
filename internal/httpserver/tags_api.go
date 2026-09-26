@@ -49,7 +49,7 @@ func serveTagsAPI(w http.ResponseWriter, r *http.Request, root string, cfg confi
 		w.Header().Set("Allow", "GET, DELETE, HEAD, OPTIONS")
 	}
 	w.Header().Set("Vary", "Accept, Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")

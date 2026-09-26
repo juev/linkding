@@ -18,7 +18,7 @@ func serveBookmarkSearchPost(w http.ResponseWriter, r *http.Request, path string
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", 403)
+		writeCSRFFailure(w, r)
 		return
 	}
 	if _, save := r.PostForm["save"]; save && user.ID == 0 {

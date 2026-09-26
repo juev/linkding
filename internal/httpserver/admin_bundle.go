@@ -87,7 +87,7 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if action == "delete" {

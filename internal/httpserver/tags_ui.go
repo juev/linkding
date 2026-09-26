@@ -82,7 +82,7 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		id, err := strconv.ParseInt(r.PostForm.Get("delete_tag"), 10, 64)
@@ -223,7 +223,7 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 		http.Error(w, "Server error", 500)
 		return
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	if r.Method == http.MethodHead {
@@ -295,7 +295,7 @@ func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if data.MergeMode {
@@ -329,9 +329,9 @@ func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		http.Error(w, "Server error", 500)
 		return
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	if r.Method == http.MethodPost {
-		w.Header().Set("Content-Type", "text/vnd.turbo-stream.html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/vnd.turbo-stream.html")
 		_, _ = w.Write([]byte(`<turbo-stream action="replace" method="morph" target="tag-modal"><template>`))
 		_, _ = w.Write(output.Bytes())
 		_, _ = w.Write([]byte(`</template></turbo-stream>`))

@@ -65,7 +65,7 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		}
 		csrfCookie, err := r.Cookie(auth.CSRFCookieName)
 		if err != nil || !auth.VerifyCSRF(csrfCookie.Value, r.PostForm.Get("csrfmiddlewaretoken")) {
-			http.Error(w, "CSRF verification failed", http.StatusForbidden)
+			writeCSRFFailure(w, r)
 			return
 		}
 		data.Username = r.PostForm.Get("username")
@@ -141,7 +141,7 @@ func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config
 	}
 	csrfCookie, err := r.Cookie(auth.CSRFCookieName)
 	if err != nil || !auth.VerifyCSRF(csrfCookie.Value, r.PostForm.Get("csrfmiddlewaretoken")) {
-		http.Error(w, "CSRF verification failed", http.StatusForbidden)
+		writeCSRFFailure(w, r)
 		return
 	}
 	if sessionCookie, err := r.Cookie(auth.SessionCookieName); err == nil {

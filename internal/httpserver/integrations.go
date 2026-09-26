@@ -12,9 +12,9 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-func integrationHeaders(w http.ResponseWriter) {
+func integrationHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Vary", "Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
@@ -94,7 +94,7 @@ func serveManifest(w http.ResponseWriter, r *http.Request, path string, cfg conf
 			"params": map[string]string{"url": "url", "text": "url", "title": "title"},
 		},
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(manifest)
 }
@@ -110,7 +110,7 @@ func serveOpenSearch(w http.ResponseWriter, r *http.Request, path string, cfg co
 	}
 	base := scheme + "://" + r.Host + cfg.URLPrefix()
 	bookmarksURL := strings.TrimSuffix(base, "/") + "/bookmarks"
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "application/opensearchdescription+xml")
 	_, _ = fmt.Fprintf(w, `<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
     <ShortName>Linkding</ShortName>
@@ -144,7 +144,7 @@ func serveCustomCSS(w http.ResponseWriter, r *http.Request, path string, cfg con
 		}
 		_ = db.QueryRowContext(r.Context(), query, ownerID.Int64).Scan(&css)
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/css")
 	w.Header().Set("Cache-Control", "public, max-age=2592000")
 	_, _ = fmt.Fprint(w, css)

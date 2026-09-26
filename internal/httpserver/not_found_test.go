@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -100,6 +101,20 @@ func TestPinnedHTMLNotFoundResponses(t *testing.T) {
 					}
 				})
 			}
+		}
+	}
+}
+
+func TestPinnedStaticRejectsUnsafeMethods(t *testing.T) {
+	staticDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staticDir, "bundle.js"), []byte("static fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{http.MethodPost, http.MethodOptions} {
+		response := httptest.NewRecorder()
+		serveStaticFile(response, httptest.NewRequest(method, "/static/bundle.js", nil), "/static/", staticDir, "")
+		if response.Code != http.StatusNotFound || response.Body.String() != notFoundHTML || response.Header().Get("Content-Security-Policy") != "sandbox" {
+			t.Errorf("%s static: status=%d body=%q", method, response.Code, response.Body.String())
 		}
 	}
 }

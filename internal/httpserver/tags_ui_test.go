@@ -80,7 +80,7 @@ func TestTagsUIOwnerCreateRenameMergeDelete(t *testing.T) {
 		!strings.Contains(got.Body.String(), `href="/tags?page=1"`) {
 		t.Fatalf("single-page tag links: %d %q", got.Code, got.Body.String())
 	}
-	if got := request(http.MethodPost, "/tags/new", url.Values{"name": {"HELLO WORLD"}}); got.Code != 200 || !strings.Contains(got.Body.String(), "already exists") {
+	if got := request(http.MethodPost, "/tags/new", url.Values{"name": {"HELLO WORLD"}}); got.Code != 200 || got.Header().Get("Content-Type") != "text/vnd.turbo-stream.html" || !strings.Contains(got.Body.String(), "already exists") {
 		t.Fatalf("duplicate: %d %q", got.Code, got.Body.String())
 	}
 	if got := request(http.MethodPost, "/tags/"+strconv.FormatInt(id, 10)+"/edit", url.Values{"name": {"renamed"}}); got.Code != 302 {

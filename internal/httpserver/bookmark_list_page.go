@@ -326,7 +326,7 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 	if strings.Contains(string(data.Details), "<ld-details-modal ") {
 		data.PageTitle = "Bookmark details - Linkding"
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	if r.Method == http.MethodHead {

@@ -113,7 +113,7 @@ func bundlePageBase(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 }
 
 func renderBundlesPage(w http.ResponseWriter, r *http.Request, data bundlePageData, status int) {
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	w.WriteHeader(status)
@@ -171,7 +171,7 @@ func serveBundlesActionUI(w http.ResponseWriter, r *http.Request, cfg config.Con
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", 403)
+		writeCSRFFailure(w, r)
 		return
 	}
 	root := cfg.URLPrefix() + "bundles"
@@ -324,7 +324,7 @@ func serveBundleEditorUI(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		data.Form.Name = strings.TrimSpace(r.PostForm.Get("name"))
@@ -392,7 +392,7 @@ func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Co
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 	}
@@ -406,7 +406,7 @@ func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Co
 		http.Error(w, "Server error", 500)
 		return
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(fragment))
 }

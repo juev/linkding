@@ -125,7 +125,7 @@ func renderSettingsGeneral(w http.ResponseWriter, r *http.Request, cfg config.Co
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.WriteHeader(status)
 	if r.Method == http.MethodHead {
 		return nil
@@ -171,7 +171,7 @@ func serveSettingsUpdate(w http.ResponseWriter, r *http.Request, path string, cf
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", http.StatusForbidden)
+		writeCSRFFailure(w, r)
 		return
 	}
 	if _, update := r.PostForm["update_profile"]; update {

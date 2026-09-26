@@ -55,7 +55,7 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		data.UsablePassword = r.PostForm.Get("usable_password") != "false"

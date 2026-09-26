@@ -9,6 +9,10 @@ import (
 
 func serveStaticFile(w http.ResponseWriter, r *http.Request, prefix, staticDir, dataDir string) {
 	w.Header().Set("Content-Security-Policy", "sandbox")
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		writeNotFound(w, r)
+		return
+	}
 	name := strings.TrimPrefix(r.URL.Path, prefix)
 	if name == "" || !filepath.IsLocal(name) {
 		writeNotFound(w, r)

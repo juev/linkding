@@ -31,7 +31,7 @@ func serveAPIRoot(w http.ResponseWriter, r *http.Request, path string, users *au
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Allow", "GET, HEAD, OPTIONS")
 	w.Header().Set("Vary", "Accept, Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
@@ -88,6 +88,7 @@ func serveAPIRoot(w http.ResponseWriter, r *http.Request, path string, users *au
 
 func writeAPIRootDetail(w http.ResponseWriter, r *http.Request, status int, detail string) {
 	if r.Method == http.MethodHead {
+		detail = localizedAPIDetail(w.Header().Get("Content-Language"), detail)
 		body, _ := json.Marshal(map[string]string{"detail": detail})
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		w.WriteHeader(status)

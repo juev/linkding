@@ -101,7 +101,7 @@ func serveIntegrations(w http.ResponseWriter, r *http.Request, path string, cfg 
 	if data.CustomCSS {
 		_ = db.QueryRowContext(r.Context(), `SELECT custom_css_hash FROM bookmarks_userprofile WHERE user_id = `+assetMarker(cfg.DBEngine, 1), user.ID).Scan(&data.CustomCSSHash)
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	if r.Method == http.MethodHead {
@@ -140,7 +140,7 @@ func serveCreateAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 			http.Error(w, "Server error", 500)
 			return
 		}
-		integrationHeaders(w)
+		integrationHeaders(w, r)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(apiTokenModal(cfg.URLPrefix(), masked)))
 		return
@@ -155,7 +155,7 @@ func serveCreateAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", 403)
+		writeCSRFFailure(w, r)
 		return
 	}
 	session, _ := r.Cookie(auth.SessionCookieName)
@@ -193,7 +193,7 @@ func serveDeleteAPIToken(w http.ResponseWriter, r *http.Request, path string, cf
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		id, err := strconv.ParseInt(r.PostForm.Get("token_id"), 10, 64)

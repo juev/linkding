@@ -123,7 +123,7 @@ func serveFeed(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 	w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
 	w.Header().Set("Last-Modified", last.Format(http.TimeFormat))
 	w.Header().Set("Vary", "Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")

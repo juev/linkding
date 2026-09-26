@@ -40,7 +40,7 @@ func serveAdminDefaultAction(w http.ResponseWriter, r *http.Request, cfg config.
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", http.StatusForbidden)
+		writeCSRFFailure(w, r)
 		return
 	}
 	if r.PostForm.Get("action") != "delete_selected" {

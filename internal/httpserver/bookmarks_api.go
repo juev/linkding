@@ -90,7 +90,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Allow", allow)
 	w.Header().Set("Vary", "Accept, Accept-Language, Cookie")
-	w.Header().Set("Content-Language", "en")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")

@@ -60,7 +60,7 @@ func serveOIDC(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if cookie, err := r.Cookie(auth.SessionCookieName); err == nil {

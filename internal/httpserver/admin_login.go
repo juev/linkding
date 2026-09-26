@@ -81,7 +81,7 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		}
 		csrfCookie, err := r.Cookie(auth.CSRFCookieName)
 		if err != nil || !auth.VerifyCSRF(csrfCookie.Value, r.PostForm.Get("csrfmiddlewaretoken")) {
-			http.Error(w, "CSRF verification failed", http.StatusForbidden)
+			writeCSRFFailure(w, r)
 			return
 		}
 		data.Username = r.PostForm.Get("username")

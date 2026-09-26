@@ -39,7 +39,7 @@ func serveAdminTagAction(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", http.StatusForbidden)
+		writeCSRFFailure(w, r)
 		return
 	}
 	action := r.PostForm.Get("action")

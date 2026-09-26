@@ -75,8 +75,8 @@ func TestAdminUserHistory(t *testing.T) {
 	if got := request(http.MethodGet, path, viewerSession); got.Code != http.StatusForbidden {
 		t.Fatalf("viewer without permission: %d", got.Code)
 	}
-	if got := request(http.MethodPost, path, adminSession); got.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("history accepted POST: %d", got.Code)
+	if got := request(http.MethodPost, path, adminSession); got.Code != http.StatusForbidden {
+		t.Fatalf("history POST without CSRF: %d", got.Code)
 	}
 	if got := request(http.MethodGet, "/admin/auth/user/999999/history/", adminSession); got.Code != http.StatusNotFound {
 		t.Fatalf("missing user: %d", got.Code)

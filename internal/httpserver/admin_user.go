@@ -125,7 +125,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		if action == "change" && !permissions.Change {

@@ -77,7 +77,7 @@ func serveToastAcknowledge(w http.ResponseWriter, r *http.Request, cfg config.Co
 		return
 	}
 	if !verifyAPICSRF(r, cfg) {
-		http.Error(w, "CSRF verification failed", http.StatusForbidden)
+		writeCSRFFailure(w, r)
 		return
 	}
 	id, err := strconv.ParseInt(r.PostForm.Get("toast"), 10, 64)

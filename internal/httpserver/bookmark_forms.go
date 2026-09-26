@@ -109,7 +109,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
-			http.Error(w, "CSRF verification failed", 403)
+			writeCSRFFailure(w, r)
 			return
 		}
 		data.URL = r.PostForm.Get("url")
@@ -176,7 +176,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 		http.Error(w, "Server error", 500)
 		return
 	}
-	integrationHeaders(w)
+	integrationHeaders(w, r)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	w.WriteHeader(data.Status)

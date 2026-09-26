@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,12 +50,12 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 		limit = 100 << 20
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
-	if err := r.ParseMultipartForm(32 << 20); err != nil || !verifyAPICSRF(r, cfg) {
-		if err != nil {
-			http.Error(w, "Invalid form", http.StatusBadRequest)
-		} else {
-			http.Error(w, "CSRF verification failed", http.StatusForbidden)
-		}
+	if err := r.ParseMultipartForm(32 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+	if !verifyAPICSRF(r, cfg) {
+		writeCSRFFailure(w, r)
 		return
 	}
 	file, _, err := r.FormFile("import_file")
