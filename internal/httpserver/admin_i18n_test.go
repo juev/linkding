@@ -68,6 +68,15 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	if got := adminFormTitle("ru", "Change history: Tag"); got != "История изменений: Tag" {
 		t.Fatalf("Russian history title: %q", got)
 	}
+	if got := adminFilterTitle("ru", "By is archived"); got != "is archived" {
+		t.Fatalf("untranslated Russian filter title: %q", got)
+	}
+	if got := adminFilterOptionLabel("ru", "tags__id__exact", "Greek"); got != "Greek" {
+		t.Fatalf("user tag translated: %q", got)
+	}
+	if got := adminFilterOptionLabel("ru", "is_archived__exact", "Yes"); got != "Да" {
+		t.Fatalf("Russian boolean filter option: %q", got)
+	}
 	if got := adminBulkDeletePrompt("ru", "пользователь"); got != "Вы уверены, что хотите удалить пользователь? Все следующие объекты и связанные с ними элементы будут удалены:" {
 		t.Fatalf("Russian bulk deletion prompt: %q", got)
 	}

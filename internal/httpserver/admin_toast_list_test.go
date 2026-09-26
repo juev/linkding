@@ -139,6 +139,18 @@ func TestAdminToastListSearchOwnerFilterAndPagination(t *testing.T) {
 	if !strings.Contains(combined, `name="q"`) || !strings.Contains(combined, `owner__username=alice`) {
 		t.Fatalf("search and owner controls missing: %s", combined)
 	}
+	var toastID int64
+	if err := db.QueryRowContext(ctx, `SELECT id FROM bookmarks_toast WHERE key='alice-key'`).Scan(&toastID); err != nil {
+		t.Fatal(err)
+	}
+	russian := httptest.NewRequest(http.MethodGet, "/admin/bookmarks/toast/?q=important", nil)
+	russian.Header.Set("Accept-Language", "ru")
+	russian.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	translated := httptest.NewRecorder()
+	handler.ServeHTTP(translated, russian)
+	if translated.Code != http.StatusOK || !strings.Contains(translated.Body.String(), fmt.Sprintf("Выбрать этот объект, чтобы применить к нему действие - Toast object (%d)", toastID)) {
+		t.Fatalf("Russian Toast action label: %d", translated.Code)
+	}
 	quoted := get(url.Values{"q": {`"Important update"`}}).Body.String()
 	if !strings.Contains(quoted, "alice-key") || !strings.Contains(quoted, "bob-key") || strings.Contains(quoted, "alice-percent") {
 		t.Fatalf("quoted phrase search: %s", quoted)

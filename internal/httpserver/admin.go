@@ -29,6 +29,7 @@ var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(temp
 	"paginationTitle":    adminPaginationTitle,
 	"rowActionAria":      adminRowActionAria,
 	"filterTitle":        adminFilterTitle,
+	"filterOptionLabel":  adminFilterOptionLabel,
 	"singleDeletePrompt": adminSingleDeletePrompt,
 }).ParseFS(adminPageFile, "admin_page.html", "admin_sidebar.html"))
 

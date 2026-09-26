@@ -267,6 +267,10 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.Title = adminSelectTitle(data.Language, strings.ToLower(definition.Label))
 	data.IsModelList = true
 	data.ModelName = definition.Plural
+	if definition.App == "auth" && definition.Model == "user" {
+		data.Title = adminSelectTitle(data.Language, adminTranslate(data.Language, "user"))
+		data.ModelName = adminCapTranslate(data.Language, "users")
+	}
 	data.AppSlug, data.ModelSlug = definition.App, definition.Model
 	data.AppLabel, data.AppPath = "Bookmarks", cfg.URLPrefix()+"admin/"+definition.App+"/"
 	if definition.App == "auth" {
@@ -287,6 +291,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	data.ModelColumns = definition.Columns
 	for i, label := range definition.Columns {
+		if definition.App == "auth" && definition.Model == "user" {
+			label = adminCapTranslate(data.Language, strings.ToLower(label))
+		}
 		index := i + 1
 		header := adminListHeader{Label: label, Sortable: !((definition.Model == "bookmark" || definition.Model == "bookmarkasset") && index == 1), URL: adminListURL(r.URL.Query(), "o", strconv.Itoa(index))}
 		if order == index || order == -index {
@@ -320,7 +327,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data.IsDefaultActionList = definition.Model == "bookmarkasset" || definition.Model == "bookmarkbundle" || definition.Model == "toast" || definition.Model == "apitoken" || definition.Model == "feedtoken"
 	data.AddLabel = "toast"
 	if definition.App == "auth" && definition.Model == "user" {
-		data.AddLabel = "user"
+		data.AddLabel = adminTranslate(data.Language, "user")
 	} else if definition.Model == "bookmark" {
 		data.AddLabel = "bookmark"
 	} else if definition.Model == "apitoken" {
@@ -363,6 +370,9 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		}
 		if len(row.Cells) > 0 {
 			row.ActionLabel = row.Cells[0]
+		}
+		if definition.Model == "toast" {
+			row.ActionLabel = "Toast object (" + row.ID + ")"
 		}
 		if definition.Model == "bookmark" && len(row.Cells) > 1 {
 			urlRunes := []rune(row.Cells[1])

@@ -221,11 +221,18 @@ func adminRowActionAria(language, name string) string {
 func adminFilterTitle(language, title string) string {
 	if language != "en" && strings.HasPrefix(title, "By ") {
 		field := strings.ToLower(strings.TrimPrefix(title, "By "))
-		if translated := adminTranslate(language, field); translated != field {
-			return translated
-		}
+		return adminTranslate(language, field)
 	}
 	return adminTranslate(language, title)
+}
+
+func adminFilterOptionLabel(language, parameter, label string) string {
+	switch parameter {
+	case "owner__username", "tags__id__exact", "groups__id__exact":
+		return label
+	default:
+		return adminTranslate(language, label)
+	}
 }
 
 func adminFormTitle(language, title string) string {

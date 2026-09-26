@@ -102,6 +102,16 @@ func TestAdminUserListSearchAndFilters(t *testing.T) {
 	if strings.Contains(body, "bob@example.test") {
 		t.Fatal("user list included non-matching user bob")
 	}
+	russian := httptest.NewRequest(http.MethodGet, "/admin/auth/user/?q=alice&is_staff__exact=1", nil)
+	russian.Header.Set("Accept-Language", "ru")
+	russian.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	translated := httptest.NewRecorder()
+	New(db, cfg, t.TempDir()).ServeHTTP(translated, russian)
+	for _, want := range []string{"Выберите пользователь для изменения", "Добавить пользователь", "статус персонала", "Имя пользователя", "Искать пользователи", "Удалить выбранные пользователи"} {
+		if translated.Code != http.StatusOK || !strings.Contains(translated.Body.String(), want) {
+			t.Fatalf("Russian user list missing %q: %d", want, translated.Code)
+		}
+	}
 	filterURL := adminListURL(url.Values{"q": {"alice"}, "is_staff__exact": {"1"}, "groups__id__exact": {strconv.FormatInt(groupID, 10)}}, "is_active__exact", "0")
 	if !strings.Contains(body, html.EscapeString(filterURL)) {
 		t.Fatalf("filter links do not preserve search and current filters: %s", body)
