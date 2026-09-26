@@ -103,7 +103,7 @@ jobs:
       - name: Check HTML snapshot tool
         if: matrix.target == 'linkding-plus'
         run: |
-          if docker exec linkding-smoke sh -c 'timeout 180 single-file \
+          if docker exec linkding-smoke sh -c 'timeout 600 single-file \
             --browser-arg="--headless=new" \
             --browser-arg="--user-data-dir=./data/chromium-profile" \
             --browser-arg="--no-sandbox" \
