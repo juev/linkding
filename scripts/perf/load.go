@@ -17,10 +17,11 @@ import (
 )
 
 type sample struct {
-	latency time.Duration
-	bytes   int64
-	status  int
-	err     string
+	latency  time.Duration
+	startLag time.Duration
+	bytes    int64
+	status   int
+	err      string
 }
 
 type result struct {
@@ -36,6 +37,8 @@ type result struct {
 	StatusCounts  map[int]int    `json:"status_counts"`
 	ErrorCounts   map[string]int `json:"error_counts"`
 	ExpectedCount int            `json:"expected_count,omitempty"`
+	Rate          int            `json:"target_rps,omitempty"`
+	P95StartLagMs float64        `json:"p95_start_lag_ms,omitempty"`
 }
 
 func main() {
@@ -45,11 +48,12 @@ func main() {
 	cookiePath := flag.String("cookie-file", "", "file containing an authenticated Cookie header for the ui case")
 	concurrency := flag.Int("concurrency", 1, "number of concurrent clients")
 	requests := flag.Int("requests", 1000, "number of completed requests")
+	rate := flag.Int("rate", 0, "scheduled request starts per second; 0 uses closed-loop clients")
 	runID := flag.String("run-id", "", "unique identifier for create URLs")
 	expectedCount := flag.Int("expected-count", -1, "required API result count for read cases")
 	flag.Parse()
-	if *base == "" || *tokenPath == "" || *concurrency < 1 || *requests < 1 {
-		fail("base-url, token-file, positive concurrency, and positive requests are required")
+	if *base == "" || *tokenPath == "" || *concurrency < 1 || *requests < 1 || *rate < 0 {
+		fail("base-url, token-file, positive concurrency and requests, and non-negative rate are required")
 	}
 	if *caseName == "create" && *runID == "" {
 		fail("create requires a unique run-id")
@@ -111,6 +115,7 @@ func main() {
 	results := make(chan sample, *requests)
 	var next atomic.Int64
 	start := make(chan struct{})
+	var started time.Time
 	var workers sync.WaitGroup
 	for i := 0; i < *concurrency; i++ {
 		workers.Add(1)
@@ -122,19 +127,30 @@ func main() {
 				if index > *requests {
 					return
 				}
-				results <- perform(client, endpoint, token, cookie, *caseName, *runID, index)
+				var lag time.Duration
+				if *rate > 0 {
+					due := started.Add(time.Duration(index-1) * time.Second / time.Duration(*rate))
+					if wait := time.Until(due); wait > 0 {
+						time.Sleep(wait)
+					}
+					lag = time.Since(due)
+				}
+				item := perform(client, endpoint, token, cookie, *caseName, *runID, index)
+				item.startLag = lag
+				results <- item
 			}
 		}()
 	}
-	started := time.Now()
+	started = time.Now()
 	close(start)
 	workers.Wait()
 	elapsed := time.Since(started)
 	close(results)
 	report := result{Case: *caseName, Concurrency: *concurrency, Requests: *requests,
 		ElapsedSec: elapsed.Seconds(), RPS: float64(*requests) / elapsed.Seconds(),
-		StatusCounts: make(map[int]int), ErrorCounts: make(map[string]int)}
+		StatusCounts: make(map[int]int), ErrorCounts: make(map[string]int), Rate: *rate}
 	var latencies []time.Duration
+	var startLags []time.Duration
 	var totalBytes int64
 	for item := range results {
 		report.StatusCounts[item.status]++
@@ -142,12 +158,17 @@ func main() {
 			report.ErrorCounts[item.err]++
 		}
 		latencies = append(latencies, item.latency)
+		startLags = append(startLags, item.startLag)
 		totalBytes += item.bytes
 	}
 	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 	report.P50Ms = percentile(latencies, 0.50)
 	report.P95Ms = percentile(latencies, 0.95)
 	report.P99Ms = percentile(latencies, 0.99)
+	if *rate > 0 {
+		sort.Slice(startLags, func(i, j int) bool { return startLags[i] < startLags[j] })
+		report.P95StartLagMs = percentile(startLags, 0.95)
+	}
 	report.MeanBytes = float64(totalBytes) / float64(*requests)
 	if *expectedCount >= 0 {
 		report.ExpectedCount = *expectedCount

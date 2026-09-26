@@ -1,13 +1,13 @@
 # Install and configure linkding (Go)
 
-This guide applies to the Go port of upstream linkding v1.47.0. The examples use release tag `v1.47.2`; choose a newer tag from [GitHub Releases](https://github.com/juev/linkding/releases) when available. To build from source, follow the [README](../README.md).
+This guide applies to the Go port of upstream linkding v1.47.0. The examples use release tag `v1.47.3`; choose a newer tag from [GitHub Releases](https://github.com/juev/linkding/releases) when available. To build from source, follow the [README](../README.md).
 
 ## Run a release binary
 
 Download the archive for your operating system and CPU from [GitHub Releases](https://github.com/juev/linkding/releases) and check it against `SHA256SUMS`. Releases contain Linux, macOS, and Windows archives for amd64 and arm64. Extract the archive and run the executable from its extracted directory: it loads `web/static/` relative to the current working directory and writes the SQLite database, secret key, and downloaded files to `data/`.
 
 ```sh
-cd linkding_v1.47.2_linux_amd64
+cd linkding_v1.47.3_linux_amd64
 export LD_SUPERUSER_NAME=admin
 export LD_SUPERUSER_PASSWORD='replace-this-password'
 ./linkding server
@@ -27,19 +27,19 @@ docker run -d --name linkding -p 9090:9090 \
   -v linkding-data:/etc/linkding/data \
   -e LD_SUPERUSER_NAME=admin \
   -e LD_SUPERUSER_PASSWORD='replace-this-password' \
-  ghcr.io/juev/linkding:v1.47.2
+  ghcr.io/juev/linkding:v1.47.3
 ```
 
 Open `http://localhost:9090/`. The named volume stores `db.sqlite3`, `secretkey.txt`, and downloaded files. The image runs without root; its data directory accepts an arbitrary numeric UID. When using a host bind mount instead of a named volume, make the host directory writable by the selected UID. Mount `/etc/linkding/data` even with PostgreSQL because it holds the secret key and files. If your platform forbids a read-only root filesystem, omit `--read-only`; the data volume is still required.
 
-The plus image includes Chromium, SingleFile CLI, and uBlock Origin Lite. Substitute `ghcr.io/juev/linkding-plus:v1.47.2` in the command above. It enables automatic snapshots by default and stores Chromium's profile under the data volume. The extension is installed but disabled by default because it caused intermittent SingleFile load timeouts on both architectures. To enable it in an environment where capture succeeds, add `'--browser-arg="--load-extension=uBOLite.chromium.mv3"'` to `LD_SINGLEFILE_UBLOCK_OPTIONS` along with the default browser arguments. Keep the writable `/tmp` mount for Chromium. The image healthcheck runs `linkding healthcheck`; the HTTP endpoint is `/health` or `/<LD_CONTEXT_PATH>health`.
+The plus image includes Chromium, SingleFile CLI, and uBlock Origin Lite. Substitute `ghcr.io/juev/linkding-plus:v1.47.3` in the command above. It enables automatic snapshots by default and stores Chromium's profile under the data volume. The extension is installed but disabled by default because it caused intermittent SingleFile load timeouts on both architectures. To enable it in an environment where capture succeeds, add `'--browser-arg="--load-extension=uBOLite.chromium.mv3"'` to `LD_SINGLEFILE_UBLOCK_OPTIONS` along with the default browser arguments. Keep the writable `/tmp` mount for Chromium. The image healthcheck runs `linkding healthcheck`; the HTTP endpoint is `/health` or `/<LD_CONTEXT_PATH>health`.
 
 For Docker Compose, use the same mounts and options:
 
 ```yaml
 services:
   linkding:
-    image: ghcr.io/juev/linkding:v1.47.2
+    image: ghcr.io/juev/linkding:v1.47.3
     ports:
       - "9090:9090"
     user: "10001:10001"
@@ -116,4 +116,4 @@ bash scripts/smoke_release_images.sh
 
 The verifier checks all six archives, required runtime files, and `SHA256SUMS`. The smoke script starts both locally built image variants on amd64 and arm64 with a read-only root, arbitrary UID, and persistent volume. It checks SingleFile on both architectures with the image defaults. The Release workflow also checks capture on native arm64. The snapshot build requires Docker Buildx and a running Docker daemon. It does not publish a GitHub Release or push GHCR images. Run the Release workflow manually from GitHub Actions to rehearse CI, the GoReleaser snapshot, and the native arm64 image check. A manual run skips the publish job.
 
-Push a version tag such as `v1.47.2` on the checked commit to start [the release workflow](../.github/workflows/release.yml). The workflow reruns CI, a GoReleaser snapshot, and a native arm64 Chromium capture before its publish job. GoReleaser builds the six binaries with `CGO_ENABLED=0`, packages the static files and notices, creates `SHA256SUMS`, publishes the archives to GitHub Releases, and pushes multiarch basic and plus images to GHCR. The workflow then checks the published files and image architectures. The release job uses the repository `GITHUB_TOKEN` with `contents: write` and `packages: write`; it needs no personal token. Review the GitHub Actions result and published release before announcing the tag.
+Push a version tag such as `v1.47.3` on the checked commit to start [the release workflow](../.github/workflows/release.yml). The workflow reruns CI, a GoReleaser snapshot, and a native arm64 Chromium capture before its publish job. GoReleaser builds the six binaries with `CGO_ENABLED=0`, packages the static files and notices, creates `SHA256SUMS`, publishes the archives to GitHub Releases, and pushes multiarch basic and plus images to GHCR. The workflow then checks the published files and image architectures. The release job uses the repository `GITHUB_TOKEN` with `contents: write` and `packages: write`; it needs no personal token. Review the GitHub Actions result and published release before announcing the tag.

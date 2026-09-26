@@ -10,7 +10,11 @@ linkding is a bookmark manager you can host yourself. It keeps the interface foc
 
 This repository is an independent Go port of [linkding v1.47.0](https://github.com/sissbruecker/linkding/tree/v1.47.0). It preserves the original interface, API, and `LD_*` settings while using a Go server. The [parity specification](docs/specs/linkding-parity.md) describes the compatibility target.
 
-The [local load comparison](docs/performance/2026-09-26-linkding-comparison.md), its [optimization follow-up](docs/performance/2026-09-26-optimization-followup.md), the [post-release SQLite investigation](docs/performance/2026-09-26-sqlite-post-release.md), and the [query and algorithm analysis](docs/performance/2026-09-26-query-algorithm-analysis.md) measure the Python server and this Go port on the same bookmark fixture.
+## Performance
+
+The [optimization results](docs/performance/2026-09-26-optimization-summary.md) collect every measured improvement and link to the paired runs. On the 10,000-bookmark SQLite fixture, the URL lookup fix raised Go create throughput from 314.5 to 1462.0 RPS at eight clients; combining Unicode search calls raised ordinary search from 103.6 to 134.4 RPS in another paired run. These short tests do not establish production capacity.
+
+The [CPU and memory comparison](docs/performance/2026-09-26-resource-comparison.md) measures Python linkding and the optimized Go server at the same request arrival rate, including idle and loaded memory, CPU time per request, latency, and the limits of the local test.
 
 ## Features
 
@@ -32,7 +36,7 @@ The original project also provides a [live demo](https://demo.linkding.link/), a
 
 ## Install
 
-Download a Linux, macOS, or Windows archive from the [v1.47.2 release](https://github.com/juev/linkding/releases/tag/v1.47.2), verify it with `SHA256SUMS`, and run the binary from the extracted directory. The archives include the static assets required by the server.
+Download a Linux, macOS, or Windows archive from the [v1.47.3 release](https://github.com/juev/linkding/releases/tag/v1.47.3), verify it with `SHA256SUMS`, and run the binary from the extracted directory. The archives include the static assets required by the server.
 
 For Docker, create a persistent volume and start the basic image:
 
@@ -44,10 +48,10 @@ docker run -d --name linkding -p 9090:9090 \
   -v linkding-data:/etc/linkding/data \
   -e LD_SUPERUSER_NAME=admin \
   -e LD_SUPERUSER_PASSWORD='replace-this-password' \
-  ghcr.io/juev/linkding:v1.47.2
+  ghcr.io/juev/linkding:v1.47.3
 ```
 
-Open `http://localhost:9090/`. The basic image supports SQLite and PostgreSQL, uploads, previews, favicons, and backups. Use `ghcr.io/juev/linkding-plus:v1.47.2` for automatic HTML snapshots with Chromium and SingleFile. Both images support linux/amd64 and linux/arm64, a read-only root filesystem, and a non-root UID.
+Open `http://localhost:9090/`. The basic image supports SQLite and PostgreSQL, uploads, previews, favicons, and backups. Use `ghcr.io/juev/linkding-plus:v1.47.3` for automatic HTML snapshots with Chromium and SingleFile. Both images support linux/amd64 and linux/arm64, a read-only root filesystem, and a non-root UID.
 
 The [installation guide](docs/installation.md) covers binaries, Docker Compose, PostgreSQL, persistent files, proxy paths, health checks, and configuration. See [migration](docs/migration.md) before replacing a Python linkding installation and [backups](docs/backups.md) for backup and restore commands. The [original documentation](https://linkding.link/) covers common linkding features; use this repository's installation guide for the Go port.
 
