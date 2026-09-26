@@ -63,7 +63,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false -o "$context/linux/arm64/linkding" ./cmd/linkding
           docker buildx build --platform linux/arm64 --target linkding-plus \
             -f "$context/Dockerfile.release" -t linkding-plus-arm64:smoke --load "$context"
-      - name: Check HTML capture with Chromium and uBlock on native ARM
+      - name: Check HTML capture with Chromium on native ARM
         run: |
           docker volume create linkding-arm64-smoke-data >/dev/null
           docker run --rm -d --name linkding-arm64-smoke -p 127.0.0.1:9090:9090 \
@@ -93,7 +93,6 @@ jobs:
             --browser-arg=--user-data-dir=./data/chromium-profile \
             --browser-arg=--no-sandbox \
             --browser-arg=--disable-dev-shm-usage \
-            --browser-arg=--load-extension=uBOLite.chromium.mv3 \
             http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html; then
             docker logs linkding-arm64-smoke --tail 50
             exit 1

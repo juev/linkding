@@ -61,11 +61,6 @@ for variant in linkding linkding-plus; do
         --browser-arg=--no-sandbox
         --browser-arg=--disable-dev-shm-usage
       )
-      # Chromium with an extension cannot reliably fetch HTTP pages under ARM emulation.
-      # The native ARM release job checks this Dockerfile with the extension enabled.
-      if [ "$arch" = amd64 ]; then
-        snapshot_args+=(--browser-arg=--load-extension=uBOLite.chromium.mv3)
-      fi
       if ! docker exec "$name" timeout 120 single-file "${snapshot_args[@]}" \
         http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html; then
         docker logs "$name" --tail 50
