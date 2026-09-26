@@ -58,6 +58,7 @@ for variant in linkding linkding-plus; do
         --browser-arg="--user-data-dir=./data/chromium-profile" \
         --browser-arg="--no-sandbox" \
         --browser-arg="--disable-dev-shm-usage" \
+        --browser-arg="--load-extension=uBOLite.chromium.mv3" \
         http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
         docker logs "$name" --tail 50
         exit 1
