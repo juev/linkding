@@ -96,6 +96,14 @@ func TestListFilteredSearchGrammarAndFilters(t *testing.T) {
 			if err != nil || !slices.Equal(tagNames, []string{"coding"}) {
 				t.Fatalf("unknown shared owner must fall back to all public shares: %v, %v", tagNames, err)
 			}
+			owners, err := repo.ListSharedOwnerNames(ctx, 0, false, ListOptions{Query: "Go", User: "missing"})
+			if err != nil || !slices.Equal(owners, []string{user.Username}) {
+				t.Fatalf("shared owner choices must follow search without the selected user: %v, %v", owners, err)
+			}
+			owners, err = repo.ListSharedOwnerNames(ctx, 0, false, ListOptions{Query: "nomatch"})
+			if err != nil || len(owners) != 0 {
+				t.Fatalf("shared owner choices must follow query filters: %v, %v", owners, err)
+			}
 			assertTitles := func(opts ListOptions, want ...string) {
 				t.Helper()
 				opts.Limit = 100

@@ -84,6 +84,14 @@ func TestBookmarkFormCreateEditAndOwnership(t *testing.T) {
 	if created.Code != 302 || created.Header().Get("Location") != "/bookmarks/close" {
 		t.Fatalf("created: %d %q", created.Code, created.Header().Get("Location"))
 	}
+	closePage := httptest.NewRecorder()
+	handler.ServeHTTP(closePage, request("GET", "/bookmarks/close", session, nil))
+	if closePage.Code != 200 || !strings.Contains(closePage.Body.String(), "You can now close this window.") ||
+		!strings.Contains(closePage.Body.String(), ">Add bookmark</a>") ||
+		!strings.Contains(closePage.Body.String(), `aria-label="Navigation menu"`) ||
+		!strings.Contains(closePage.Body.String(), ">Shared</a>") {
+		t.Fatalf("close page must retain the application navigation: %d", closePage.Code)
+	}
 	var id int64
 	var title string
 	var unread, shared bool

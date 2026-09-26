@@ -52,6 +52,23 @@ func TestSettingsImportExportSessionOwnerAndCSRF(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := New(db, cfg, t.TempDir())
+	emptyImport := httptest.NewRequest(http.MethodGet, "/settings/import", nil)
+	emptyImport.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	emptyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(emptyResponse, emptyImport)
+	if emptyResponse.Code != http.StatusFound || emptyResponse.Header().Get("Location") != "/settings/general" {
+		t.Fatalf("GET import without file: status %d redirect %q", emptyResponse.Code, emptyResponse.Header().Get("Location"))
+	}
+	generalRequest := httptest.NewRequest(http.MethodGet, "/settings/general", nil)
+	generalRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	for _, cookie := range emptyResponse.Result().Cookies() {
+		generalRequest.AddCookie(cookie)
+	}
+	generalResponse := httptest.NewRecorder()
+	handler.ServeHTTP(generalResponse, generalRequest)
+	if generalResponse.Code != http.StatusOK || !strings.Contains(generalResponse.Body.String(), "Please select a file to import.") {
+		t.Fatalf("GET import must show the missing-file error on settings: %d", generalResponse.Code)
+	}
 	makeImport := func(withCSRF bool) *http.Request {
 		t.Helper()
 		var body bytes.Buffer

@@ -41,6 +41,7 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 	}
 	redirect := cfg.URLPrefix() + "settings/general"
 	if r.Method != http.MethodPost {
+		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "Please select a file to import.")
 		http.Redirect(w, r, redirect, http.StatusFound)
 		return
 	}

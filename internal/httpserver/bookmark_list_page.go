@@ -37,6 +37,9 @@ type listBundle struct {
 	Name     string
 	Selected bool
 }
+type listHiddenField struct {
+	Name, Value string
+}
 type listPageLink struct {
 	Number   int
 	URL      string
@@ -60,6 +63,9 @@ type bookmarkListPage struct {
 	SelectedTags                                                                                                                                                                                                                             []listTag
 	TagGroups                                                                                                                                                                                                                                []listTagGroup
 	Bundles                                                                                                                                                                                                                                  []listBundle
+	UserNames                                                                                                                                                                                                                                []string
+	UserFilter                                                                                                                                                                                                                               string
+	UserFormHidden                                                                                                                                                                                                                           []listHiddenField
 	Global                                                                                                                                                                                                                                   settings.Global
 	HasSnapshots                                                                                                                                                                                                                             bool
 	Details                                                                                                                                                                                                                                  template.HTML
@@ -149,6 +155,20 @@ func serveBookmarkList(w http.ResponseWriter, r *http.Request, path string, cfg 
 		return
 	}
 	data := bookmarkListPage{Prefix: cfg.URLPrefix(), Theme: profile.Get("theme"), CustomCSS: profile.Get("custom_css") != "", Authenticated: user.ID != 0, IsSuperuser: user.IsSuperuser, EnableSharing: profile.Get("enable_sharing") != "", Global: global, Page: page, Total: total, Query: values.Get("q"), Sort: values.Get("sort"), SharedFilter: values.Get("shared"), UnreadFilter: values.Get("unread"), LinkTarget: profile.Get("bookmark_link_target"), DescriptionDisplay: profile.Get("bookmark_description_display"), ShowURL: profile.Get("display_url") != "", ShowFavicons: profile.Get("enable_favicons") != "", ShowPreviews: profile.Get("enable_preview_images") != "", ShowNotes: profile.Get("permanent_notes") != "", CollapseSidePanel: profile.Get("collapse_side_panel") != "", HideBundles: profile.Get("hide_bundles") != "", ShowView: profile.Get("display_view_bookmark_action") != "", ShowEdit: profile.Get("display_edit_bookmark_action") != "", ShowArchive: profile.Get("display_archive_bookmark_action") != "", ShowRemove: profile.Get("display_remove_bookmark_action") != "", StickyPagination: profile.Get("sticky_pagination") != "", HasSnapshots: cfg.EnableSnapshots}
+	if shared {
+		data.UserFilter = values.Get("user")
+		data.UserNames, err = repo.ListSharedOwnerNames(r.Context(), user.ID, user.ID != 0, opts)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		for _, name := range []string{"q", "bundle", "sort", "shared", "unread", "modified_since", "added_since"} {
+			value := values.Get(name)
+			if value != "" && value != map[string]string{"sort": "added_desc", "shared": "off", "unread": "off"}[name] {
+				data.UserFormHidden = append(data.UserFormHidden, listHiddenField{Name: name, Value: value})
+			}
+		}
+	}
 	if parsed, err := strconv.Atoi(profile.Get("bookmark_description_max_lines")); err == nil {
 		data.DescriptionMaxLines = parsed
 	}

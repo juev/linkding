@@ -82,7 +82,10 @@ func TestPasswordChangeKeepsCurrentSession(t *testing.T) {
 	doneReq.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: current})
 	done := httptest.NewRecorder()
 	handler.ServeHTTP(done, doneReq)
-	if done.Code != 200 || !strings.Contains(done.Body.String(), "Your password was changed successfully.") {
+	if done.Code != 200 || !strings.Contains(done.Body.String(), "Your password was changed successfully.") ||
+		!strings.Contains(done.Body.String(), ">Add bookmark</a>") ||
+		!strings.Contains(done.Body.String(), ">General</a>") ||
+		!strings.Contains(done.Body.String(), "Navigation menu") {
 		t.Fatalf("done: %d %q", done.Code, done.Body.String())
 	}
 }

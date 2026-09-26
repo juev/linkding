@@ -109,6 +109,14 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	if guest.Code != 200 || !strings.Contains(guest.Body.String(), "One") || strings.Contains(guest.Body.String(), "Two") || !strings.Contains(guest.Body.String(), "Login") {
 		t.Fatalf("guest shared list: %d %q", guest.Code, guest.Body.String())
 	}
+	if strings.Contains(guest.Body.String(), `id="search-shared-label"`) || strings.Contains(guest.Body.String(), `id="search-unread-label"`) {
+		t.Fatal("shared search preferences expose sort only")
+	}
+	if !strings.Contains(guest.Body.String(), `id="user-heading">User</h2>`) ||
+		!strings.Contains(guest.Body.String(), `<option value="" selected>Everyone</option>`) ||
+		!strings.Contains(guest.Body.String(), `<option value="alice">alice</option>`) {
+		t.Fatal("shared sidebar must offer matching owners")
+	}
 	guestDetails := get("/bookmarks/shared?details="+strconv.FormatInt(first.ID, 10), false)
 	if guestDetails.Code != 200 || !strings.Contains(guestDetails.Body.String(), `class="modal active bookmark-details"`) || strings.Contains(guestDetails.Body.String(), `name="is_archived"`) {
 		t.Fatalf("guest shared details: %d %q", guestDetails.Code, guestDetails.Body.String())

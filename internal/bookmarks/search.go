@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -174,6 +175,41 @@ func (r *Repository) ListShared(ctx context.Context, viewerID int64, authenticat
 		return nil, 0, err
 	}
 	return r.listFiltered(ctx, profileID, ownerID, true, !authenticated, opts, nil)
+}
+
+// ListSharedOwnerNames returns the owner choices for the shared-page user filter.
+// The selected owner does not narrow the choices, matching the upstream form.
+func (r *Repository) ListSharedOwnerNames(ctx context.Context, viewerID int64, authenticated bool, opts ListOptions) ([]string, error) {
+	opts.User = ""
+	profileID, _, err := r.sharedSearchScope(ctx, viewerID, authenticated, "")
+	if err != nil {
+		return nil, err
+	}
+	filter, where, err := r.buildListFilter(ctx, profileID, nil, true, !authenticated, opts, nil)
+	if err != nil {
+		return nil, err
+	}
+	query := "SELECT DISTINCT u.username FROM bookmarks_bookmark b JOIN auth_user u ON u.id = b.owner_id WHERE " + where
+	rows, err := r.db.QueryContext(ctx, query, filter.args...)
+	if err != nil {
+		return nil, fmt.Errorf("list shared owners: %w", err)
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(names, func(i, j int) bool {
+		return strings.ToLower(names[i]) < strings.ToLower(names[j])
+	})
+	return names, nil
 }
 
 func (r *Repository) sharedSearchScope(ctx context.Context, viewerID int64, authenticated bool, username string) (int64, *int64, error) {
