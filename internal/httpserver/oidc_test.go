@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"math/big"
@@ -104,6 +105,7 @@ func TestOIDCCodeFlowPKCEClaimsAndReplay(t *testing.T) {
 	}
 	callback := httptest.NewRequest(http.MethodGet, "http://linkding.test/oidc/callback/?state="+url.QueryEscape(state)+"&code=valid-code", nil)
 	callback.AddCookie(stateCookie)
+	loginStarted := time.Now().UTC()
 	callbackResponse := httptest.NewRecorder()
 	handler.ServeHTTP(callbackResponse, callback)
 	if callbackResponse.Code != 302 || callbackResponse.Header().Get("Location") != "/bookmarks" {
@@ -121,6 +123,10 @@ func TestOIDCCodeFlowPKCEClaimsAndReplay(t *testing.T) {
 	var username, email, password string
 	if err := db.QueryRowContext(ctx, `SELECT username,email,password FROM auth_user WHERE email=?`, "person@example.com").Scan(&username, &email, &password); err != nil || username != "NormalizedUser" || password != "!" {
 		t.Fatalf("OIDC user: %q %q %q %v", username, email, password, err)
+	}
+	var lastLogin sql.NullTime
+	if err := db.QueryRowContext(ctx, `SELECT last_login FROM auth_user WHERE email=?`, "person@example.com").Scan(&lastLogin); err != nil || !lastLogin.Valid || lastLogin.Time.Before(loginStarted.Add(-time.Second)) || lastLogin.Time.After(time.Now().Add(time.Second)) {
+		t.Fatalf("OIDC login did not update last_login: %v %v", lastLogin, err)
 	}
 	bookmarksRequest := httptest.NewRequest(http.MethodGet, "http://linkding.test/bookmarks", nil)
 	bookmarksRequest.AddCookie(session)

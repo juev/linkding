@@ -2,12 +2,14 @@ package httpserver
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/config"
@@ -65,9 +67,17 @@ func TestLoginSessionProfileAndLogoutWithContextPath(t *testing.T) {
 	if response := postForm("wrong", "", true); response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), "didn't match") {
 		t.Fatalf("wrong login: status=%d body=%s", response.Code, response.Body.String())
 	}
+	var lastLogin sql.NullTime
+	if err := db.QueryRowContext(ctx, `SELECT last_login FROM auth_user WHERE username='alice'`).Scan(&lastLogin); err != nil || lastLogin.Valid {
+		t.Fatalf("failed login changed last_login: %v %v", lastLogin, err)
+	}
+	loginStarted := time.Now().UTC()
 	success := postForm("correct", "https://evil.example/steal", true)
 	if success.Code != http.StatusFound || success.Header().Get("Location") != "/linkding/bookmarks" {
 		t.Fatalf("login redirect: status=%d location=%q", success.Code, success.Header().Get("Location"))
+	}
+	if err := db.QueryRowContext(ctx, `SELECT last_login FROM auth_user WHERE username='alice'`).Scan(&lastLogin); err != nil || !lastLogin.Valid || lastLogin.Time.Before(loginStarted.Add(-time.Second)) || lastLogin.Time.After(time.Now().Add(time.Second)) {
+		t.Fatalf("successful login did not update last_login: %v %v", lastLogin, err)
 	}
 	var sessionCookie, newCSRF *http.Cookie
 	for _, cookie := range success.Result().Cookies() {

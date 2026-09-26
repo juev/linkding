@@ -212,6 +212,11 @@ func completeOIDC(w http.ResponseWriter, r *http.Request, cfg config.Config, db 
 		http.Error(w, "Server error", 500)
 		return
 	}
+	if err := users.RecordLogin(r.Context(), user.ID); err != nil {
+		_ = users.DeleteSession(r.Context(), key)
+		http.Error(w, "Server error", 500)
+		return
+	}
 	if old, err := r.Cookie(auth.SessionCookieName); err == nil {
 		_ = users.DeleteSession(r.Context(), old.Value)
 	}

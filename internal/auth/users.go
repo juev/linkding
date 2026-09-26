@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
@@ -57,6 +58,22 @@ func (r *Repository) AuthenticatePassword(ctx context.Context, username, passwor
 		return User{}, ErrInvalidCredentials
 	}
 	return user, nil
+}
+
+// RecordLogin mirrors Django's update_last_login signal after a successful login.
+func (r *Repository) RecordLogin(ctx context.Context, userID int64) error {
+	result, err := r.db.ExecContext(ctx, `UPDATE auth_user SET last_login = `+r.marker(1)+` WHERE id = `+r.marker(2), time.Now().UTC(), userID)
+	if err != nil {
+		return fmt.Errorf("update last login: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check last login update: %w", err)
+	}
+	if count != 1 {
+		return fmt.Errorf("update last login: user %d not found", userID)
+	}
+	return nil
 }
 
 func (r *Repository) AuthenticateToken(ctx context.Context, token string) (User, error) {

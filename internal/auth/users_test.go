@@ -191,6 +191,17 @@ func TestCreateUserPostgres(t *testing.T) {
 	if _, err := r.AuthenticatePassword(ctx, user.Username, "parity-password"); err != nil {
 		t.Fatalf("PostgreSQL password login: %v", err)
 	}
+	before := time.Now().UTC()
+	if err := r.RecordLogin(ctx, user.ID); err != nil {
+		t.Fatalf("PostgreSQL last login update: %v", err)
+	}
+	var lastLogin sql.NullTime
+	if err := db.QueryRowContext(ctx, `SELECT last_login FROM auth_user WHERE id = $1`, user.ID).Scan(&lastLogin); err != nil {
+		t.Fatalf("PostgreSQL last login query: %v", err)
+	}
+	if !lastLogin.Valid || lastLogin.Time.Before(before) || lastLogin.Time.After(time.Now().UTC()) {
+		t.Fatalf("PostgreSQL last login = %v, want current login time", lastLogin)
+	}
 	if _, err := r.GetProfile(ctx, user.ID); err != nil {
 		t.Fatalf("PostgreSQL default profile: %v", err)
 	}

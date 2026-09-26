@@ -77,6 +77,11 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
+			if err := repo.RecordLogin(r.Context(), user.ID); err != nil {
+				_ = repo.DeleteSession(r.Context(), key)
+				http.Error(w, "Server error", http.StatusInternalServerError)
+				return
+			}
 			http.SetCookie(w, &http.Cookie{Name: auth.SessionCookieName, Value: key, Path: cfg.URLPrefix(), MaxAge: age, Expires: time.Now().Add(time.Duration(age) * time.Second), HttpOnly: true, SameSite: http.SameSiteLaxMode})
 			if newSecret, err := auth.NewCSRFSecret(); err == nil {
 				setCSRFCookie(w, cfg.URLPrefix(), newSecret)
