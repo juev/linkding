@@ -64,6 +64,18 @@ func TestBookmarkListActiveArchivedSharedAndSearch(t *testing.T) {
 	if active.Code != 200 || !strings.Contains(active.Body.String(), `data-bookmark-id="`+strconv.FormatInt(first.ID, 10)+`"`) || strings.Contains(active.Body.String(), `data-bookmark-id="`+strconv.FormatInt(second.ID, 10)+`"`) {
 		t.Fatalf("active list: %d %q", active.Code, active.Body.String())
 	}
+	sortOptions := []string{`value="added_asc"`, `value="added_desc"`, `value="modified_asc"`, `value="modified_desc"`, `value="title_asc"`, `value="title_desc"`}
+	sortSelect := active.Body.String()
+	for _, option := range sortOptions {
+		index := strings.Index(sortSelect, option)
+		if index < 0 {
+			t.Fatalf("missing search sort option %s", option)
+		}
+		sortSelect = sortSelect[index+len(option):]
+	}
+	if !strings.Contains(active.Body.String(), `<option value="added_desc" selected>Added ↓</option>`) {
+		t.Fatal("added descending must remain the default sort")
+	}
 	if !strings.Contains(active.Body.String(), "details="+strconv.FormatInt(first.ID, 10)) {
 		t.Fatal("bookmark View link must include details query")
 	}
