@@ -10,6 +10,8 @@ import (
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrTokenHeaderMissingCredentials = errors.New("Invalid token header. No credentials provided.")
+var ErrTokenHeaderContainsSpaces = errors.New("Invalid token header. Token string should not contain spaces.")
 
 type User struct {
 	ID          int64
@@ -100,8 +102,11 @@ func ParseTokenAuthorization(header string) (token string, present bool, err err
 	if len(fields) == 0 || (strings.ToLower(fields[0]) != "token" && strings.ToLower(fields[0]) != "bearer") {
 		return "", false, nil
 	}
-	if len(fields) != 2 || fields[1] == "" {
-		return "", true, ErrInvalidCredentials
+	if len(fields) == 1 {
+		return "", true, ErrTokenHeaderMissingCredentials
+	}
+	if len(fields) > 2 {
+		return "", true, ErrTokenHeaderContainsSpaces
 	}
 	return fields[1], true, nil
 }

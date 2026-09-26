@@ -40,7 +40,7 @@ func serveAPIRoot(w http.ResponseWriter, r *http.Request, path string, users *au
 	token, present, parseErr := auth.ParseTokenAuthorization(r.Header.Get("Authorization"))
 	if parseErr != nil {
 		w.Header().Set("WWW-Authenticate", "Token")
-		writeAPIRootDetail(w, r, http.StatusUnauthorized, "Invalid token header.")
+		writeAPIRootDetail(w, r, http.StatusUnauthorized, parseErr.Error())
 		return
 	}
 	var err error

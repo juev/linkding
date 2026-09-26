@@ -131,7 +131,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 	token, present, parseErr := auth.ParseTokenAuthorization(r.Header.Get("Authorization"))
 	if parseErr != nil {
 		w.Header().Set("WWW-Authenticate", "Token")
-		writeDetail(w, http.StatusUnauthorized, "Invalid token header.")
+		writeDetail(w, http.StatusUnauthorized, parseErr.Error())
 		return
 	}
 	var user auth.User
