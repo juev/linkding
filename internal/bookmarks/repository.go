@@ -74,7 +74,13 @@ func (r *Repository) CreateOrUpdateData(ctx context.Context, ownerID int64, inpu
 		return Bookmark{}, false, fmt.Errorf("begin bookmark write: %w", err)
 	}
 	defer tx.Rollback()
-	query := `SELECT id, url FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
+	bookmarkTable := "bookmarks_bookmark"
+	if r.engine == "sqlite" {
+		// Without statistics SQLite picks the owner index and scans every
+		// bookmark on a duplicate miss. The upstream schema has this index.
+		bookmarkTable += " INDEXED BY bookmarks_bookmark_url_normalized_8b3c53e4"
+	}
+	query := `SELECT id, url FROM ` + bookmarkTable + ` WHERE owner_id = ` + r.marker(1) +
 		` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) + `)) ORDER BY id LIMIT 1`
 	var id int64
 	bookmarkURL := input.URL

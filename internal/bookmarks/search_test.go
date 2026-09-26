@@ -164,6 +164,16 @@ func TestListFilteredSearchGrammarAndFilters(t *testing.T) {
 			}
 			assertTitles(ListOptions{Query: "100%_match"}, "100%_match")
 			assertTitles(ListOptions{Query: "äpfel"}, "Äpfel")
+			if _, _, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{
+				URL: "https://example.com/unicode-tag", Title: "Unicode tag", TagNames: []string{"Äpfel"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			assertTitles(ListOptions{Query: "#äPFEL"}, "Unicode tag")
+			if _, err := db.ExecContext(ctx, "UPDATE bookmarks_userprofile SET legacy_search = "+repo.marker(1)+" WHERE user_id = "+repo.marker(2), false, user.ID); err != nil {
+				t.Fatal(err)
+			}
+			assertTitles(ListOptions{Query: "#äPFEL"}, "Unicode tag")
 		})
 	}
 }

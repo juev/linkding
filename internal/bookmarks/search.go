@@ -57,8 +57,9 @@ func (f *bookmarkFilter) exactTag(name string) string {
 	equality := "ld_ci_equal(t.name, " + marker + ") = 1"
 	if f.engine == "postgres" {
 		equality = "UPPER(t.name) = UPPER(" + marker + ")"
+		return "EXISTS (SELECT 1 FROM bookmarks_bookmark_tags bt JOIN bookmarks_tag t ON t.id = bt.tag_id WHERE bt.bookmark_id = b.id AND " + equality + ")"
 	}
-	return "EXISTS (SELECT 1 FROM bookmarks_bookmark_tags bt JOIN bookmarks_tag t ON t.id = bt.tag_id WHERE bt.bookmark_id = b.id AND " + equality + ")"
+	return "EXISTS (SELECT 1 FROM bookmarks_bookmark_tags bt WHERE bt.bookmark_id = b.id AND bt.tag_id IN (SELECT t.id FROM bookmarks_tag t WHERE " + equality + "))"
 }
 
 func (f *bookmarkFilter) contains(field, term string) string {

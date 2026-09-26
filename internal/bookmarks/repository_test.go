@@ -86,6 +86,42 @@ func TestCreateDuplicateUsesPinnedMergeRuleAndOwnerScope(t *testing.T) {
 	}
 }
 
+func TestCreateDuplicateKeepsOldestLegacyURLMatch(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(ctx, config.Config{DBEngine: "sqlite", DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	user, err := auth.NewRepository(db, "sqlite").CreateUser(ctx, auth.NewUser{Username: "legacy", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := NewRepository(db, "sqlite")
+	first, _, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "https://example.com/legacy", Title: "Legacy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE bookmarks_bookmark SET url_normalized = '' WHERE id = ?`, first.ID); err != nil {
+		t.Fatal(err)
+	}
+	second, created, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "HTTPS://EXAMPLE.COM/legacy/", Title: "Normalized"})
+	if err != nil || !created {
+		t.Fatalf("second create: bookmark=%+v created=%t err=%v", second, created, err)
+	}
+	updated, created, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: first.URL, Title: "Updated"})
+	if err != nil || created || updated.ID != first.ID || updated.Title != "Updated" {
+		t.Fatalf("legacy duplicate: bookmark=%+v created=%t err=%v", updated, created, err)
+	}
+	other, err := repo.GetByID(ctx, user.ID, second.ID)
+	if err != nil || other.Title != "Normalized" {
+		t.Fatalf("normalized bookmark changed: bookmark=%+v err=%v", other, err)
+	}
+}
+
 func TestCreateDuplicatePostgres(t *testing.T) {
 	dsn := os.Getenv("LINKDING_TEST_POSTGRES_DSN")
 	if dsn == "" {
