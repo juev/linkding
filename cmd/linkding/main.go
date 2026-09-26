@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -55,6 +56,15 @@ func run() error {
 				return err
 			}
 			return ensureSecretKey(cfg.DataDir)
+		case "healthcheck":
+			if len(os.Args) != 2 {
+				return fmt.Errorf("usage: linkding healthcheck")
+			}
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			return checkHealth(ctx, cfg)
 		case "migrate_tasks":
 			return runMigrateTasks(ctx, os.Args[2:], os.Stdout)
 		default:
@@ -135,4 +145,22 @@ func run() error {
 		}
 		return nil
 	}
+}
+
+func checkHealth(ctx context.Context, cfg config.Config) error {
+	endpoint := &url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", cfg.ServerPort), Path: cfg.URLPrefix() + "health"}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("healthcheck: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("healthcheck: %s", response.Status)
+	}
+	return nil
 }

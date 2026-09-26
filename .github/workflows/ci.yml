@@ -1,8 +1,12 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
+  workflow_call:
 
 jobs:
   go:
@@ -51,6 +55,8 @@ jobs:
         run: |
           docker volume create linkding-smoke-data
           docker run -d --name linkding-smoke -p 9090:9090 \
+            --read-only --user 10001:10001 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m \
             -v linkding-smoke-data:/etc/linkding/data \
             -e LD_CONTEXT_PATH=linkding/ \
             -e LD_SUPERUSER_NAME=admin \
@@ -66,10 +72,17 @@ jobs:
           done
           curl -fsS http://127.0.0.1:9090/linkding/health
           curl -fsS -o /dev/null http://127.0.0.1:9090/linkding/static/bundle.js
-          docker exec linkding-smoke sh -c 'test -s data/db.sqlite3 && test -s data/secretkey.txt'
+          docker exec linkding-smoke /usr/local/bin/linkding healthcheck
+          docker cp linkding-smoke:/etc/linkding/data/db.sqlite3 /tmp/linkding-smoke-db.sqlite3
+          docker cp linkding-smoke:/etc/linkding/data/secretkey.txt /tmp/linkding-smoke-secretkey.txt
+          test -s /tmp/linkding-smoke-db.sqlite3
+          test -s /tmp/linkding-smoke-secretkey.txt
           docker stop linkding-smoke
           docker start linkding-smoke
-          docker exec linkding-smoke sh -c 'test -s data/db.sqlite3 && test -s data/secretkey.txt'
+          docker cp linkding-smoke:/etc/linkding/data/db.sqlite3 /tmp/linkding-smoke-db-restarted.sqlite3
+          docker cp linkding-smoke:/etc/linkding/data/secretkey.txt /tmp/linkding-smoke-secretkey-restarted.txt
+          cmp /tmp/linkding-smoke-secretkey.txt /tmp/linkding-smoke-secretkey-restarted.txt
+          test -s /tmp/linkding-smoke-db-restarted.sqlite3
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:9090/linkding/health >/dev/null; then
               exit 0
@@ -83,7 +96,7 @@ jobs:
         run: |
           docker exec linkding-smoke sh -c 'timeout 60 single-file \
             --browser-arg="--headless=new" \
-            --browser-arg="--user-data-dir=./chromium-profile" \
+            --browser-arg="--user-data-dir=./data/chromium-profile" \
             --browser-arg="--no-sandbox" \
             --browser-arg="--load-extension=uBOLite.chromium.mv3" \
             http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'

@@ -4,4 +4,4 @@
 
 `web/static/admin/` contains Django Admin 6.0.7 static files copied from the linkding v1.47.0 environment for the admin UI. Django is licensed under BSD-3-Clause; its license is preserved in [django-LICENSE](django-LICENSE). Files under `web/static/admin/vendor/` carry their own license notices.
 
-The plus Docker image installs SingleFile CLI 2.0.75 and downloads uBlock Origin Lite during the build. Their license files remain in the image at `/usr/local/lib/node_modules/single-file-cli/LICENSE` (AGPL-3.0) and `/etc/linkding/uBOLite.chromium.mv3/LICENSE.txt` (GPL-3.0). The installed Chromium package retains its Debian copyright notices.
+The plus Docker image installs SingleFile CLI 2.0.75 and downloads uBlock Origin Lite 2026.920.1710 (Chromium ZIP SHA-256: `3ebf1458078d8738daf580e5ddeb41412cfa20fe4874a2fb321373f5ff7a09f1`) during the build. Their license files remain in the image at `/usr/local/lib/node_modules/single-file-cli/LICENSE` (AGPL-3.0) and `/etc/linkding/uBOLite.chromium.mv3/LICENSE.txt` (GPL-3.0). The installed Chromium package retains its Debian copyright notices.

@@ -15,32 +15,38 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -o /out/linkding ./cmd/linkding
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -o /out/linkding ./cmd/linkding \
+    && mkdir -p /out/runtime/etc/linkding/data \
+    && chmod 1777 /out/runtime/etc/linkding/data
 
-FROM debian:bookworm-slim AS linkding
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS mime-data
+RUN apt-get update && apt-get install -y --no-install-recommends media-types \
+    && cp /etc/mime.types /mime.types
+
+FROM gcr.io/distroless/static-debian13:nonroot AS linkding
 LABEL org.opencontainers.image.source="https://github.com/juev/linkding"
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl media-types \
-    && apt-get clean && rmdir /var/lib/apt/lists/partial && find /var/lib/apt/lists -maxdepth 1 -type f -delete
+COPY --from=go-build /out/runtime/ /
 WORKDIR /etc/linkding
+COPY --from=mime-data /mime.types /etc/mime.types
 COPY --from=go-build /out/linkding /usr/local/bin/linkding
 COPY web/static ./web/static
 COPY --from=frontend /build/web/static/ ./web/static/
 COPY LICENSE.txt ./LICENSE.txt
 COPY docs/third-party ./docs/third-party
-RUN mkdir -p data && chmod g+w . data
 EXPOSE 9090
 HEALTHCHECK --interval=30s --retries=3 --timeout=3s \
-  CMD curl -fsS "http://127.0.0.1:${LD_SERVER_PORT:-9090}/${LD_CONTEXT_PATH}health" || exit 1
+  CMD ["/usr/local/bin/linkding", "healthcheck"]
 ENTRYPOINT ["/usr/local/bin/linkding"]
 CMD ["server"]
 
 FROM --platform=$BUILDPLATFORM node:22-alpine AS ublock-build
 WORKDIR /build
+ARG UBLOCK_VERSION=2026.920.1710
+ARG UBLOCK_SHA256=3ebf1458078d8738daf580e5ddeb41412cfa20fe4874a2fb321373f5ff7a09f1
 RUN apk add --no-cache curl jq unzip
 RUN set -eu; \
-    url="$(curl -fsSL 'https://api.github.com/repos/uBlockOrigin/uBOL-home/releases?per_page=20' | jq -r 'first(.[] | select(.prerelease == false) | .assets[] | select(.name | endswith(".chromium.zip")) | .browser_download_url) // empty')"; \
-    test -n "$url"; \
-    curl -fL -o ublock.zip "$url"; \
+    curl -fL -o ublock.zip "https://github.com/uBlockOrigin/uBOL-home/releases/download/${UBLOCK_VERSION}/uBOLite_${UBLOCK_VERSION}.chromium.zip"; \
+    printf '%s  %s\n' "$UBLOCK_SHA256" ublock.zip | sha256sum -c -; \
     mkdir uBOLite.chromium.mv3; \
     unzip -q ublock.zip -d uBOLite.chromium.mv3; \
     jq '.declarative_net_request.rule_resources |= map(if .id == "annoyances-overlays" or .id == "annoyances-cookies" or .id == "annoyances-social" or .id == "annoyances-widgets" or .id == "annoyances-others" then .enabled = true else . end)' uBOLite.chromium.mv3/manifest.json > manifest.json; \
@@ -48,7 +54,7 @@ RUN set -eu; \
 
 FROM node:22-bookworm-slim AS linkding-plus
 LABEL org.opencontainers.image.source="https://github.com/juev/linkding"
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates chromium curl media-types \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates chromium media-types \
     && apt-get clean && rmdir /var/lib/apt/lists/partial && find /var/lib/apt/lists -maxdepth 1 -type f -delete
 WORKDIR /etc/linkding
 COPY --from=linkding /usr/local/bin/linkding /usr/local/bin/linkding
@@ -58,11 +64,13 @@ COPY --from=linkding /etc/linkding/docs/third-party ./docs/third-party
 COPY --from=ublock-build /build/uBOLite.chromium.mv3 ./uBOLite.chromium.mv3
 RUN npm install -g single-file-cli@2.0.75 \
     && npm install --prefix "$(npm root -g)/single-file-cli" simple-cdp@1.8.6 \
-    && mkdir -p data chromium-profile \
-    && chmod g+w . data chromium-profile uBOLite.chromium.mv3
-ENV LD_ENABLE_SNAPSHOTS=True
+    && mkdir -p data \
+    && chmod 1777 data
+ENV LD_ENABLE_SNAPSHOTS=True HOME=/tmp \
+    LD_SINGLEFILE_UBLOCK_OPTIONS="'--browser-arg=\"--headless=new\"' '--browser-arg=\"--user-data-dir=./data/chromium-profile\"' '--browser-arg=\"--no-sandbox\"' '--browser-arg=\"--load-extension=uBOLite.chromium.mv3\"'"
+USER 65532:65532
 EXPOSE 9090
 HEALTHCHECK --interval=30s --retries=3 --timeout=3s \
-  CMD curl -fsS "http://127.0.0.1:${LD_SERVER_PORT:-9090}/${LD_CONTEXT_PATH}health" || exit 1
+  CMD ["/usr/local/bin/linkding", "healthcheck"]
 ENTRYPOINT ["/usr/local/bin/linkding"]
 CMD ["server"]

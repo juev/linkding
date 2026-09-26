@@ -1,0 +1,182 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  archives:
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Build and package
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]
+          mkdir -p dist
+          suffix=''
+          if [[ "$GOOS" == windows ]]; then suffix='.exe'; fi
+          go build -trimpath -buildvcs=false -ldflags='-buildid=' -o "dist/linkding${suffix}" ./cmd/linkding
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+          export SOURCE_DATE_EPOCH
+          python3 scripts/package_release.py --version "$RELEASE_VERSION" --os "$GOOS" --arch "$GOARCH" --binary "dist/linkding${suffix}" --output dist
+          if [[ "$GOOS" == windows ]]; then
+            unzip -l "dist/linkding_${RELEASE_VERSION}_${GOOS}_${GOARCH}.zip" | grep -F 'web/static/bundle.js'
+          else
+            tar -tzf "dist/linkding_${RELEASE_VERSION}_${GOOS}_${GOARCH}.tar.gz" | grep -F 'web/static/bundle.js'
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linkding-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/linkding_*.tar.gz
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows'
+        with:
+          name: linkding-windows-${{ matrix.arch }}-zip
+          path: dist/linkding_*.zip
+          if-no-files-found: error
+
+  platform-smoke:
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linkding, linkding-plus]
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build and start
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          docker buildx build --target "$TARGET" --platform "$PLATFORM" -t linkding-release-smoke:local --load .
+          docker volume create linkding-release-smoke-data
+          docker run -d --name linkding-release-smoke --platform "$PLATFORM" \
+            -p 127.0.0.1:9090:9090 --read-only --user 10001:10001 \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -v linkding-release-smoke-data:/etc/linkding/data \
+            -e LD_CONTEXT_PATH=linkding/ \
+            -e LD_SUPERUSER_NAME=admin \
+            -e LD_SUPERUSER_PASSWORD=smoke-pass \
+            linkding-release-smoke:local
+      - name: Check runtime, files, and snapshots
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9090/linkding/health >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:9090/linkding/health
+          curl -fsS -o /dev/null http://127.0.0.1:9090/linkding/static/bundle.js
+          docker exec linkding-release-smoke /usr/local/bin/linkding healthcheck
+          docker cp linkding-release-smoke:/etc/linkding/data/secretkey.txt /tmp/linkding-secretkey-before.txt
+          test -s /tmp/linkding-secretkey-before.txt
+          if [[ "$TARGET" == linkding-plus ]]; then
+            docker exec linkding-release-smoke sh -c 'timeout 90 single-file \
+              --browser-arg="--headless=new" \
+              --browser-arg="--user-data-dir=./data/chromium-profile" \
+              --browser-arg="--no-sandbox" \
+              --browser-arg="--load-extension=uBOLite.chromium.mv3" \
+              http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'
+            docker exec linkding-release-smoke sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"
+          fi
+          docker restart linkding-release-smoke
+          docker cp linkding-release-smoke:/etc/linkding/data/secretkey.txt /tmp/linkding-secretkey-after.txt
+          cmp /tmp/linkding-secretkey-before.txt /tmp/linkding-secretkey-after.txt
+
+  images:
+    needs: [ci, platform-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - target: linkding
+            suffix: ''
+          - target: linkding-plus
+            suffix: '-plus'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.suffix }}:${{ github.ref_name }}
+          labels: org.opencontainers.image.version=${{ github.ref_name }}
+      - name: Verify published architectures
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}${{ matrix.suffix }}:${{ github.ref_name }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE" | tee manifest.txt
+          grep -q 'linux/amd64' manifest.txt
+          grep -q 'linux/arm64' manifest.txt
+
+  github-release:
+    needs: [archives, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: linkding-*
+          merge-multiple: true
+          path: dist
+      - name: Publish checksummed assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          cd dist
+          test "$(find . -maxdepth 1 -name 'linkding_*.tar.gz' | wc -l)" -eq 4
+          test "$(find . -maxdepth 1 -name 'linkding_*.zip' | wc -l)" -eq 2
+          sha256sum linkding_*.tar.gz linkding_*.zip > SHA256SUMS
+          sha256sum --check SHA256SUMS
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_VERSION" linkding_*.tar.gz linkding_*.zip SHA256SUMS --clobber
+          else
+            gh release create "$RELEASE_VERSION" linkding_*.tar.gz linkding_*.zip SHA256SUMS --verify-tag --generate-notes
+          fi
