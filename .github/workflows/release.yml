@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v[0-9]*'
@@ -39,6 +40,7 @@ jobs:
         run: bash scripts/smoke_release_images.sh
 
   goreleaser:
+    if: github.event_name == 'push'
     needs: [ci, release-snapshot]
     runs-on: ubuntu-latest
     permissions:
