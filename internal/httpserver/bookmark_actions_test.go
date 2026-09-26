@@ -162,4 +162,23 @@ func TestBookmarkActionsOwnerBulkAndSearchPreference(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM bookmarks_bookmarkasset WHERE id=?`, assetID).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("removed asset count: %d %v", count, err)
 	}
+	streamForm := url.Values{"archive": {strconv.FormatInt(a.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
+	streamRequest := httptest.NewRequest(http.MethodPost, "/bookmarks/action", strings.NewReader(streamForm.Encode()))
+	streamRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	streamRequest.Header.Set("Accept", "text/vnd.turbo-stream.html, text/html")
+	streamRequest.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	streamRequest.AddCookie(&http.Cookie{Name: auth.CSRFCookieName, Value: csrf})
+	streamResponse := httptest.NewRecorder()
+	handler.ServeHTTP(streamResponse, streamRequest)
+	streamBody := streamResponse.Body.String()
+	for _, target := range []string{`target="bookmark-list-container"`, `target="tag-cloud-container"`, `target="details-modal"`} {
+		if !strings.Contains(streamBody, target) {
+			t.Errorf("Turbo action missing %s", target)
+		}
+	}
+	if streamResponse.Code != http.StatusOK || streamResponse.Header().Get("Content-Type") != "text/vnd.turbo-stream.html" ||
+		streamResponse.Header().Get("Location") != "" || strings.Count(streamBody, "<turbo-stream ") != 3 ||
+		strings.Contains(streamBody, "https://a.example") {
+		t.Fatalf("Turbo action: %d Content-Type=%q Location=%q body=%q", streamResponse.Code, streamResponse.Header().Get("Content-Type"), streamResponse.Header().Get("Location"), streamBody)
+	}
 }

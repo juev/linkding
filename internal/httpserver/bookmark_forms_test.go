@@ -72,6 +72,16 @@ func TestBookmarkFormCreateEditAndOwnership(t *testing.T) {
 	if get.Code != 200 || !strings.Contains(get.Body.String(), `class="bookmarks-form-page"`) || !strings.Contains(get.Body.String(), `value="https://example.com"`) || !strings.Contains(get.Body.String(), `name="auto_close" value="True"`) || !strings.Contains(get.Body.String(), `name="unread" id="id_unread" checked`) {
 		t.Fatalf("new form: %d %q", get.Code, get.Body.String())
 	}
+	notesStart := strings.Index(get.Body.String(), `<details class="notes"`)
+	if notesStart < 0 {
+		t.Fatal("new form has no collapsible notes")
+	}
+	notesHTML := get.Body.String()[notesStart:]
+	notesEnd := strings.Index(notesHTML, "</details>")
+	help := strings.Index(notesHTML, "Additional notes, supports Markdown.")
+	if notesEnd < 0 || help < 0 || help > notesEnd || !strings.Contains(notesHTML[:notesEnd], `aria-describedby="id_notes_help"`) {
+		t.Fatal("notes help must be inside the collapsed details")
+	}
 	invalid := url.Values{"url": {"bad-url"}, "tag_string": {"go test"}, "csrfmiddlewaretoken": {csrf}}
 	bad := httptest.NewRecorder()
 	handler.ServeHTTP(bad, request("POST", "/bookmarks/new", session, invalid))

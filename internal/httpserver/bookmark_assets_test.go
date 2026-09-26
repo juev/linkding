@@ -136,6 +136,9 @@ func TestBookmarkAssetUploadListDownloadDelete(t *testing.T) {
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("asset files after delete: %v err=%v", entries, err)
 	}
+	if got := call(http.MethodGet, "/api/bookmarks/singlefile", aliceToken, "", nil); got.Code != http.StatusMovedPermanently || got.Header().Get("Location") != "/api/bookmarks/singlefile/" || got.Body.Len() != 0 {
+		t.Fatalf("singlefile path without slash: %d %s", got.Code, got.Body.String())
+	}
 	var singlefile bytes.Buffer
 	snapshotForm := multipart.NewWriter(&singlefile)
 	if err := snapshotForm.WriteField("url", item.URL); err != nil {

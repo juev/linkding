@@ -27,6 +27,13 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	}
 	shared := strings.Contains(path, "/shared/")
 	archived := strings.Contains(path, "/archived/")
+	respond := func() {
+		if strings.Contains(r.Header.Get("Accept"), "text/vnd.turbo-stream.html") {
+			serveBookmarkActionStream(w, r, cfg, db, users, repo, archived, shared)
+			return
+		}
+		redirectBookmarkAction(w, r, cfg, archived, shared)
+	}
 	if r.Method != http.MethodPost {
 		redirectBookmarkAction(w, r, cfg, archived, shared)
 		return
@@ -65,7 +72,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 			http.Error(w, "Server error", 500)
 			return
 		}
-		redirectBookmarkAction(w, r, cfg, archived, shared)
+		respond()
 		return
 	}
 	if raw, ok := r.PostForm["update_state"]; ok && len(raw) > 0 && r.PostForm.Get("upload_asset") == "" && r.PostForm.Get("create_html_snapshot") == "" {
@@ -85,7 +92,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 			writeNotFound(w, r)
 			return
 		}
-		redirectBookmarkAction(w, r, cfg, archived, shared)
+		respond()
 		return
 	}
 	if raw, ok := r.PostForm["upload_asset"]; ok && len(raw) > 0 {
@@ -115,7 +122,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 			http.Error(w, "Server error", 500)
 			return
 		}
-		redirectBookmarkAction(w, r, cfg, archived, shared)
+		respond()
 		return
 	}
 	if _, bulk := r.PostForm["bulk_execute"]; bulk && shared {
@@ -163,7 +170,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 				http.Error(w, "Server error", 500)
 				return
 			}
-			redirectBookmarkAction(w, r, cfg, archived, shared)
+			respond()
 			return
 		}
 	}
@@ -273,7 +280,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 			return
 		}
 	}
-	redirectBookmarkAction(w, r, cfg, archived, shared)
+	respond()
 }
 
 func redirectBookmarkAction(w http.ResponseWriter, r *http.Request, cfg config.Config, archived, shared bool) {

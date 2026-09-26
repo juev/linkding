@@ -29,7 +29,7 @@ var adminModels = []adminModelDefinition{
 	{App: "bookmarks", Model: "bookmarkbundle", Label: "Bookmark bundle", Plural: "Bookmark bundles", Query: `SELECT b.id,b.name,u.username,b."order",b.search,b.any_tags,b.all_tags,b.excluded_tags,b.filter_shared,b.filter_unread,b.date_created FROM bookmarks_bookmarkbundle AS b JOIN auth_user AS u ON u.id=b.owner_id ORDER BY b.id DESC`, Columns: []string{"Name", "Owner", "Order", "Search", "Any tags", "All tags", "Excluded tags", "Filter shared", "Filter unread", "Date created"}},
 	{App: "bookmarks", Model: "apitoken", Label: "API token", Plural: "API tokens", Query: `SELECT t.id,t.name,u.username,t.created FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC,t.id DESC`, Columns: []string{"Name", "User", "Created"}},
 	{App: "bookmarks", Model: "toast", Label: "Toast", Plural: "Toasts", Query: `SELECT t.id,t.key,t.message,u.username,t.acknowledged FROM bookmarks_toast AS t JOIN auth_user AS u ON u.id=t.owner_id ORDER BY t.id DESC`, Columns: []string{"Key", "Message", "Owner", "Acknowledged"}},
-	{App: "bookmarks", Model: "feedtoken", Label: "Feed token", Plural: "Feed tokens", Query: `SELECT t.key,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.created DESC`, Columns: []string{"Key", "User"}},
+	{App: "bookmarks", Model: "feedtoken", Label: "Feed token", Plural: "Feed tokens", Query: `SELECT t.key,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id ORDER BY t.key DESC`, Columns: []string{"Key", "User"}},
 }
 
 type adminModelLink struct {
@@ -432,7 +432,7 @@ func adminAPITokenListQuery(engine, search, user string) (string, []any) {
 }
 
 func adminFeedTokenListQuery(engine, search, user string) (string, []any) {
-	return adminFilteredListQuery(engine, `SELECT t.key AS id,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.created DESC`, search, user, "t.key")
+	return adminFilteredListQuery(engine, `SELECT t.key AS id,t.key,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id`, `t.key DESC`, search, user, "t.key")
 }
 
 func adminTagListQuery(engine, search, owner string) (string, []any) {

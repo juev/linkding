@@ -16,6 +16,58 @@ import (
 	"github.com/juev/linkding/internal/store"
 )
 
+func TestAdminFeedTokensUsePrimaryKeyOrdering(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir()}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	users := auth.NewRepository(db, "sqlite")
+	admin, err := users.CreateUser(ctx, auth.NewUser{Username: "admin", Password: "password", IsStaff: true, IsSuperuser: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alice, err := users.CreateUser(ctx, auth.NewUser{Username: "alice", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := users.CreateUser(ctx, auth.NewUser{Username: "bob", Password: "password"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	for _, item := range []struct {
+		key  string
+		when time.Time
+		user int64
+	}{
+		{"z-old", now.Add(-time.Hour), alice.ID},
+		{"a-new", now, bob.ID},
+	} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO bookmarks_feedtoken(key,created,user_id) VALUES (?,?,?)`, item.key, item.when, item.user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session, err := users.CreateSession(ctx, admin.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/admin/bookmarks/feedtoken/", nil)
+	request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: session})
+	response := httptest.NewRecorder()
+	New(db, cfg, t.TempDir()).ServeHTTP(response, request)
+	body := response.Body.String()
+	first, second := strings.Index(body, ">z-old<"), strings.Index(body, ">a-new<")
+	if response.Code != http.StatusOK || first < 0 || second < 0 || first > second {
+		t.Fatalf("feed token order: status=%d z-old=%d a-new=%d", response.Code, first, second)
+	}
+}
+
 func TestAdminFeedTokenCRUDAndReservedKey(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir()}

@@ -123,6 +123,15 @@ func TestBookmarkAPICheckReturnsExistingBookmarkMetadataAndAutoTags(t *testing.T
 		t.Fatalf("missing URL metadata: %#v", missing)
 	}
 	withURL := request("/api/bookmarks/check/?url=" + url.QueryEscape(page.URL))
+	withoutSlashRequest := httptest.NewRequest(http.MethodGet, "/api/bookmarks/check?url="+url.QueryEscape(page.URL), nil)
+	withoutSlashResponse := httptest.NewRecorder()
+	handler.ServeHTTP(withoutSlashResponse, withoutSlashRequest)
+	if withoutSlashResponse.Code != http.StatusMovedPermanently ||
+		withoutSlashResponse.Header().Get("Location") != "/api/bookmarks/check/?url="+url.QueryEscape(page.URL) ||
+		withoutSlashResponse.Header().Get("Content-Type") != "text/html; charset=utf-8" ||
+		withoutSlashResponse.Body.Len() != 0 {
+		t.Fatalf("check slash redirect: %d %#v %q", withoutSlashResponse.Code, withoutSlashResponse.Header(), withoutSlashResponse.Body.String())
+	}
 	metadata, ok = withURL["metadata"].(map[string]any)
 	if !ok || metadata["url"] != page.URL || metadata["title"] != "Check title" || metadata["description"] != "Check description" {
 		t.Fatalf("metadata: %#v", withURL)
