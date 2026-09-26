@@ -25,7 +25,7 @@ var pinnedAPIRootMetadata = apiRootMetadata{
 
 func serveAPIRoot(w http.ResponseWriter, r *http.Request, path string, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

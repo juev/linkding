@@ -11,7 +11,7 @@ import (
 
 func serveRoot(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.URL.Path != path {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	destination := cfg.URLPrefix() + "bookmarks"

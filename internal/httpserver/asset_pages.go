@@ -32,18 +32,18 @@ type readerData struct {
 
 func serveAssetPage(w http.ResponseWriter, r *http.Request, prefix string, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, prefix)
 	parts := strings.Split(path, "/")
 	if len(parts) > 2 || len(parts) == 2 && parts[1] != "read" {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	id, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil || id < 1 {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	var user auth.User
@@ -54,7 +54,7 @@ func serveAssetPage(w http.ResponseWriter, r *http.Request, prefix string, cfg c
 		display_name, status, file, gzip FROM bookmarks_bookmarkasset WHERE id = ` + assetMarker(cfg.DBEngine, 1)
 	asset, err := scanAsset(db.QueryRowContext(r.Context(), query, id))
 	if err != nil {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	query = `SELECT b.owner_id, b.shared, p.enable_sharing, p.enable_public_sharing
@@ -64,7 +64,7 @@ func serveAssetPage(w http.ResponseWriter, r *http.Request, prefix string, cfg c
 	var shared, sharing, publicSharing bool
 	if err := db.QueryRowContext(r.Context(), query, asset.Bookmark).Scan(&ownerID, &shared, &sharing, &publicSharing); err != nil ||
 		!(user.ID != 0 && user.ID == ownerID || user.ID != 0 && shared && sharing || shared && publicSharing) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if len(parts) == 1 {
@@ -73,7 +73,7 @@ func serveAssetPage(w http.ResponseWriter, r *http.Request, prefix string, cfg c
 	}
 	file, err := openAssetPageFile(cfg, asset)
 	if err != nil {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	defer file.Close()

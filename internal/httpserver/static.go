@@ -11,7 +11,7 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, prefix, staticDir, 
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	name := strings.TrimPrefix(r.URL.Path, prefix)
 	if name == "" || !filepath.IsLocal(name) {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	if info, err := os.Stat(filepath.Join(staticDir, name)); err == nil && info.Mode().IsRegular() {
@@ -19,7 +19,7 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, prefix, staticDir, 
 		return
 	}
 	if strings.Contains(name, "/") || strings.Contains(name, "\\") || dataDir == "" {
-		http.NotFound(w, r)
+		writeNotFound(w, r)
 		return
 	}
 	for _, directory := range []string{"favicons", "previews"} {
@@ -41,5 +41,5 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, prefix, staticDir, 
 		file.Close()
 		return
 	}
-	http.NotFound(w, r)
+	writeNotFound(w, r)
 }
