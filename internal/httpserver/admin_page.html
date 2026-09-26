@@ -5,7 +5,7 @@
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
   <script src="{{.Prefix}}static/admin/js/theme.js"></script>
-  {{if .IsModelList}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/nav_sidebar.css"><script src="{{.Prefix}}static/admin/js/nav_sidebar.js" defer></script><script src="{{.Prefix}}static/admin/js/filters.js" defer></script><script src="{{.Prefix}}static/admin/js/linkding_changelist.js" defer></script>{{end}}
+  {{if or .IsTaskList .IsModelList}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/nav_sidebar.css"><script src="{{.Prefix}}static/admin/js/nav_sidebar.js" defer></script>{{end}}{{if .IsModelList}}<script src="{{.Prefix}}static/admin/js/filters.js" defer></script><script src="{{.Prefix}}static/admin/js/linkding_changelist.js" defer></script>{{end}}
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
   {{if and (not .IsTaskList) (not .IsModelList)}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/dashboard.css">{{end}}
   {{if .IsModelList}}<link rel="stylesheet" href="{{.Prefix}}static/admin/css/changelists.css">{{end}}
@@ -17,11 +17,11 @@
 <div id="container">
   <header id="header"><div id="branding"><div id="site-name"><a href="{{.Prefix}}admin/">linkding administration</a></div></div><div id="user-tools">{{tr .Language "Welcome,"}} <strong>{{.Username}}</strong>. <a href="{{.Prefix}}">{{tr .Language "View site"}}</a> / <a href="{{.Prefix}}admin/password_change/">{{tr .Language "Change password"}}</a> / <form id="logout-form" method="post" action="{{.Prefix}}admin/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><button type="submit">{{tr .Language "Log out"}}</button></form><button class="theme-toggle"><span class="visually-hidden theme-label-when-auto">{{tr .Language "Toggle theme (current theme: auto)"}}</span><span class="visually-hidden theme-label-when-light">{{tr .Language "Toggle theme (current theme: light)"}}</span><span class="visually-hidden theme-label-when-dark">{{tr .Language "Toggle theme (current theme: dark)"}}</span><svg aria-hidden="true" class="theme-icon-when-auto"><use xlink:href="#icon-auto"></use></svg><svg aria-hidden="true" class="theme-icon-when-dark"><use xlink:href="#icon-moon"></use></svg><svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun"></use></svg></button></div></header>
   {{if or .IsTaskList .IsModelList .IsAppIndex}}<nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; {{if .IsAppIndex}}{{range .DashboardApps}}{{.Label}} {{end}}Huey{{else if .IsModelList}}<a href="{{.AppPath}}">{{.AppLabel}}</a> &rsaquo; {{.PluralLabel}}{{else}}{{.Title}}{{end}}</div></nav>{{end}}
-  <div class="main" id="main">{{if .IsModelList}}{{template "admin_sidebar" .}}{{end}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="{{if .IsTaskList}}colM{{else if .IsModelList}}{{else}}colMS{{end}}">
+  <div class="main" id="main">{{if or .IsTaskList .IsModelList}}{{template "admin_sidebar" .}}{{end}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="{{if .IsTaskList}}colM{{else if .IsModelList}}{{else}}colMS{{end}}">
     <h1>{{.Title}}</h1>
     {{if .IsTaskList}}
       <table style="width: 100%"><thead><tr><th>ID</th><th>Name</th><th>Args</th><th>Retries</th></tr></thead><tbody>{{range .Tasks}}<tr><td>{{.ID}}</td><td>{{.Name}}</td><td>{{.Args}}</td><td>{{.Retries}}</td></tr>{{end}}</tbody></table>
-      <p class="paginator">{{if gt .Pages 1}}{{if gt .Page 1}}<a href="?p={{sub .Page 1}}">Previous</a>{{end}} <span class="this-page">{{.Page}}</span> of {{.Pages}} {{if lt .Page .Pages}}<a href="?p={{add .Page 1}}">Next</a>{{end}} &nbsp;{{end}}{{.TaskCount}} tasks</p>
+      <p class="paginator">{{if gt .Pages 1}}{{range .TaskPages}}{{if eq . $.Page}}<span class="this-page">{{.}}</span>{{else if eq . -1}}<span>…</span>{{else}}<a href="?p={{.}}">{{.}}</a>{{end}}{{end}} &nbsp;{{end}}{{.TaskCount}} tasks</p>
     {{else if .IsModelList}}
       {{if .ActionMessage}}<ul class="messagelist"><li class="success">{{.ActionMessage}}</li></ul>{{end}}
       <div id="content-main">

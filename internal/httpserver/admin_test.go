@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,8 +90,39 @@ func TestAdminTasksRequireStaffAndPaginate(t *testing.T) {
 	if first.Code != 200 || !strings.Contains(first.Body.String(), "101 tasks") || !strings.Contains(first.Body.String(), "?p=2") || strings.Count(first.Body.String(), "load_favicon") != 100 {
 		t.Fatalf("first tasks page: %d", first.Code)
 	}
+	if !strings.Contains(first.Body.String(), `id="nav-sidebar"`) || !strings.Contains(first.Body.String(), `id="nav-auth-user"`) ||
+		!strings.Contains(first.Body.String(), `id="nav-huey_app-background_tasks"`) ||
+		!strings.Contains(first.Body.String(), `static/admin/js/nav_sidebar.js`) {
+		t.Fatal("tasks page is missing the standard admin navigation sidebar")
+	}
+	if !strings.Contains(first.Body.String(), `<span class="this-page">1</span>`) ||
+		!strings.Contains(first.Body.String(), `<a href="?p=2">2</a>`) {
+		t.Fatal("first tasks page has the wrong page links")
+	}
 	second := get("/admin/tasks/?p=2", staffKey)
 	if second.Code != 200 || strings.Count(second.Body.String(), "load_favicon") != 1 {
 		t.Fatalf("second tasks page: %d", second.Code)
+	}
+	if !strings.Contains(second.Body.String(), `<a href="?p=1">1</a>`) ||
+		!strings.Contains(second.Body.String(), `<span class="this-page">2</span>`) {
+		t.Fatal("second tasks page has the wrong page links")
+	}
+}
+
+func TestAdminTaskPageRangeMatchesDjango(t *testing.T) {
+	for _, tc := range []struct {
+		page, pages int
+		want        string
+	}{
+		{1, 2, "[1 2]"},
+		{1, 10, "[1 2 3 -1 9 10]"},
+		{6, 10, "[1 2 3 4 5 6 7 8 9 10]"},
+		{7, 10, "[1 2 -1 5 6 7 8 9 10]"},
+		{10, 10, "[1 2 -1 8 9 10]"},
+		{10, 20, "[1 2 -1 8 9 10 11 12 -1 19 20]"},
+	} {
+		if got := fmt.Sprint(adminTaskPageRange(tc.page, tc.pages)); got != tc.want {
+			t.Errorf("page %d/%d: got %s, want %s", tc.page, tc.pages, got, tc.want)
+		}
 	}
 }

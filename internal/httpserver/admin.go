@@ -58,6 +58,42 @@ type adminTask struct {
 	Retries int
 }
 
+// adminTaskPageRange matches Django's two-page edges and two-page neighbors.
+// A negative entry represents the elision marker.
+func adminTaskPageRange(page, pages int) []int {
+	if pages < 1 || page < 1 || page > pages {
+		return nil
+	}
+	rangeItems := make([]int, 0, min(pages, 11))
+	if pages <= 8 {
+		for number := 1; number <= pages; number++ {
+			rangeItems = append(rangeItems, number)
+		}
+		return rangeItems
+	}
+	if page > 6 {
+		rangeItems = append(rangeItems, 1, 2, -1)
+		for number := page - 2; number <= page; number++ {
+			rangeItems = append(rangeItems, number)
+		}
+	} else {
+		for number := 1; number <= page; number++ {
+			rangeItems = append(rangeItems, number)
+		}
+	}
+	if page < pages-5 {
+		for number := page + 1; number <= page+2; number++ {
+			rangeItems = append(rangeItems, number)
+		}
+		rangeItems = append(rangeItems, -1, pages-1, pages)
+	} else {
+		for number := page + 1; number <= pages; number++ {
+			rangeItems = append(rangeItems, number)
+		}
+	}
+	return rangeItems
+}
+
 type adminPageData struct {
 	Language, Direction                                        string
 	Prefix, Title, Username, ModelName, ModelPath, AddURL      string
@@ -68,6 +104,7 @@ type adminPageData struct {
 	ClearFiltersURL                                            string
 	CSRFToken, ActionMessage                                   string
 	Tasks                                                      []adminTask
+	TaskPages                                                  []int
 	Models                                                     []adminModelLink
 	DashboardApps                                              []adminDashboardApp
 	RecentActions                                              []adminRecentAction
@@ -300,6 +337,12 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 	if r.URL.Path == root+"tasks/" {
 		data.Title = "Background tasks"
 		data.IsTaskList = true
+		models, err := loadAdminModels(r, db, cfg, user)
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		data.DashboardApps = groupAdminDashboardApps(cfg, models)
 		if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM linkding_job WHERE status = 'pending'`).Scan(&data.TaskCount); err != nil {
 			http.Error(w, "Server error", 500)
 			return
@@ -308,6 +351,7 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		if requested, err := strconv.Atoi(r.URL.Query().Get("p")); err == nil && requested > 0 {
 			data.Page = min(requested, data.Pages)
 		}
+		data.TaskPages = adminTaskPageRange(data.Page, data.Pages)
 		query := `SELECT id,kind,payload,attempts FROM linkding_job WHERE status = 'pending' ORDER BY id LIMIT 100 OFFSET ` + assetMarker(cfg.DBEngine, 1)
 		rows, err := db.QueryContext(r.Context(), query, (data.Page-1)*100)
 		if err != nil {
