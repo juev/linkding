@@ -141,7 +141,7 @@ func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config
 		}
 	}
 	http.SetCookie(w, &http.Cookie{Name: auth.SessionCookieName, Path: cfg.URLPrefix(), MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode})
-	destination := cfg.URLPrefix() + "login/"
+	destination := cfg.URLPrefix() + "login"
 	if cfg.EnableAuthProxy && cfg.AuthProxyLogoutURL != "" {
 		destination = cfg.AuthProxyLogoutURL
 	}

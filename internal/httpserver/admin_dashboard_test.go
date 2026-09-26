@@ -110,7 +110,7 @@ func TestAdminDashboardGroupsModelsShowsActionsAndHandlesHeaderRoutes(t *testing
 		t.Fatalf("admin password alias: status=%d", password.Code)
 	}
 	logout := request(http.MethodPost, "/admin/logout/", url.Values{"csrfmiddlewaretoken": {secret}})
-	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/login/" {
+	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/login" {
 		t.Fatalf("admin logout: status=%d location=%q", logout.Code, logout.Header().Get("Location"))
 	}
 	if got := request(http.MethodGet, "/admin/", nil); got.Code != http.StatusFound {

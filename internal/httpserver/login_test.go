@@ -109,7 +109,7 @@ func TestLoginSessionProfileAndLogoutWithContextPath(t *testing.T) {
 	logoutReq.AddCookie(newCSRF)
 	logout := httptest.NewRecorder()
 	handler.ServeHTTP(logout, logoutReq)
-	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/linkding/login/" {
+	if logout.Code != http.StatusFound || logout.Header().Get("Location") != "/linkding/login" {
 		t.Fatalf("logout: status=%d location=%q", logout.Code, logout.Header().Get("Location"))
 	}
 	if _, err := auth.NewRepository(db, "sqlite").AuthenticateSession(ctx, sessionCookie.Value); err == nil {
