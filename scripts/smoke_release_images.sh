@@ -60,6 +60,7 @@ for variant in linkding linkding-plus; do
         --browser-arg=--user-data-dir=./data/chromium-profile
         --browser-arg=--no-sandbox
         --browser-arg=--disable-dev-shm-usage
+        --browser-arg=--disable-gpu
       )
       if ! docker exec "$name" timeout 120 single-file "${snapshot_args[@]}" \
         http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html; then

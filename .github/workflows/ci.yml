@@ -103,18 +103,23 @@ jobs:
       - name: Check HTML snapshot tool
         if: matrix.target == 'linkding-plus'
         run: |
+          docker exec linkding-smoke node -e "require('http').get('http://127.0.0.1:9090/linkding/login/', r => { console.log('container HTTP status:', r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', e => { console.error(e); process.exit(1) })"
+          docker exec linkding-smoke sh -c 'timeout 45 chromium --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --dump-dom http://127.0.0.1:9090/linkding/login/ >/tmp/chromium-dom.html 2>/tmp/chromium-stderr.log || { tail -n 30 /tmp/chromium-stderr.log; exit 1; }; grep -q "<title>Login - Linkding" /tmp/chromium-dom.html'
           if docker exec linkding-smoke sh -c 'timeout 120 single-file \
             --browser-wait-until=load \
             --browser-load-max-time=60000 \
             --browser-wait-until-fallback=false \
+            --debug-messages-file=/tmp/singlefile-debug.log \
             --browser-arg="--headless=new" \
             --browser-arg="--user-data-dir=./data/chromium-profile" \
             --browser-arg="--no-sandbox" \
             --browser-arg="--disable-dev-shm-usage" \
+            --browser-arg="--disable-gpu" \
             http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
             :
           else
             exit_code=$?
+            docker exec linkding-smoke sh -c 'test ! -f /tmp/singlefile-debug.log || tail -n 80 /tmp/singlefile-debug.log'
             docker logs linkding-smoke --tail 50
             exit "$exit_code"
           fi

@@ -64,10 +64,14 @@ COPY --from=linkding /etc/linkding/docs/third-party ./docs/third-party
 COPY --from=ublock-build /build/uBOLite.chromium.mv3 ./uBOLite.chromium.mv3
 RUN npm install -g single-file-cli@2.0.75 \
     && npm install --prefix "$(npm root -g)/single-file-cli" simple-cdp@1.8.6 \
+    && cli_browser="$(npm root -g)/single-file-cli/lib/browser.js" \
+    && grep -q 'args.push("--single-process");' "$cli_browser" \
+    && sed -i '/args.push("--single-process");/d' "$cli_browser" \
+    && ! grep -q 'args.push("--single-process");' "$cli_browser" \
     && mkdir -p data \
     && chmod 1777 data
 ENV LD_ENABLE_SNAPSHOTS=True HOME=/tmp XDG_CONFIG_HOME=/tmp/.chromium XDG_CACHE_HOME=/tmp/.chromium \
-    LD_SINGLEFILE_UBLOCK_OPTIONS="'--browser-arg=\"--headless=new\"' '--browser-arg=\"--user-data-dir=./data/chromium-profile\"' '--browser-arg=\"--no-sandbox\"' '--browser-arg=\"--disable-dev-shm-usage\"'" \
+    LD_SINGLEFILE_UBLOCK_OPTIONS="'--browser-arg=\"--headless=new\"' '--browser-arg=\"--user-data-dir=./data/chromium-profile\"' '--browser-arg=\"--no-sandbox\"' '--browser-arg=\"--disable-dev-shm-usage\"' '--browser-arg=\"--disable-gpu\"'" \
     LD_SINGLEFILE_OPTIONS="--browser-wait-until=load --browser-wait-until-fallback=false"
 USER 65532:65532
 EXPOSE 9090
