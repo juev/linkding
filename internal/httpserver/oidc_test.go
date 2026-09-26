@@ -22,6 +22,52 @@ import (
 	"github.com/juev/linkding/internal/store"
 )
 
+func TestOIDCMethodAndCSRFResponses(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), EnableOIDC: true}
+	db, err := store.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	handler := New(db, cfg, t.TempDir())
+	cases := []struct {
+		method, path string
+		status       int
+		allow        string
+		contentType  string
+		empty        bool
+	}{
+		{"POST", "/oidc/authenticate/", 403, "", "text/html; charset=utf-8", false},
+		{"POST", "/oidc/callback/", 403, "", "text/html; charset=utf-8", false},
+		{"POST", "/oidc/logout/", 403, "", "text/html; charset=utf-8", false},
+		{"HEAD", "/oidc/authenticate/", 405, "GET", "text/html; charset=utf-8", true},
+		{"OPTIONS", "/oidc/callback/", 405, "GET", "text/html; charset=utf-8", true},
+		{"GET", "/oidc/logout/", 405, "POST", "text/html; charset=utf-8", true},
+		{"HEAD", "/oidc/logout/", 405, "GET, POST", "text/html; charset=utf-8", true},
+		{"OPTIONS", "/oidc/logout/", 405, "GET, POST", "text/html; charset=utf-8", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			request := httptest.NewRequest(tc.method, "http://linkding.test"+tc.path, nil)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != tc.status || response.Header().Get("Allow") != tc.allow || response.Header().Get("Content-Type") != tc.contentType || response.Header().Get("Content-Language") != "en" {
+				t.Fatalf("response: %d Allow=%q Content-Type=%q body=%q", response.Code, response.Header().Get("Allow"), response.Header().Get("Content-Type"), response.Body.String())
+			}
+			if tc.empty && response.Body.Len() != 0 {
+				t.Fatalf("expected empty body, got %q", response.Body.String())
+			}
+			if !tc.empty && response.Body.Len() == 0 {
+				t.Fatal("expected CSRF failure body")
+			}
+		})
+	}
+}
+
 func TestOIDCCodeFlowPKCEClaimsAndReplay(t *testing.T) {
 	ctx := context.Background()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

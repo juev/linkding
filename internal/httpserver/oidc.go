@@ -41,22 +41,23 @@ func serveOIDC(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 	switch r.URL.Path {
 	case root + "authenticate/":
 		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", "GET")
-			http.Error(w, "Method not allowed", 405)
+			writeOIDCMethodNotAllowed(w, r, "GET")
 			return
 		}
 		beginOIDC(w, r, cfg, db)
 	case root + "callback/":
 		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", "GET")
-			http.Error(w, "Method not allowed", 405)
+			writeOIDCMethodNotAllowed(w, r, "GET")
 			return
 		}
 		completeOIDC(w, r, cfg, db, users)
 	case root + "logout/":
 		if r.Method != http.MethodPost {
-			w.Header().Set("Allow", "POST")
-			http.Error(w, "Method not allowed", 405)
+			allow := "POST"
+			if r.Method == http.MethodHead || r.Method == http.MethodOptions {
+				allow = "GET, POST"
+			}
+			writeOIDCMethodNotAllowed(w, r, allow)
 			return
 		}
 		if !verifyAPICSRF(r, cfg) {
@@ -74,6 +75,14 @@ func serveOIDC(w http.ResponseWriter, r *http.Request, root string, cfg config.C
 	default:
 		writeNotFound(w, r)
 	}
+}
+
+func writeOIDCMethodNotAllowed(w http.ResponseWriter, r *http.Request, allow string) {
+	w.Header().Set("Allow", allow)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Language", selectedAdminLanguage(r).Code)
+	w.Header().Set("Content-Length", "0")
+	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
 func oidcRedirectURL(r *http.Request, cfg config.Config) string {

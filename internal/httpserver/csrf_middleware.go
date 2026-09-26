@@ -35,7 +35,7 @@ func csrfMiddleware(next http.Handler, mux *http.ServeMux, cfg config.Config) ht
 
 func csrfProtectedUIPath(mux *http.ServeMux, r *http.Request, prefix string) bool {
 	path := r.URL.Path
-	if strings.HasPrefix(path, prefix+"api") || strings.HasPrefix(path, prefix+"static/") || strings.HasPrefix(path, prefix+"oidc/") {
+	if strings.HasPrefix(path, prefix+"api") || strings.HasPrefix(path, prefix+"static/") {
 		return false
 	}
 	_, pattern := mux.Handler(r)
@@ -67,6 +67,8 @@ func csrfProtectedUIPath(mux *http.ServeMux, r *http.Request, prefix string) boo
 		return len(segments) == 2 && segments[0] != "" && (segments[1] == "all" || segments[1] == "unread" || segments[1] == "shared")
 	case prefix + "admin/":
 		return true
+	case prefix + "oidc/":
+		return path == prefix+"oidc/authenticate/" || path == prefix+"oidc/callback/" || path == prefix+"oidc/logout/"
 	default:
 		return path == pattern
 	}

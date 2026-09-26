@@ -105,4 +105,25 @@ func TestAuthProxyCreatesSwitchesAndRemovesSession(t *testing.T) {
 	if got := call("bob", nil); got.Code != 302 {
 		t.Fatalf("inactive proxy user: %d", got.Code)
 	}
+	metaConfig := cfg
+	metaConfig.AuthProxyUsernameHeader = "HTTP_X_REMOTE_USER"
+	metaRequest := httptest.NewRequest(http.MethodGet, "/bookmarks", nil)
+	metaRequest.Header.Set("X-Remote-User", "alice")
+	metaResponse := httptest.NewRecorder()
+	New(db, metaConfig, t.TempDir()).ServeHTTP(metaResponse, metaRequest)
+	if metaResponse.Code != http.StatusOK {
+		t.Fatalf("Django META header did not authenticate: %d", metaResponse.Code)
+	}
+	if len(metaResponse.Result().Cookies()) == 0 {
+		t.Fatal("Django META header did not create a session")
+	}
+	defaultConfig := cfg
+	defaultConfig.AuthProxyUsernameHeader = "REMOTE_USER"
+	defaultRequest := httptest.NewRequest(http.MethodGet, "/bookmarks", nil)
+	defaultRequest.Header.Set("Remote-User", "alice")
+	defaultResponse := httptest.NewRecorder()
+	New(db, defaultConfig, t.TempDir()).ServeHTTP(defaultResponse, defaultRequest)
+	if defaultResponse.Code != http.StatusOK {
+		t.Fatalf("default proxy header did not authenticate: %d", defaultResponse.Code)
+	}
 }

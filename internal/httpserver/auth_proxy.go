@@ -18,8 +18,15 @@ func authProxyMiddleware(next http.Handler, cfg config.Config, users *auth.Repos
 	if header == "" {
 		header = "REMOTE_USER"
 	}
+	requestHeader := header
+	if strings.HasPrefix(header, "HTTP_") {
+		requestHeader = strings.ReplaceAll(strings.TrimPrefix(header, "HTTP_"), "_", "-")
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		username := r.Header.Get(header)
+		username := r.Header.Get(requestHeader)
+		if username == "" && header == "REMOTE_USER" {
+			username = r.Header.Get("Remote-User")
+		}
 		cookie, cookieErr := r.Cookie(auth.SessionCookieName)
 		if username == "" {
 			if cookieErr == nil {

@@ -93,10 +93,13 @@ Environment variable names follow Python linkding v1.47.0. Boolean values accept
 | `LD_CSRF_TRUSTED_ORIGINS` | empty | Comma-separated external origins allowed for session writes. |
 | `LD_CORS_ALLOWED_ORIGINS` | empty | Comma-separated origins allowed for cross-origin API requests. |
 | `LD_ENABLE_OIDC`, `LD_ENABLE_AUTH_PROXY` | false | Enable OIDC or trusted authentication proxy integration. |
+| `LD_AUTH_PROXY_USERNAME_HEADER`, `LD_AUTH_PROXY_LOGOUT_URL` | `REMOTE_USER`, empty | Select the proxy username header and optional logout redirect. |
 
 The configuration also accepts `LD_ALLOWED_INTERNAL_HOSTS`, `LD_DISABLE_URL_VALIDATION`, `LD_ENABLE_REFRESH_FAVICONS`, `LD_FAVICON_PROVIDER`, `LD_PREVIEW_MAX_SIZE`, `LD_SNAPSHOT_PDF_MAX_SIZE`, `LD_SINGLEFILE_PATH`, `LD_SINGLEFILE_OPTIONS`, `LD_SINGLEFILE_UBLOCK_OPTIONS`, `LD_SINGLEFILE_TIMEOUT_SEC`, `LD_DISABLE_ASSET_UPLOAD`, `LD_DISABLE_LOGIN_FORM`, `LD_SESSION_COOKIE_AGE`, `LD_REQUEST_TIMEOUT`, `LD_REQUEST_MAX_CONTENT_LENGTH`, and logging options. OIDC uses `OIDC_OP_*`, `OIDC_RP_*`, `OIDC_USE_PKCE`, `OIDC_VERIFY_SSL`, and `OIDC_USERNAME_CLAIM`. Keep secrets out of committed Compose files.
 
 When serving under a proxy path, set `LD_CONTEXT_PATH=linkding/`, forward requests for `/linkding/`, and use `/linkding/health` for monitoring. Keep the external URL and context path when [migrating from Python linkding](migration.md). See [backups](backups.md) for SQLite backup and restore commands; PostgreSQL needs a database backup plus a copy of the data volume.
+
+For proxy authentication, set `LD_ENABLE_AUTH_PROXY=true` and `LD_AUTH_PROXY_USERNAME_HEADER=HTTP_X_REMOTE_USER`, then have the proxy set the HTTP `X-Remote-User` header. The Go server converts Django's `HTTP_` setting to the corresponding HTTP header. The proxy must replace any client-supplied username header and block direct access to the server; otherwise clients could choose their own account.
 
 ## Release workflow
 
