@@ -60,11 +60,11 @@ func TestAdminTasksRequireStaffAndPaginate(t *testing.T) {
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	if got := get("/admin/tasks/", ""); got.Code != 302 || !strings.Contains(got.Header().Get("Location"), "/login/") {
+	if got := get("/admin/tasks/", ""); got.Code != 302 || got.Header().Get("Location") != "/admin/login/?next=/admin/tasks/" {
 		t.Fatalf("anonymous tasks: %d %q", got.Code, got.Header().Get("Location"))
 	}
-	if got := get("/admin/tasks/", normalKey); got.Code != 403 {
-		t.Fatalf("non-staff tasks: %d", got.Code)
+	if got := get("/admin/tasks/", normalKey); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next=/admin/tasks/" {
+		t.Fatalf("non-staff tasks: %d %q", got.Code, got.Header().Get("Location"))
 	}
 	if got := get("/admin/", staffKey); got.Code != 200 || !strings.Contains(got.Body.String(), "Queued tasks") {
 		t.Fatalf("dashboard: %d", got.Code)
@@ -74,8 +74,8 @@ func TestAdminTasksRequireStaffAndPaginate(t *testing.T) {
 	}
 	for _, definition := range adminModels {
 		path := "/admin/" + definition.App + "/" + definition.Model + "/"
-		if got := get(path, normalKey); got.Code != 403 {
-			t.Fatalf("non-staff model %s: %d", path, got.Code)
+		if got := get(path, normalKey); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+path {
+			t.Fatalf("non-staff model %s: %d %q", path, got.Code, got.Header().Get("Location"))
 		}
 		got := get(path, staffKey)
 		if got.Code != 200 || !strings.Contains(got.Body.String(), "Select "+strings.ToLower(definition.Label)+" to change") || !strings.Contains(got.Body.String(), "Pagination "+strings.ToLower(definition.Plural)) {

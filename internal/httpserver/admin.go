@@ -65,16 +65,17 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		serveLogout(w, r, r.URL.Path, cfg, users)
 		return
 	}
+	if r.URL.Path == root+"login/" {
+		serveAdminLogin(w, r, cfg, users)
+		return
+	}
 	var user auth.User
 	if cookie, err := r.Cookie(auth.SessionCookieName); err == nil {
 		user, _ = users.AuthenticateSession(r.Context(), cookie.Value)
 	}
-	if user.ID == 0 {
-		http.Redirect(w, r, cfg.URLPrefix()+"login/?next="+url.QueryEscape(r.URL.Path), http.StatusFound)
-		return
-	}
-	if !user.IsActive || !user.IsStaff {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	if user.ID == 0 || !user.IsActive || !user.IsStaff {
+		next := strings.ReplaceAll(url.QueryEscape(r.URL.RequestURI()), "%2F", "/")
+		http.Redirect(w, r, root+"login/?next="+next, http.StatusFound)
 		return
 	}
 	if r.URL.Path == root+"password_change/" {

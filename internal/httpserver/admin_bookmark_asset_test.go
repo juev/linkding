@@ -99,7 +99,7 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	}
 	base := "/admin/bookmarks/bookmarkasset/"
 	form := url.Values{"bookmark": {strconv.FormatInt(bookmarkID, 10)}, "file": {"stored.html"}, "file_size": {"999"}, "asset_type": {"snapshot"}, "content_type": {"text/html"}, "display_name": {"Snapshot"}, "status": {"complete"}, "gzip": {"on"}, "csrfmiddlewaretoken": {csrf}}
-	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != http.StatusForbidden {
+	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+base+"add/" {
 		t.Fatalf("nonstaff add: %d", got.Code)
 	}
 	addPage := request(http.MethodGet, base+"add/", adminSession, nil, false)

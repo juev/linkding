@@ -114,7 +114,7 @@ func TestAdminDeleteUnusedTagsRespectsFilteredSelectionAndViewPermission(t *test
 	if got := request(http.MethodPost, path, viewerSession, form, false); got.Code != http.StatusForbidden {
 		t.Fatalf("action without CSRF: %d", got.Code)
 	}
-	if got := request(http.MethodPost, path, aliceSession, form, true); got.Code != http.StatusForbidden {
+	if got := request(http.MethodPost, path, aliceSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next=/admin/bookmarks/tag/%3Fq%3Dmatch%26owner__username%3Dalice" {
 		t.Fatalf("non-staff action: %d", got.Code)
 	}
 	response := request(http.MethodPost, path, viewerSession, form, true)

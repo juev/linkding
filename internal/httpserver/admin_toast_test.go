@@ -64,7 +64,7 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 		return w
 	}
 	base := "/admin/bookmarks/toast/"
-	if got := request(http.MethodGet, base+"add/", ownerKey, nil, false); got.Code != 403 {
+	if got := request(http.MethodGet, base+"add/", ownerKey, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+base+"add/" {
 		t.Fatalf("non-staff add: %d", got.Code)
 	}
 	if got := request(http.MethodGet, base+"add/", adminKey, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), "name=\"message\"") || !strings.Contains(got.Body.String(), `href="/admin/auth/user/add/?_to_field=id&amp;_popup=1"`) || !strings.Contains(got.Body.String(), `value="Save and add another" name="_addanother"`) || !strings.Contains(got.Body.String(), `value="Save and continue editing" name="_continue"`) {

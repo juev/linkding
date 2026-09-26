@@ -68,23 +68,9 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		data.Next = r.PostForm.Get("next")
 		user, err := repo.AuthenticatePassword(r.Context(), data.Username, r.PostForm.Get("password"))
 		if err == nil {
-			age := cfg.SessionCookieAge
-			if age == 0 {
-				age = 1_209_600
-			}
-			key, err := repo.CreateSession(r.Context(), user.ID, time.Duration(age)*time.Second)
-			if err != nil {
+			if err := establishLoginSession(w, r, cfg, repo, user); err != nil {
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
-			}
-			if err := repo.RecordLogin(r.Context(), user.ID); err != nil {
-				_ = repo.DeleteSession(r.Context(), key)
-				http.Error(w, "Server error", http.StatusInternalServerError)
-				return
-			}
-			http.SetCookie(w, &http.Cookie{Name: auth.SessionCookieName, Value: key, Path: cfg.URLPrefix(), MaxAge: age, Expires: time.Now().Add(time.Duration(age) * time.Second), HttpOnly: true, SameSite: http.SameSiteLaxMode})
-			if newSecret, err := auth.NewCSRFSecret(); err == nil {
-				setCSRFCookie(w, cfg.URLPrefix(), newSecret)
 			}
 			http.Redirect(w, r, safeNext(data.Next, r, cfg.URLPrefix()+"bookmarks"), http.StatusFound)
 			return
@@ -107,6 +93,26 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 	}
 	w.WriteHeader(status)
 	_ = loginTemplate.Execute(w, data)
+}
+
+func establishLoginSession(w http.ResponseWriter, r *http.Request, cfg config.Config, repo *auth.Repository, user auth.User) error {
+	age := cfg.SessionCookieAge
+	if age == 0 {
+		age = 1_209_600
+	}
+	key, err := repo.CreateSession(r.Context(), user.ID, time.Duration(age)*time.Second)
+	if err != nil {
+		return err
+	}
+	if err := repo.RecordLogin(r.Context(), user.ID); err != nil {
+		_ = repo.DeleteSession(r.Context(), key)
+		return err
+	}
+	http.SetCookie(w, &http.Cookie{Name: auth.SessionCookieName, Value: key, Path: cfg.URLPrefix(), MaxAge: age, Expires: time.Now().Add(time.Duration(age) * time.Second), HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	if newSecret, err := auth.NewCSRFSecret(); err == nil {
+		setCSRFCookie(w, cfg.URLPrefix(), newSecret)
+	}
+	return nil
 }
 
 func serveLogout(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, repo *auth.Repository) {

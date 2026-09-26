@@ -64,7 +64,7 @@ func TestAdminTagCRUDAndPermissions(t *testing.T) {
 		return w
 	}
 	base := "/admin/bookmarks/tag/"
-	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != 403 {
+	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+base+"add/" {
 		t.Fatalf("non-staff add: %d", got.Code)
 	}
 	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="date_added_0"`) || !strings.Contains(got.Body.String(), `name="date_added_1"`) {
@@ -161,7 +161,7 @@ func TestAdminTagCRUDAndPermissions(t *testing.T) {
 	if got := request(http.MethodGet, base+"999999/delete/", adminSession, nil, false); got.Code != 404 {
 		t.Fatalf("missing delete object: %d", got.Code)
 	}
-	if got := request(http.MethodGet, deletePath, ownerSession, nil, false); got.Code != 403 {
+	if got := request(http.MethodGet, deletePath, ownerSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+deletePath {
 		t.Fatalf("non-staff delete: %d", got.Code)
 	}
 	if got := request(http.MethodPost, deletePath, adminSession, url.Values{"post": {"yes"}, "csrfmiddlewaretoken": {csrf}}, true); got.Code != 302 {

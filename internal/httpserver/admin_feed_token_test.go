@@ -166,7 +166,7 @@ func TestAdminFeedTokenCRUDAndReservedKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := requestAs(http.MethodGet, change, aliceSession, nil, false); got.Code != http.StatusForbidden {
+	if got := requestAs(http.MethodGet, change, aliceSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+change {
 		t.Fatalf("non-staff change: %d", got.Code)
 	}
 }

@@ -117,7 +117,7 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	}
 	base := "/admin/bookmarks/bookmark/"
 	form := adminBookmarkTestForm(owner.ID, tagOne, csrf)
-	if got := request(http.MethodGet, base+"add/", ownerSession, nil, true); got.Code != http.StatusForbidden {
+	if got := request(http.MethodGet, base+"add/", ownerSession, nil, true); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+base+"add/" {
 		t.Fatalf("nonstaff add: %d", got.Code)
 	}
 	addPage := request(http.MethodGet, base+"add/", adminSession, nil, true)

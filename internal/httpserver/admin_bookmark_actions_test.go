@@ -125,7 +125,7 @@ func TestAdminBookmarkActionsRespectChangelistAndFiles(t *testing.T) {
 	if got := request(http.MethodPost, path, adminSession, form, false); got.Code != http.StatusForbidden {
 		t.Fatalf("action without CSRF: %d", got.Code)
 	}
-	if got := request(http.MethodPost, path, aliceSession, form, true); got.Code != http.StatusForbidden {
+	if got := request(http.MethodPost, path, aliceSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next=/admin/bookmarks/bookmark/%3Fq%3Dmatch%26owner__username%3Dalice" {
 		t.Fatalf("nonstaff action: %d", got.Code)
 	}
 	if got := request(http.MethodPost, path, viewerSession, form, true); got.Code != http.StatusForbidden {

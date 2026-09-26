@@ -69,7 +69,7 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 	}
 	base := "/admin/bookmarks/bookmarkbundle/"
 	form := url.Values{"name": {"Work"}, "search": {"golang"}, "any_tags": {"code"}, "all_tags": {"work"}, "excluded_tags": {"old"}, "filter_unread": {"yes"}, "filter_shared": {"no"}, "order": {"17"}, "owner": {strconv.FormatInt(owner.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
-	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != 403 {
+	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+base+"add/" {
 		t.Fatalf("non-staff add: %d", got.Code)
 	}
 	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="order" value="0"`) || strings.Contains(got.Body.String(), `name="date_created"`) || strings.Contains(got.Body.String(), `name="date_modified"`) || !strings.Contains(got.Body.String(), `class="related-widget-wrapper"`) || !strings.Contains(got.Body.String(), `title="Add another user"`) || !strings.Contains(got.Body.String(), `aria-disabled="true"`) || !strings.Contains(got.Body.String(), `value="Save and add another" name="_addanother"`) || !strings.Contains(got.Body.String(), `value="Save and continue editing" name="_continue"`) {
