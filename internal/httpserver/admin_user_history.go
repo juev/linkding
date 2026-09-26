@@ -113,6 +113,8 @@ func serveAdminUserHistory(w http.ResponseWriter, r *http.Request, cfg config.Co
 		return
 	}
 	data.Language = selectedAdminLanguage(r).Code
+	data.AppLabel = adminTranslate(data.Language, data.AppLabel)
+	data.PluralLabel = adminCapTranslate(data.Language, "users")
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

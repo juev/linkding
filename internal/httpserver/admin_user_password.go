@@ -59,6 +59,9 @@ func serveAdminUserPassword(w http.ResponseWriter, r *http.Request, cfg config.C
 			return
 		}
 		data.UsablePassword = r.PostForm.Get("usable_password") != "false"
+		if _, disable := r.PostForm["unset-password"]; disable {
+			data.UsablePassword = false
+		}
 		password1, password2 := r.PostForm.Get("password1"), r.PostForm.Get("password2")
 		var encoded string
 		if data.UsablePassword {

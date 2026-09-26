@@ -33,12 +33,18 @@ var adminPageTemplate = template.Must(template.New("admin_page.html").Funcs(temp
 
 func adminSidebarTemplate(files embed.FS, name string) *template.Template {
 	return template.Must(template.New(name).Funcs(template.FuncMap{
-		"tr":              adminTranslate,
-		"appTitle":        adminAppTitle,
-		"formTitle":       adminFormTitle,
-		"relatedTitle":    adminRelatedTitle,
-		"capTr":           adminCapTranslate,
-		"permissionLabel": adminPermissionLabel,
+		"tr":                    adminTranslate,
+		"appTitle":              adminAppTitle,
+		"formTitle":             adminFormTitle,
+		"relatedTitle":          adminRelatedTitle,
+		"capTr":                 adminCapTranslate,
+		"permissionLabel":       adminPermissionLabel,
+		"historyTitle":          adminHistoryTitle,
+		"passwordMinimum":       adminPasswordMinimum,
+		"passwordPrompt":        adminPasswordPrompt,
+		"passwordEnableMessage": adminPasswordEnableMessage,
+		"singleDeletePrompt":    adminSingleDeletePrompt,
+		"deletionLabel":         adminDeletionLabel,
 	}).ParseFS(files, name, "admin_sidebar.html"))
 }
 

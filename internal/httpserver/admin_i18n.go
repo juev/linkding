@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/binary"
 	"errors"
+	"html/template"
 	"io/fs"
 	"net/http"
 	"sort"
@@ -228,6 +229,14 @@ func adminFilterTitle(language, title string) string {
 }
 
 func adminFormTitle(language, title string) string {
+	for _, prefix := range []string{"Change history: ", "Change password: "} {
+		if name, ok := strings.CutPrefix(title, prefix); ok {
+			return strings.ReplaceAll(adminTranslate(language, prefix+"%s"), "%s", name)
+		}
+	}
+	if strings.HasPrefix(title, "Delete ") {
+		return adminTranslate(language, "Delete")
+	}
 	for _, verb := range []string{"Add", "Change", "View", "Delete"} {
 		if name, ok := strings.CutPrefix(title, verb+" "); ok {
 			if name == "user" {
@@ -241,6 +250,26 @@ func adminFormTitle(language, title string) string {
 		}
 	}
 	return adminTranslate(language, title)
+}
+
+func adminHistoryTitle(language, name string) string {
+	return strings.ReplaceAll(adminTranslate(language, "Change history: %s"), "%s", name)
+}
+
+func adminPasswordMinimum(language string) string {
+	if language == "ru" {
+		return "Ваш пароль должен содержать как минимум 8 символов."
+	}
+	return "Your password must contain at least 8 characters."
+}
+
+func adminPasswordPrompt(language, username string) template.HTML {
+	message := adminTranslate(language, "Enter a new password for the user <strong>%(username)s</strong>.")
+	return template.HTML(strings.ReplaceAll(message, "%(username)s", template.HTMLEscapeString(username)))
+}
+
+func adminPasswordEnableMessage(language string) template.HTML {
+	return template.HTML(adminTranslate(language, "This action will <strong>enable</strong> password-based authentication for this user."))
 }
 
 func adminRelatedTitle(language, action, model string) string {
@@ -281,4 +310,52 @@ func adminPermissionLabel(language, label string) string {
 		}
 	}
 	return app + " | " + model + " | " + parts[2]
+}
+
+func adminSingleDeletePrompt(language, model, repr string) string {
+	message := adminTranslate(language, "Are you sure you want to delete the %(object_name)s “%(escaped_object)s”? All of the following related items will be deleted:")
+	message = strings.ReplaceAll(message, "%(object_name)s", model)
+	return strings.ReplaceAll(message, "%(escaped_object)s", repr)
+}
+
+func adminDeletionLabel(language, label string) string {
+	switch label {
+	case "User":
+		return adminCapTranslate(language, "user")
+	case "Users":
+		return adminCapTranslate(language, "users")
+	case "Log entry":
+		return adminCapTranslate(language, "log entry")
+	case "Log entries":
+		return adminCapTranslate(language, "log entries")
+	default:
+		return label
+	}
+}
+
+func adminDeletionLogRepr(language, repr string) string {
+	for _, verb := range []string{"Added", "Changed", "Deleted"} {
+		if object, ok := strings.CutPrefix(repr, verb+" “"); ok && strings.HasSuffix(object, "”.") {
+			key := verb + " “%(object)s”."
+			return strings.ReplaceAll(adminTranslate(language, key), "%(object)s", strings.TrimSuffix(object, "”."))
+		}
+	}
+	return repr
+}
+
+func localizeAdminDeletionGraph(language string, summary []adminDeletionSummary, nodes []adminDeletionNode) {
+	for i := range summary {
+		summary[i].Label = adminDeletionLabel(language, summary[i].Label)
+	}
+	var localizeNodes func([]adminDeletionNode)
+	localizeNodes = func(items []adminDeletionNode) {
+		for i := range items {
+			if items[i].Label == "Log entry" {
+				items[i].Repr = adminDeletionLogRepr(language, items[i].Repr)
+			}
+			items[i].Label = adminDeletionLabel(language, items[i].Label)
+			localizeNodes(items[i].Children)
+		}
+	}
+	localizeNodes(nodes)
 }

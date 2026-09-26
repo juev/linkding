@@ -36,7 +36,7 @@
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Tags</a> &rsaquo; {{if .History}}<a href="{{.ListURL}}{{.ID}}/change/">{{.Name}}</a> &rsaquo; {{tr .Language "History"}}{{else}}{{if .ID}}{{.Name}}{{else}}{{formTitle .Language .Title}}{{end}}{{end}}</div></nav>
+  <nav aria-label="{{tr .Language "Breadcrumbs"}}"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">{{tr .Language "Home"}}</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Tags</a> &rsaquo; {{if .History}}<a href="{{.ListURL}}{{.ID}}/change/">{{.Name}}</a> &rsaquo; {{tr .Language "History"}}{{else if .ConfirmDelete}}<a href="{{.ListURL}}{{.ID}}/change/">{{.Name}}</a> &rsaquo; {{tr .Language "Delete"}}{{else}}{{if .ID}}{{.Name}}{{else}}{{formTitle .Language .Title}}{{end}}{{end}}</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     <h1>{{formTitle .Language .Title}}</h1>
     {{if and .ID (not .ConfirmDelete) (not .History)}}<h2>{{.Name}}</h2>{{end}}
@@ -44,10 +44,12 @@
     {{if and .ID (not .ConfirmDelete) (not .History)}}<ul class="object-tools"><li><a href="{{.ListURL}}{{.ID}}/history/" class="historylink">{{tr .Language "History"}}</a></li></ul>{{end}}
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .History}}
-      <div id="change-history" class="module">{{if .HistoryRows}}<table><thead><tr><th scope="col">Date/time</th><th scope="col">User</th><th scope="col">Action</th></tr></thead><tbody>{{range .HistoryRows}}<tr><th scope="row">{{.Date}}</th><td>{{.Username}}</td><td>{{.Action}}</td></tr>{{end}}</tbody></table><nav class="paginator" aria-labelledby="pagination"><h2 id="pagination" class="visually-hidden">Pagination tag entries</h2>{{len .HistoryRows}} {{if eq (len .HistoryRows) 1}}entry{{else}}entries{{end}}</nav>{{else}}<p>This object doesn’t have a change history. It probably wasn’t added via this admin site.</p>{{end}}</div>
+      <div id="change-history" class="module">{{if .HistoryRows}}<table><thead><tr><th scope="col">{{tr .Language "Date/time"}}</th><th scope="col">{{tr .Language "User"}}</th><th scope="col">{{tr .Language "Action"}}</th></tr></thead><tbody>{{range .HistoryRows}}<tr><th scope="row">{{.Date}}</th><td>{{.Username}}</td><td>{{.Action}}</td></tr>{{end}}</tbody></table><nav class="paginator" aria-labelledby="pagination"><h2 id="pagination" class="visually-hidden">Pagination tag entries</h2>{{len .HistoryRows}} {{if eq (len .HistoryRows) 1}}entry{{else}}entries{{end}}</nav>{{else}}<p>{{tr .Language "This object doesn’t have a change history. It probably wasn’t added via this admin site."}}</p>{{end}}</div>
     {{else if .ConfirmDelete}}
-      <p>Are you sure you want to delete the tag “{{.Name}}”?</p>
-      <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="post" value="yes"><div class="submit-row"><input type="submit" value="Yes, I’m sure"><a href="{{.ListURL}}" class="button cancel-link">No, take me back</a></div></form>
+      <p>{{singleDeletePrompt .Language "tag" .Name}}</p>
+      <h2>{{tr .Language "Summary"}}</h2><ul>{{range .Summary}}<li>{{.Label}}: {{.Count}}</li>{{end}}</ul>
+      <h2>{{tr .Language "Objects"}}</h2><ul>{{range .Nodes}}{{template "deletion_node" .}}{{end}}</ul>
+      <form method="post" action="{{.Action}}"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><input type="hidden" name="post" value="yes"><div class="submit-row"><input type="submit" value="{{tr .Language "Yes, I’m sure"}}"><a href="{{.ListURL}}" class="button cancel-link">{{tr .Language "No, take me back"}}</a></div></form>
     {{else}}
       <form method="post" action="{{.Action}}" id="tag_form" novalidate>
         <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
@@ -68,5 +70,6 @@
   <symbol viewBox="0 0 24 24" id="icon-moon"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/></symbol>
   <symbol viewBox="0 0 24 24" id="icon-sun"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/></symbol>
 </svg>
+{{define "deletion_node"}}<li>{{.Label}}: {{if .URL}}<a href="{{.URL}}">{{.Repr}}</a>{{else}}{{.Repr}}{{end}}{{if .Children}}<ul>{{range .Children}}{{template "deletion_node" .}}{{end}}</ul>{{end}}</li>{{end}}
 </body>
 </html>

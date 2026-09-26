@@ -62,8 +62,19 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	if got := adminTranslate("ru", "linkding administration"); got != "linkding administration" {
 		t.Fatalf("unknown text changed: %q", got)
 	}
-	if got := adminFormTitle("ru", "Delete tag"); got != "Удалить tag" {
+	if got := adminFormTitle("ru", "Delete tag"); got != "Удалить" {
 		t.Fatalf("Russian delete title: %q", got)
+	}
+	if got := adminFormTitle("ru", "Change history: Tag"); got != "История изменений: Tag" {
+		t.Fatalf("Russian history title: %q", got)
+	}
+	nodes := []adminDeletionNode{{Label: "User", Children: []adminDeletionNode{{Label: "Log entry", Repr: "Added “Toast object (1)”."}}}}
+	localizeAdminDeletionGraph("ru", nil, nodes)
+	if got := nodes[0].Children[0].Repr; got != "Добавлено “Toast object (1)“." {
+		t.Fatalf("Russian deletion log: %q", got)
+	}
+	if got := string(adminPasswordPrompt("ru", `<script>alert(1)</script>`)); got != `Введите новый пароль для пользователя <strong>&lt;script&gt;alert(1)&lt;/script&gt;</strong>.` {
+		t.Fatalf("escaped Russian password prompt: %q", got)
 	}
 	if got := adminRelatedTitle("en", "Add another", "user"); got != "Add another user" {
 		t.Fatalf("English related title: %q", got)

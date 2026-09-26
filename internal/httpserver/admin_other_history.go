@@ -139,6 +139,7 @@ func serveAdminOtherHistory(w http.ResponseWriter, r *http.Request, cfg config.C
 		http.Error(w, "Server error", 500)
 		return
 	}
+	data.Language = selectedAdminLanguage(r).Code
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

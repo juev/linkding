@@ -164,6 +164,9 @@ func TestAdminTagCRUDAndPermissions(t *testing.T) {
 	if got := request(http.MethodGet, deletePath, ownerSession, nil, false); got.Code != http.StatusFound || got.Header().Get("Location") != "/admin/login/?next="+deletePath {
 		t.Fatalf("non-staff delete: %d", got.Code)
 	}
+	if got := request(http.MethodGet, deletePath, adminSession, nil, false); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "Summary") || !strings.Contains(got.Body.String(), "Bookmark-tag relationships: 1") || !strings.Contains(got.Body.String(), "Bookmark_tags object") {
+		t.Fatalf("tag delete dependencies: %d %s", got.Code, got.Body.String())
+	}
 	if got := request(http.MethodPost, deletePath, adminSession, url.Values{"post": {"yes"}, "csrfmiddlewaretoken": {csrf}}, true); got.Code != 302 {
 		t.Fatalf("delete tag: %d %s", got.Code, got.Body.String())
 	}

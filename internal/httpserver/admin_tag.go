@@ -28,6 +28,8 @@ type adminTagData struct {
 	HistoryRows                                         []adminTagHistoryRow
 	Owners                                              []adminOwnerOption
 	DashboardApps                                       []adminDashboardApp
+	Summary                                             []adminDeletionSummary
+	Nodes                                               []adminDeletionNode
 }
 
 type adminTagHistoryRow struct {
@@ -287,12 +289,25 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		return
 	}
 	rows.Close()
+	if data.ConfirmDelete {
+		relations, ids, err := adminBookmarkTagDeletionNodes(r.Context(), db, cfg.DBEngine, "tag_id", id, make(map[int64]bool))
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		data.Summary = []adminDeletionSummary{{Label: "Tags", Count: 1}}
+		if len(ids) > 0 {
+			data.Summary = append(data.Summary, adminDeletionSummary{Label: "Bookmark-tag relationships", Count: len(ids)})
+		}
+		data.Nodes = []adminDeletionNode{{Label: "Tag", Repr: data.Name, URL: base + strconv.FormatInt(id, 10) + "/change/", Children: relations}}
+	}
 	models, err := loadAdminModels(r, db, cfg, user)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
 	data.Language = selectedAdminLanguage(r).Code
+	localizeAdminDeletionGraph(data.Language, data.Summary, data.Nodes)
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")

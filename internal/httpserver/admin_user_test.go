@@ -428,7 +428,7 @@ func TestAdminUserPasswordChange(t *testing.T) {
 	}
 	path := "/admin/auth/user/" + strconv.FormatInt(target.ID, 10) + "/password/"
 	page := request(http.MethodGet, path, adminSession, nil, true)
-	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `name="password1"`) || !strings.Contains(page.Body.String(), `name="usable_password"`) {
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), `name="password1"`) || !strings.Contains(page.Body.String(), `name="usable_password"`) || !strings.Contains(page.Body.String(), `name="unset-password"`) || !strings.Contains(page.Body.String(), "Enter a new password for the user") {
 		t.Fatalf("password page: %d %s", page.Code, page.Body.String())
 	}
 	form := url.Values{"usable_password": {"true"}, "password1": {"short"}, "password2": {"short"}, "csrfmiddlewaretoken": {csrf}}
@@ -453,7 +453,7 @@ func TestAdminUserPasswordChange(t *testing.T) {
 	if correct, err := auth.VerifyPassword("AnotherStrongPass-2026", encoded); err != nil || !correct {
 		t.Fatalf("new password: correct=%t err=%v", correct, err)
 	}
-	form.Set("usable_password", "false")
+	form.Set("unset-password", "Disable password-based authentication")
 	form.Del("password1")
 	form.Del("password2")
 	if got := request(http.MethodPost, path, adminSession, form, true); got.Code != http.StatusFound {
@@ -463,6 +463,7 @@ func TestAdminUserPasswordChange(t *testing.T) {
 		t.Fatalf("disabled password: %q %v", encoded, err)
 	}
 	selfPath := "/admin/auth/user/" + strconv.FormatInt(admin.ID, 10) + "/password/"
+	form.Del("unset-password")
 	form.Set("usable_password", "true")
 	form.Set("password1", "AdminStrongPass-2026")
 	form.Set("password2", "AdminStrongPass-2026")
@@ -604,7 +605,7 @@ func TestAdminUserDeleteCascade(t *testing.T) {
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	if got := request(http.MethodGet, nil, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "target") {
+	if got := request(http.MethodGet, nil, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "target") || !strings.Contains(got.Body.String(), "Summary") || !strings.Contains(got.Body.String(), "Objects") || !strings.Contains(got.Body.String(), "Users: 1") {
 		t.Fatalf("delete confirmation: %d %s", got.Code, got.Body.String())
 	}
 	form := url.Values{"post": {"yes"}, "csrfmiddlewaretoken": {csrf}}

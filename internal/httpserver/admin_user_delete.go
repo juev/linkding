@@ -17,9 +17,11 @@ var adminUserDeleteFile embed.FS
 var adminUserDeleteTemplate = adminSidebarTemplate(adminUserDeleteFile, "admin_user_delete.html")
 
 type adminUserDeleteData struct {
-	Language                                                    string
-	Prefix, Title, Username, Target, CSRFToken, Action, ListURL string
-	DashboardApps                                               []adminDashboardApp
+	Language                                                               string
+	Prefix, Title, Username, Target, CSRFToken, Action, ListURL, ChangeURL string
+	DashboardApps                                                          []adminDashboardApp
+	Summary                                                                []adminDeletionSummary
+	Nodes                                                                  []adminDeletionNode
 }
 
 func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, actor auth.User, permissions adminPermissions, id int64) {
@@ -89,13 +91,19 @@ func serveAdminUserDelete(w http.ResponseWriter, r *http.Request, cfg config.Con
 		http.Error(w, "Server error", 500)
 		return
 	}
-	data := adminUserDeleteData{Prefix: cfg.URLPrefix(), Title: "Delete user", Username: actor.Username, Target: target, CSRFToken: masked, Action: r.URL.Path, ListURL: base}
+	data := adminUserDeleteData{Prefix: cfg.URLPrefix(), Title: "Delete user", Username: actor.Username, Target: target, CSRFToken: masked, Action: r.URL.Path, ListURL: base, ChangeURL: base + strconv.FormatInt(id, 10) + "/change/"}
+	data.Summary, data.Nodes, err = adminUserDeletionGraph(r.Context(), db, cfg.DBEngine, cfg.URLPrefix(), []adminUserSelected{{ID: id, Username: target}})
+	if err != nil {
+		http.Error(w, "Server error", 500)
+		return
+	}
 	models, err := loadAdminModels(r, db, cfg, actor)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
 	data.Language = selectedAdminLanguage(r).Code
+	localizeAdminDeletionGraph(data.Language, data.Summary, data.Nodes)
 	data.DashboardApps = groupAdminDashboardApps(cfg, models)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, private")
