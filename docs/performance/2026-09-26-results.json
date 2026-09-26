@@ -1,0 +1,1205 @@
+{
+  "date": "2026-09-26",
+  "http_observations": [
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 10.212130292,
+      "rps": 97.92276159885877,
+      "p50_ms": 9.580834,
+      "p95_ms": 12.161292,
+      "p99_ms": 25.558583,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 9.052493417,
+      "rps": 110.46680223175466,
+      "p50_ms": 8.582541,
+      "p95_ms": 11.70175,
+      "p99_ms": 13.074667,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 5.663434417,
+      "rps": 176.5713039773689,
+      "p50_ms": 39.404667,
+      "p95_ms": 65.096417,
+      "p99_ms": 83.176709,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 4.257593583,
+      "rps": 234.87446147816124,
+      "p50_ms": 33.66475,
+      "p95_ms": 42.368875,
+      "p99_ms": 48.576625,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 5.981502041,
+      "rps": 167.1820879012553,
+      "p50_ms": 189.70925,
+      "p95_ms": 219.48275,
+      "p99_ms": 241.913667,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 4.146014583,
+      "rps": 241.19548544289333,
+      "p50_ms": 132.383833,
+      "p95_ms": 154.149125,
+      "p99_ms": 175.245416,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 29.318256167,
+      "rps": 34.10844063521003,
+      "p50_ms": 28.995,
+      "p95_ms": 32.094583,
+      "p99_ms": 44.719458,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 26.376568584,
+      "rps": 37.9124372002884,
+      "p50_ms": 26.065167,
+      "p95_ms": 30.438792,
+      "p99_ms": 33.523834,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 15.244061042,
+      "rps": 65.59931748140005,
+      "p50_ms": 111.677459,
+      "p95_ms": 164.078375,
+      "p99_ms": 180.449875,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 18.101074708,
+      "rps": 55.24533852998449,
+      "p50_ms": 142.648,
+      "p95_ms": 188.7855,
+      "p99_ms": 214.703625,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 15.267792,
+      "rps": 65.49735547877519,
+      "p50_ms": 493.030209,
+      "p95_ms": 507.9955,
+      "p99_ms": 556.970666,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 17.535868166,
+      "rps": 57.02597616118506,
+      "p50_ms": 559.588417,
+      "p95_ms": 672.531084,
+      "p99_ms": 904.077834,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 30.615255708,
+      "rps": 32.663454113783295,
+      "p50_ms": 29.798541,
+      "p95_ms": 34.095,
+      "p99_ms": 44.934875,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 31.12010975,
+      "rps": 32.133562768042616,
+      "p50_ms": 30.704167,
+      "p95_ms": 35.435417,
+      "p99_ms": 38.302584,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 16.879549792,
+      "rps": 59.24328624415956,
+      "p50_ms": 120.152875,
+      "p95_ms": 172.132375,
+      "p99_ms": 193.862791,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 24.2003265,
+      "rps": 41.32175654737551,
+      "p50_ms": 193.101667,
+      "p95_ms": 246.872,
+      "p99_ms": 281.620208,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 16.873486708,
+      "rps": 59.2645739025523,
+      "p50_ms": 526.0045,
+      "p95_ms": 585.013708,
+      "p99_ms": 597.997584,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 23.415484708,
+      "rps": 42.70678196374665,
+      "p50_ms": 749.274666,
+      "p95_ms": 905.5015,
+      "p99_ms": 1166.010125,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 1,
+      "requests": 500,
+      "elapsed_sec": 10.110969541,
+      "rps": 49.451241839123256,
+      "p50_ms": 19.67525,
+      "p95_ms": 22.1715,
+      "p99_ms": 26.892542,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 1,
+      "requests": 500,
+      "elapsed_sec": 8.655114625,
+      "rps": 57.76931001650368,
+      "p50_ms": 16.650208,
+      "p95_ms": 20.122125,
+      "p99_ms": 21.2575,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 8,
+      "requests": 500,
+      "elapsed_sec": 5.575807875,
+      "rps": 89.67310409704531,
+      "p50_ms": 91.048334,
+      "p95_ms": 103.870708,
+      "p99_ms": 128.687542,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 8,
+      "requests": 500,
+      "elapsed_sec": 7.054709208,
+      "rps": 70.87464348395861,
+      "p50_ms": 111.262375,
+      "p95_ms": 150.294959,
+      "p99_ms": 167.562708,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 32,
+      "requests": 500,
+      "elapsed_sec": 5.556508125,
+      "rps": 89.9845710204914,
+      "p50_ms": 357.026875,
+      "p95_ms": 381.631667,
+      "p99_ms": 387.721917,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 32,
+      "requests": 500,
+      "elapsed_sec": 7.054188666,
+      "rps": 70.87987345871761,
+      "p50_ms": 440.527541,
+      "p95_ms": 547.380583,
+      "p99_ms": 607.6915,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 5.267769833,
+      "rps": 189.83365479172787,
+      "p50_ms": 5.106542,
+      "p95_ms": 6.205916,
+      "p99_ms": 7.199625,
+      "mean_bytes": 493.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "immediate",
+      "case": "create",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 3.334210667,
+      "rps": 299.92106074681936,
+      "p50_ms": 3.217417,
+      "p95_ms": 3.897333,
+      "p99_ms": 5.245334,
+      "mean_bytes": 493.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 2.880388,
+      "rps": 347.17544997410073,
+      "p50_ms": 19.671375,
+      "p95_ms": 40.083833,
+      "p99_ms": 67.136292,
+      "mean_bytes": 493.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "immediate",
+      "case": "create",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 3.253998792,
+      "rps": 307.314189070541,
+      "p50_ms": 16.303167,
+      "p95_ms": 41.871416,
+      "p99_ms": 216.895042,
+      "mean_bytes": 493.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 2.960551167,
+      "rps": 337.77494243185964,
+      "p50_ms": 93.538584,
+      "p95_ms": 112.448208,
+      "p99_ms": 130.1455,
+      "mean_bytes": 495.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "sqlite",
+      "server": "go",
+      "config": "immediate",
+      "case": "create",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 3.635723125,
+      "rps": 275.04844720539603,
+      "p50_ms": 93.418125,
+      "p95_ms": 208.334375,
+      "p99_ms": 361.090916,
+      "mean_bytes": 495.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 15.668471417,
+      "rps": 63.82243509185067,
+      "p50_ms": 15.048417,
+      "p95_ms": 18.570041,
+      "p99_ms": 30.855458,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 7.034455625,
+      "rps": 142.15741107898452,
+      "p50_ms": 6.426959,
+      "p95_ms": 10.677459,
+      "p99_ms": 13.767625,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 6.326867959,
+      "rps": 158.0560881751128,
+      "p50_ms": 49.0425,
+      "p95_ms": 66.737958,
+      "p99_ms": 75.931208,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 4.021004792,
+      "rps": 248.69405825866022,
+      "p50_ms": 28.986625,
+      "p95_ms": 50.394042,
+      "p99_ms": 56.230458,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "list",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 6.358979625,
+      "rps": 157.2579342869022,
+      "p50_ms": 198.351833,
+      "p95_ms": 228.2995,
+      "p99_ms": 235.983917,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "list",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 6.111834583,
+      "rps": 163.6169936243839,
+      "p50_ms": 197.793083,
+      "p95_ms": 267.185084,
+      "p99_ms": 280.656417,
+      "mean_bytes": 53357,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 9000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 26.421063625,
+      "rps": 37.84858982943386,
+      "p50_ms": 25.737333,
+      "p95_ms": 30.491583,
+      "p99_ms": 41.028834,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 24.671236417,
+      "rps": 40.53303138512096,
+      "p50_ms": 23.512833,
+      "p95_ms": 30.828083,
+      "p99_ms": 33.614792,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 8.890059958,
+      "rps": 112.48518060894725,
+      "p50_ms": 69.551458,
+      "p95_ms": 84.994167,
+      "p99_ms": 98.625542,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 13.81898225,
+      "rps": 72.36422928323829,
+      "p50_ms": 104.476834,
+      "p95_ms": 169.7495,
+      "p99_ms": 177.642833,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 8.863317917,
+      "rps": 112.82456630400027,
+      "p50_ms": 279.169458,
+      "p95_ms": 305.624583,
+      "p99_ms": 315.360541,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 24.655274708,
+      "rps": 40.559272279190054,
+      "p50_ms": 795.650417,
+      "p95_ms": 1098.173292,
+      "p99_ms": 1204.32,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 15.467383708,
+      "rps": 64.65217511108764,
+      "p50_ms": 14.70025,
+      "p95_ms": 18.621208,
+      "p99_ms": 31.274042,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 6.655605958,
+      "rps": 150.24927952623244,
+      "p50_ms": 5.889208,
+      "p95_ms": 11.396667,
+      "p99_ms": 14.560542,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 6.2183075,
+      "rps": 160.8154630500341,
+      "p50_ms": 48.373209,
+      "p95_ms": 61.808,
+      "p99_ms": 74.844875,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 4.099009833,
+      "rps": 243.96135670358123,
+      "p50_ms": 30.699541,
+      "p95_ms": 48.815625,
+      "p99_ms": 57.758666,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 6.355801625,
+      "rps": 157.33656570818476,
+      "p50_ms": 200.8325,
+      "p95_ms": 226.286583,
+      "p99_ms": 235.879459,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "compound",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 5.967073792,
+      "rps": 167.5863303954261,
+      "p50_ms": 195.219291,
+      "p95_ms": 267.544208,
+      "p99_ms": 285.636625,
+      "mean_bytes": 53441,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 100
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 1,
+      "requests": 500,
+      "elapsed_sec": 12.1738075,
+      "rps": 41.07178464913299,
+      "p50_ms": 23.767708,
+      "p95_ms": 27.6035,
+      "p99_ms": 37.9355,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 1,
+      "requests": 500,
+      "elapsed_sec": 4.655084,
+      "rps": 107.4094473912823,
+      "p50_ms": 8.45825,
+      "p95_ms": 13.392584,
+      "p99_ms": 15.503084,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 8,
+      "requests": 500,
+      "elapsed_sec": 4.432834,
+      "rps": 112.79465912777245,
+      "p50_ms": 69.399458,
+      "p95_ms": 80.349875,
+      "p99_ms": 88.735542,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 8,
+      "requests": 500,
+      "elapsed_sec": 2.424741959,
+      "rps": 206.20750927501066,
+      "p50_ms": 27.300166,
+      "p95_ms": 73.82175,
+      "p99_ms": 81.152458,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 32,
+      "requests": 500,
+      "elapsed_sec": 4.404080167,
+      "rps": 113.53108504847977,
+      "p50_ms": 278.746416,
+      "p95_ms": 297.172458,
+      "p99_ms": 305.189833,
+      "mean_bytes": 107589,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "ui",
+      "concurrency": 32,
+      "requests": 500,
+      "elapsed_sec": 3.056737708,
+      "rps": 163.5730794603068,
+      "p50_ms": 193.527834,
+      "p95_ms": 286.404875,
+      "p99_ms": 310.550709,
+      "mean_bytes": 56554,
+      "status_counts": {
+        "200": 500
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 10.15585375,
+      "rps": 98.46538012621538,
+      "p50_ms": 9.78675,
+      "p95_ms": 12.41925,
+      "p99_ms": 14.574625,
+      "mean_bytes": 475.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "create",
+      "concurrency": 1,
+      "requests": 1000,
+      "elapsed_sec": 2.27811625,
+      "rps": 438.95916198306384,
+      "p50_ms": 2.245583,
+      "p95_ms": 3.31775,
+      "p99_ms": 5.627833,
+      "mean_bytes": 467.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 3.319563416,
+      "rps": 301.2444332830303,
+      "p50_ms": 26.160625,
+      "p95_ms": 30.131,
+      "p99_ms": 34.396167,
+      "mean_bytes": 475.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "create",
+      "concurrency": 8,
+      "requests": 1000,
+      "elapsed_sec": 0.874903667,
+      "rps": 1142.9829794049772,
+      "p50_ms": 3.970375,
+      "p95_ms": 29.158416,
+      "p99_ms": 40.890584,
+      "mean_bytes": 467.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "python",
+      "config": "default",
+      "case": "create",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 3.433532042,
+      "rps": 291.24527972003705,
+      "p50_ms": 107.761375,
+      "p95_ms": 122.312167,
+      "p99_ms": 125.582291,
+      "mean_bytes": 477.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    },
+    {
+      "database": "postgres",
+      "server": "go",
+      "config": "default",
+      "case": "create",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 1.72521575,
+      "rps": 579.6376482187808,
+      "p50_ms": 71.776,
+      "p95_ms": 102.501709,
+      "p99_ms": 106.416917,
+      "mean_bytes": 469.679,
+      "status_counts": {
+        "201": 1000
+      },
+      "error_counts": {}
+    }
+  ],
+  "sqlite_default_failure": {
+    "case": "create",
+    "concurrency": 8,
+    "requests": 1000,
+    "elapsed_sec": 2.238654375,
+    "rps": 446.69691363143096,
+    "p50_ms": 17.206208,
+    "p95_ms": 28.066458,
+    "p99_ms": 34.629125,
+    "mean_bytes": 175.765,
+    "status_counts": {
+      "201": 336,
+      "500": 664
+    },
+    "error_counts": {
+      "HTTP 500": 664
+    }
+  },
+  "sqlite_default_failure_repeat": {
+    "case": "create",
+    "concurrency": 8,
+    "requests": 100,
+    "elapsed_sec": 0.265351833,
+    "rps": 376.85814667049993,
+    "p50_ms": 19.210125,
+    "p95_ms": 42.103708,
+    "p99_ms": 47.8845,
+    "mean_bytes": 181.04,
+    "status_counts": {
+      "201": 35,
+      "500": 65
+    },
+    "error_counts": {
+      "HTTP 500: {\"detail\":\"Server error\"}": 65
+    }
+  },
+  "postgres_search_repeat_13020": {
+    "python": {
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 10.207545792,
+      "rps": 97.96674150447936,
+      "p50_ms": 323.880333,
+      "p95_ms": 349.691708,
+      "p99_ms": 362.033875,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    },
+    "go": {
+      "case": "search",
+      "concurrency": 32,
+      "requests": 1000,
+      "elapsed_sec": 31.761379416,
+      "rps": 31.48477863326816,
+      "p50_ms": 1002.888458,
+      "p95_ms": 1405.181042,
+      "p99_ms": 1597.9275,
+      "mean_bytes": 53398,
+      "status_counts": {
+        "200": 1000
+      },
+      "error_counts": {},
+      "expected_count": 2000
+    }
+  },
+  "background_metadata": [
+    {
+      "server": "python",
+      "completed_jobs": 100,
+      "elapsed_sec": 3.376561,
+      "peak_mock_requests": 2
+    },
+    {
+      "server": "go",
+      "completed_jobs": 100,
+      "elapsed_sec": 6.055044,
+      "peak_mock_requests": 1
+    }
+  ]
+}
