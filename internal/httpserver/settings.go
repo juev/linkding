@@ -28,10 +28,10 @@ type settingsOption struct {
 }
 
 type settingsField struct {
-	Name, Label, Kind, Value, Class string
-	Help                            template.HTML
-	Checked, Hidden                 bool
-	Options                         []settingsOption
+	Name, Label, Kind, Value, Class, Error string
+	Help                                   template.HTML
+	Checked, Hidden                        bool
+	Options                                []settingsOption
 }
 
 type settingsPageData struct {
@@ -54,10 +54,6 @@ func serveSettingsGeneral(w http.ResponseWriter, r *http.Request, path string, c
 	}
 	user, ok := settingsSession(w, r, r.URL.Path, users, cfg)
 	if !ok {
-		return
-	}
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	_ = renderSettingsGeneral(w, r, cfg, db, user, nil, "", http.StatusOK)
@@ -107,7 +103,7 @@ func renderSettingsGeneral(w http.ResponseWriter, r *http.Request, cfg config.Co
 		Prefix: cfg.URLPrefix(), CSRFToken: masked, Theme: form.Get("theme"),
 		CustomCSS: form.Get("custom_css") != "", EnableSharing: form.Get("enable_sharing") != "",
 		IsSuperuser: user.IsSuperuser, EnableRefreshFavicons: cfg.EnableRefreshFavicons,
-		HasSnapshots: cfg.EnableSnapshots, Fields: profileDisplayFields(form), Global: global, Users: options,
+		HasSnapshots: cfg.EnableSnapshots, Fields: profileDisplayFields(form, status == http.StatusUnprocessableEntity), Global: global, Users: options,
 		ErrorMessage: errorMessage, VersionInfo: settingsVersionInfo(r.Context()),
 	}
 	data.ToastHTML, err = renderPageToasts(r.Context(), db, cfg, user.ID, masked, r.URL.Path)

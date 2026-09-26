@@ -75,7 +75,7 @@ func TestBookmarkFormCreateEditAndOwnership(t *testing.T) {
 	invalid := url.Values{"url": {"bad-url"}, "tag_string": {"go test"}, "csrfmiddlewaretoken": {csrf}}
 	bad := httptest.NewRecorder()
 	handler.ServeHTTP(bad, request("POST", "/bookmarks/new", session, invalid))
-	if bad.Code != 422 || !strings.Contains(bad.Body.String(), "Enter a valid URL.") {
+	if bad.Code != 422 || !strings.Contains(bad.Body.String(), `class="form-input is-error" autocomplete="off" aria-describedby="id_url_error" aria-invalid="true"`) || !strings.Contains(bad.Body.String(), `<ul class="errorlist form-input-hint is-error" id="id_url_error"><li>Enter a valid URL.</li></ul>`) {
 		t.Fatalf("invalid form: %d %q", bad.Code, bad.Body.String())
 	}
 	form := url.Values{"url": {"https://example.com"}, "title": {"Example"}, "description": {"Description"}, "notes": {"notes"}, "tag_string": {"go test"}, "unread": {"on"}, "shared": {"on"}, "auto_close": {"True"}, "csrfmiddlewaretoken": {csrf}}

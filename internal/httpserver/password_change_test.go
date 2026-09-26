@@ -56,6 +56,9 @@ func TestPasswordChangeKeepsCurrentSession(t *testing.T) {
 	if got := post("wrong", "Fresh Passphrase 2026!", "Fresh Passphrase 2026!"); got.Code != 422 || !strings.Contains(got.Body.String(), "old password was entered incorrectly") {
 		t.Fatalf("wrong old password: %d %q", got.Code, got.Body.String())
 	}
+	if got := post("wrong", "", ""); got.Code != 422 || !strings.Contains(got.Body.String(), `id="id_old_password_error"><li>Your old password was entered incorrectly.`) || !strings.Contains(got.Body.String(), `id="id_new_password1_error"><li>This field is required.</li>`) || !strings.Contains(got.Body.String(), `id="id_new_password2_error"><li>This field is required.</li>`) {
+		t.Fatalf("independent password errors: %d %q", got.Code, got.Body.String())
+	}
 	if got := post("initial_password", "Fresh Passphrase 2026!", "other"); got.Code != 422 {
 		t.Fatalf("mismatched new password: %d", got.Code)
 	}

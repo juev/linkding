@@ -80,6 +80,12 @@ func TestBundlesUIEditorPreviewMoveAndOwner(t *testing.T) {
 	if got := request(http.MethodGet, "/bundles/preview?all_tags=coding", nil, true); got.Code != 200 || !strings.Contains(got.Body.String(), "Found 1 bookmarks matching this bundle.") || strings.Contains(got.Body.String(), "Two") {
 		t.Fatalf("filtered preview: %d %q", got.Code, got.Body.String())
 	}
+	if got := request(http.MethodPost, "/bundles/new", url.Values{"name": {""}}, true); got.Code != 422 || !strings.Contains(got.Body.String(), `class="form-input is-error" autocomplete="off" maxlength="256" aria-describedby="id_name_error" aria-invalid="true"`) || !strings.Contains(got.Body.String(), `<ul class="errorlist form-input-hint is-error" id="id_name_error"><li>This field is required.</li></ul>`) {
+		t.Fatalf("missing bundle name: %d %q", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodPost, "/bundles/new", url.Values{"name": {strings.Repeat("x", 257)}}, true); got.Code != 422 || !strings.Contains(got.Body.String(), "Ensure this value has at most 256 characters (it has 257).") {
+		t.Fatalf("long bundle name: %d %q", got.Code, got.Body.String())
+	}
 	if got := request(http.MethodPost, "/bundles/new", url.Values{"name": {"Go"}, "all_tags": {"coding"}, "filter_unread": {"yes"}, "filter_shared": {"off"}}, false); got.Code != 403 {
 		t.Fatalf("missing CSRF: %d", got.Code)
 	}

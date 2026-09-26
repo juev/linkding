@@ -80,7 +80,7 @@ func TestTagsUIOwnerCreateRenameMergeDelete(t *testing.T) {
 		!strings.Contains(got.Body.String(), `href="/tags?page=1"`) {
 		t.Fatalf("single-page tag links: %d %q", got.Code, got.Body.String())
 	}
-	if got := request(http.MethodPost, "/tags/new", url.Values{"name": {"HELLO WORLD"}}); got.Code != 200 || got.Header().Get("Content-Type") != "text/vnd.turbo-stream.html" || !strings.Contains(got.Body.String(), "already exists") {
+	if got := request(http.MethodPost, "/tags/new", url.Values{"name": {"HELLO WORLD"}}); got.Code != 200 || got.Header().Get("Content-Type") != "text/vnd.turbo-stream.html" || !strings.Contains(got.Body.String(), `class="form-input is-error" autocomplete="off" aria-describedby="id_name_help id_name_error" aria-invalid="true"`) || !strings.Contains(got.Body.String(), `<ul class="errorlist form-input-hint is-error" id="id_name_error"><li>`) || !strings.Contains(got.Body.String(), "already exists") {
 		t.Fatalf("duplicate: %d %q", got.Code, got.Body.String())
 	}
 	if got := request(http.MethodPost, "/tags/"+strconv.FormatInt(id, 10)+"/edit", url.Values{"name": {"renamed"}}); got.Code != 302 {
@@ -100,6 +100,15 @@ func TestTagsUIOwnerCreateRenameMergeDelete(t *testing.T) {
 	}
 	if got := request(http.MethodGet, "/tags?sort=count-desc", nil); got.Code != 200 || !strings.Contains(got.Body.String(), "renamed") || !strings.Contains(got.Body.String(), "source") {
 		t.Fatalf("populated index: %d", got.Code)
+	}
+	if got := request(http.MethodPost, "/tags/merge", url.Values{"target_tag": {""}, "merge_tags": {""}}); got.Code != http.StatusOK || got.Header().Get("Content-Type") != "text/vnd.turbo-stream.html" || !strings.Contains(got.Body.String(), `id="id_target_tag_error"><li>This field is required.</li>`) || !strings.Contains(got.Body.String(), `id="id_merge_tags_error"><li>This field is required.</li>`) || !strings.Contains(got.Body.String(), `input-aria-describedby="id_target_tag_help id_target_tag_error" input-class="is-error"`) || !strings.Contains(got.Body.String(), `input-aria-describedby="id_merge_tags_help id_merge_tags_error" input-class="is-error"`) {
+		t.Fatalf("empty merge fields: %d %q", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodPost, "/tags/merge", url.Values{"target_tag": {"missing-target"}, "merge_tags": {"missing-merge"}}); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `Tag &#34;missing-target&#34; does not exist.`) || !strings.Contains(got.Body.String(), `Tag &#34;missing-merge&#34; does not exist.`) {
+		t.Fatalf("independent merge validation: %d %q", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodPost, "/tags/merge", url.Values{"target_tag": {"renamed renamed"}, "merge_tags": {"missing-merge"}}); got.Code != http.StatusOK || strings.Contains(got.Body.String(), `id="id_target_tag_error"`) || !strings.Contains(got.Body.String(), `Tag &#34;missing-merge&#34; does not exist.`) {
+		t.Fatalf("duplicate target is one tag: %d %q", got.Code, got.Body.String())
 	}
 	if got := request(http.MethodPost, "/tags/merge", url.Values{"target_tag": {"renamed"}, "merge_tags": {"source"}}); got.Code != 302 {
 		t.Fatalf("merge: %d %q", got.Code, got.Body.String())

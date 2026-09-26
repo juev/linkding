@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juev/linkding/internal/auth"
+	"github.com/juev/linkding/internal/bookmarks"
 	"github.com/juev/linkding/internal/config"
 	"github.com/juev/linkding/internal/settings"
 )
@@ -369,36 +370,47 @@ func saveTagUI(r *http.Request, cfg config.Config, db *sql.DB, ownerID, tagID in
 }
 
 func mergeTagsUI(r *http.Request, cfg config.Config, db *sql.DB, ownerID int64, target, merge string) (string, string, error) {
-	targetNames := strings.Fields(target)
-	if len(targetNames) != 1 {
-		return "Please enter only one tag name for the target tag.", "", nil
+	targetNames := bookmarks.ParseTagString(target, " ")
+	var targetID int64
+	var targetError, mergeError string
+	if len(targetNames) == 0 {
+		targetError = "This field is required."
+	} else if len(targetNames) != 1 {
+		targetError = "Please enter only one tag name for the target tag."
+	} else {
+		id, err := tagIDByNameUI(r, cfg, db, ownerID, targetNames[0])
+		if errors.Is(err, sql.ErrNoRows) {
+			targetError = `Tag "` + targetNames[0] + `" does not exist.`
+		} else if err != nil {
+			return "", "", err
+		} else {
+			targetID = id
+		}
 	}
-	targetID, err := tagIDByNameUI(r, cfg, db, ownerID, targetNames[0])
-	if errors.Is(err, sql.ErrNoRows) {
-		return `Tag "` + targetNames[0] + `" does not exist.`, "", nil
-	}
-	if err != nil {
-		return "", "", err
-	}
-	mergeNames := strings.Fields(merge)
+	mergeNames := bookmarks.ParseTagString(merge, " ")
 	if len(mergeNames) == 0 {
-		return "", "Please enter at least one tag to merge.", nil
+		mergeError = "This field is required."
 	}
 	ids := []int64{}
 	for _, name := range mergeNames {
 		id, err := tagIDByNameUI(r, cfg, db, ownerID, name)
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", `Tag "` + name + `" does not exist.`, nil
+			mergeError = `Tag "` + name + `" does not exist.`
+			break
 		}
 		if err != nil {
 			return "", "", err
 		}
-		if id == targetID {
-			return "", "The target tag cannot be selected for merging.", nil
+		if targetID != 0 && id == targetID {
+			mergeError = "The target tag cannot be selected for merging."
+			break
 		}
 		if !slices.Contains(ids, id) {
 			ids = append(ids, id)
 		}
+	}
+	if targetError != "" || mergeError != "" {
+		return targetError, mergeError, nil
 	}
 	tx, err := db.BeginTx(r.Context(), nil)
 	if err != nil {

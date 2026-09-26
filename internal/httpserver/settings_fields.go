@@ -3,6 +3,7 @@ package httpserver
 import (
 	"html/template"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/juev/linkding/internal/settings"
@@ -64,7 +65,7 @@ var profileHelp = map[string]template.HTML{
 	"custom_css":                      "Allows to add custom CSS to the page.",
 }
 
-func profileDisplayFields(form url.Values) []settingsField {
+func profileDisplayFields(form url.Values, invalid bool) []settingsField {
 	byName := make(map[string]settings.ProfileField, len(settings.ProfileFields))
 	for _, field := range settings.ProfileFields {
 		byName[field.Name] = field
@@ -83,6 +84,15 @@ func profileDisplayFields(form url.Values) []settingsField {
 		}
 		if definition.Kind == "text" {
 			field.Class = "monospace"
+		}
+		if invalid && name == "items_per_page" {
+			if value == "" {
+				field.Error = "This field is required."
+			} else if count, err := strconv.Atoi(value); err != nil {
+				field.Error = "Enter a whole number."
+			} else if count < 10 {
+				field.Error = "Ensure this value is greater than or equal to 10."
+			}
 		}
 		for _, option := range definition.Choices {
 			field.Options = append(field.Options, settingsOption{Value: option, Label: choiceLabel(name, option), Selected: value == option})

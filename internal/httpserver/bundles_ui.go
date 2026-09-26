@@ -369,7 +369,7 @@ func validateBundleFormUI(bundle apiBundle) string {
 		limit int
 	}{{bundle.Name, 256}, {bundle.Search, 256}, {bundle.AnyTags, 1024}, {bundle.AllTags, 1024}, {bundle.ExcludedTags, 1024}} {
 		if len([]rune(field.value)) > field.limit {
-			return "Ensure this value has at most " + strconv.Itoa(field.limit) + " characters."
+			return "Ensure this value has at most " + strconv.Itoa(field.limit) + " characters (it has " + strconv.Itoa(len([]rune(field.value))) + ")."
 		}
 	}
 	for _, filter := range []string{bundle.FilterUnread, bundle.FilterShared} {

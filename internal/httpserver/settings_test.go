@@ -63,6 +63,12 @@ func TestSettingsPageAndProfileUpdate(t *testing.T) {
 		!strings.Contains(page.Body.String(), `action="/settings/import"`) || !strings.Contains(page.Body.String(), `name="csrfmiddlewaretoken"`) {
 		t.Fatalf("settings page: status=%d body=%q", page.Code, page.Body.String())
 	}
+	generalPost := request(http.MethodPost, "/settings/general", url.Values{"theme": {"invalid"}, "csrfmiddlewaretoken": {csrf}})
+	generalPostResponse := httptest.NewRecorder()
+	handler.ServeHTTP(generalPostResponse, generalPost)
+	if generalPostResponse.Code != http.StatusOK || !strings.Contains(generalPostResponse.Body.String(), `class="settings-page"`) {
+		t.Fatalf("general POST renders settings without updating: %d", generalPostResponse.Code)
+	}
 	form, err := settings.LoadProfileForm(ctx, db, "sqlite", user.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +105,7 @@ func TestSettingsPageAndProfileUpdate(t *testing.T) {
 	form.Set("items_per_page", "1")
 	invalid := httptest.NewRecorder()
 	handler.ServeHTTP(invalid, request(http.MethodPost, "/settings/update", form))
-	if invalid.Code != 422 || !strings.Contains(invalid.Body.String(), "Profile update failed") {
+	if invalid.Code != 422 || !strings.Contains(invalid.Body.String(), "Profile update failed") || !strings.Contains(invalid.Body.String(), `<ul class="errorlist" id="id_items_per_page_error"><li>Ensure this value is greater than or equal to 10.</li></ul>`) || !strings.Contains(invalid.Body.String(), `aria-describedby="id_items_per_page_help id_items_per_page_error"`) {
 		t.Fatalf("invalid update: %d %q", invalid.Code, invalid.Body.String())
 	}
 }
