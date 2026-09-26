@@ -52,6 +52,9 @@ for variant in linkding linkding-plus; do
     docker cp "$name:/etc/linkding/data/secretkey.txt" "$smoke_dir/${name}-secret-before.txt"
     if [ "$variant" = linkding-plus ]; then
       docker exec "$name" test -s /etc/linkding/uBOLite.chromium.mv3/manifest.json
+    fi
+    # Chromium capture on arm64 runs natively in the release-arm64-smoke job.
+    if [ "$variant" = linkding-plus ] && [ "$arch" = amd64 ]; then
       snapshot_args=(
         --browser-wait-until=load
         --browser-load-max-time=60000
