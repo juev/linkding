@@ -47,16 +47,17 @@ for variant in linkding linkding-plus; do
       exit 1
     fi
     curl -fsS -o /dev/null "http://127.0.0.1:${port}/linkding/static/bundle.js"
+    curl -fsS -o /dev/null "http://127.0.0.1:${port}/linkding/login/"
     docker exec "$name" /usr/local/bin/linkding healthcheck
     docker cp "$name:/etc/linkding/data/secretkey.txt" "$smoke_dir/${name}-secret-before.txt"
     if [ "$variant" = linkding-plus ]; then
+      docker exec "$name" test -s /etc/linkding/uBOLite.chromium.mv3/manifest.json
       if ! docker exec "$name" sh -c 'timeout 600 single-file \
         --browser-arg="--headless=new" \
         --browser-wait-until=domContentLoaded \
         --browser-arg="--user-data-dir=./data/chromium-profile" \
         --browser-arg="--no-sandbox" \
         --browser-arg="--disable-dev-shm-usage" \
-        --browser-arg="--load-extension=uBOLite.chromium.mv3" \
         http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
         docker logs "$name" --tail 50
         exit 1
