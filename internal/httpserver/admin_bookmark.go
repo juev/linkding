@@ -30,6 +30,7 @@ type adminBookmarkData struct {
 	DashboardApps                                       []adminDashboardApp
 	Prefix, Title, Username, CSRFToken, Action, ListURL string
 	URL, URLNormalized, BookmarkTitle, Description      string
+	ObjectName                                          string
 	Notes, WebsiteTitle, WebsiteDescription             string
 	WebArchiveURL, FaviconFile, PreviewImageFile        string
 	DateAddedDate, DateAddedTime                        string
@@ -39,6 +40,8 @@ type adminBookmarkData struct {
 	ID, OwnerID, LatestSnapshotID                       int64
 	Unread, Archived, Shared                            bool
 	ConfirmDelete, CanChange, CanDelete                 bool
+	History                                             bool
+	HistoryRows                                         []adminTagHistoryRow
 	Owners                                              []adminOwnerOption
 	Tags, Snapshots                                     []adminBookmarkOption
 	SelectedTagIDs                                      map[int64]bool
@@ -53,7 +56,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		action = "add"
 	} else {
 		pieces := strings.Split(part, "/")
-		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete") {
+		if len(pieces) != 3 || pieces[2] != "" || (pieces[1] != "change" && pieces[1] != "delete" && pieces[1] != "history") {
 			http.NotFound(w, r)
 			return
 		}
@@ -64,7 +67,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		}
 		id, action = parsed, pieces[1]
 	}
-	if (action == "add" && !permissions.Add) || (action == "change" && !permissions.Change && !permissions.View) || (action == "delete" && !permissions.Delete) {
+	if (action == "add" && !permissions.Add) || ((action == "change" || action == "history") && !permissions.Change && !permissions.View) || (action == "delete" && !permissions.Delete) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -73,12 +76,17 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if action == "history" && r.Method == http.MethodPost {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	location, err := adminTagLocation(cfg.TimeZone)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return
 	}
-	data := adminBookmarkData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add bookmark", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete, SelectedTagIDs: make(map[int64]bool)}
+	data := adminBookmarkData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add bookmark", ConfirmDelete: action == "delete", History: action == "history", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete, SelectedTagIDs: make(map[int64]bool)}
 	if action == "change" {
 		data.Title = "Change bookmark"
 		if !permissions.Change {
@@ -102,6 +110,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			return
 		}
 		data.WebsiteTitle, data.WebsiteDescription = websiteTitle.String, websiteDescription.String
+		data.ObjectName = adminBookmarkRepr(data.BookmarkTitle, data.URL)
 		data.LatestSnapshotID = snapshot.Int64
 		data.DateAddedDate, data.DateAddedTime = adminBookmarkDateParts(added, location)
 		data.DateModifiedDate, data.DateModifiedTime = adminBookmarkDateParts(modified, location)
@@ -128,6 +137,34 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			http.Error(w, "Server error", 500)
 			return
 		}
+	}
+	if action == "history" {
+		data.Title = "Change history: " + data.ObjectName
+		rows, err := db.QueryContext(r.Context(), `SELECT l.action_time,u.username,l.action_flag,l.change_message FROM django_admin_log AS l JOIN django_content_type AS c ON c.id=l.content_type_id JOIN auth_user AS u ON u.id=l.user_id WHERE c.app_label = `+assetMarker(cfg.DBEngine, 1)+` AND c.model = `+assetMarker(cfg.DBEngine, 2)+` AND l.object_id = `+assetMarker(cfg.DBEngine, 3)+` ORDER BY l.action_time DESC,l.id DESC LIMIT 100`, "bookmarks", "bookmark", strconv.FormatInt(id, 10))
+		if err != nil {
+			http.Error(w, "Server error", 500)
+			return
+		}
+		for rows.Next() {
+			var happened time.Time
+			var entry adminTagHistoryRow
+			var flag int
+			var message string
+			if err := rows.Scan(&happened, &entry.Username, &flag, &message); err != nil {
+				rows.Close()
+				http.Error(w, "Server error", 500)
+				return
+			}
+			entry.Date = adminHistoryDate(happened.In(location))
+			entry.Action = adminTagHistoryMessage(flag, message)
+			data.HistoryRows = append(data.HistoryRows, entry)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			http.Error(w, "Server error", 500)
+			return
+		}
+		rows.Close()
 	}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -187,7 +224,13 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + strconv.FormatInt(data.ID, 10) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}
@@ -404,7 +447,7 @@ func (data *adminBookmarkData) loadOptions(r *http.Request, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	tags, err := db.QueryContext(r.Context(), `SELECT id,name FROM bookmarks_tag ORDER BY name`)
+	tags, err := db.QueryContext(r.Context(), `SELECT id,name FROM bookmarks_tag ORDER BY date_added DESC,id DESC`)
 	if err != nil {
 		return err
 	}

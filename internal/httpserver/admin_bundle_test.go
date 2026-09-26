@@ -72,7 +72,7 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 	if got := request(http.MethodGet, base+"add/", ownerSession, nil, false); got.Code != 403 {
 		t.Fatalf("non-staff add: %d", got.Code)
 	}
-	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="order" value="0"`) || strings.Contains(got.Body.String(), `name="date_created"`) || strings.Contains(got.Body.String(), `name="date_modified"`) {
+	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="order" value="0"`) || strings.Contains(got.Body.String(), `name="date_created"`) || strings.Contains(got.Body.String(), `name="date_modified"`) || !strings.Contains(got.Body.String(), `class="related-widget-wrapper"`) || !strings.Contains(got.Body.String(), `title="Add another user"`) || !strings.Contains(got.Body.String(), `aria-disabled="true"`) || !strings.Contains(got.Body.String(), `value="Save and add another" name="_addanother"`) || !strings.Contains(got.Body.String(), `value="Save and continue editing" name="_continue"`) {
 		t.Fatalf("add form: %d %q", got.Code, got.Body.String())
 	}
 	if got := request(http.MethodPost, base+"add/", adminSession, form, false); got.Code != 403 {
@@ -123,6 +123,16 @@ func TestAdminBundleCreateChangeDeleteAndValidation(t *testing.T) {
 		t.Fatalf("created fields: name=%q search=%q tags=%q/%q/%q filters=%q/%q order=%d owner=%d dates=%v/%v", name, search, anyTags, allTags, excludedTags, unread, shared, order, ownerID, created, modified)
 	}
 	change := base + strconv.FormatInt(id, 10) + "/change/"
+	for _, submit := range []struct{ name, want string }{{"_continue", change}, {"_addanother", base + "add/"}} {
+		changeForm := url.Values{}
+		for key, values := range form {
+			changeForm[key] = append([]string(nil), values...)
+		}
+		changeForm.Set(submit.name, "Save")
+		if got := request(http.MethodPost, change, adminSession, changeForm, true); got.Code != 302 || got.Header().Get("Location") != submit.want {
+			t.Fatalf("change with %s: %d %q %q", submit.name, got.Code, got.Header().Get("Location"), got.Body.String())
+		}
+	}
 	if got := request(http.MethodGet, base, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `href="`+base+`add/"`) || !strings.Contains(got.Body.String(), `href="`+change+`"`) {
 		t.Fatalf("list links: %d %q", got.Code, got.Body.String())
 	}

@@ -83,6 +83,10 @@ func serveAdmin(w http.ResponseWriter, r *http.Request, cfg config.Config, db *s
 		servePasswordChangeDone(w, r, r.URL.Path, cfg, db, users)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, root+"auth/user/") && strings.HasSuffix(r.URL.Path, "/history/") {
+		serveAdminUserHistory(w, r, cfg, db, user)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, root+"bookmarks/toast/") && r.URL.Path != root+"bookmarks/toast/" {
 		permissions, err := loadAdminPermissions(r.Context(), db, cfg.DBEngine, user, "bookmarks", "toast")
 		if err != nil {

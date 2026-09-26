@@ -73,6 +73,9 @@ func TestAdminFeedTokenCRUDAndReservedKey(t *testing.T) {
 	if got := request(http.MethodGet, base+"add/", nil, false); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `name="key"`) || !strings.Contains(got.Body.String(), `name="user"`) {
 		t.Fatalf("add form: %d %s", got.Code, got.Body.String())
 	}
+	if got := request(http.MethodGet, base+"add/", nil, false); !strings.Contains(got.Body.String(), "Add feed token") || !strings.Contains(got.Body.String(), `id="add_id_user"`) || !strings.Contains(got.Body.String(), `aria-disabled="true"`) || !strings.Contains(got.Body.String(), `name="_addanother"`) || !strings.Contains(got.Body.String(), `name="_continue"`) {
+		t.Fatalf("add form controls: %d %s", got.Code, got.Body.String())
+	}
 	form := url.Values{"key": {" initial "}, "user": {strconv.FormatInt(alice.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
 	if got := request(http.MethodPost, base+"add/", form, false); got.Code != http.StatusForbidden {
 		t.Fatalf("add without CSRF: %d", got.Code)
@@ -92,6 +95,9 @@ func TestAdminFeedTokenCRUDAndReservedKey(t *testing.T) {
 	unchangedForm := url.Values{"key": {"initial"}, "user": {strconv.FormatInt(alice.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
 	if got := request(http.MethodPost, change, unchangedForm, true); got.Code != http.StatusFound {
 		t.Fatalf("save unchanged key: %d %s", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodGet, change, nil, false); !strings.Contains(got.Body.String(), `id="change_id_user"`) || !strings.Contains(got.Body.String(), `href="/admin/auth/user/`+strconv.FormatInt(alice.ID, 10)+`/change/?_to_field=id&amp;_popup=1"`) {
+		t.Fatalf("change form related user links: %d %s", got.Code, got.Body.String())
 	}
 	changeForm := url.Values{"key": {reservedKey}, "user": {strconv.FormatInt(alice.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
 	if got := request(http.MethodPost, change, changeForm, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "already has a feed token") {
@@ -129,6 +135,14 @@ func TestAdminFeedTokenCRUDAndReservedKey(t *testing.T) {
 	}
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM bookmarks_feedtoken`).Scan(&tokenCount); err != nil || tokenCount != 1 {
 		t.Fatalf("deleting new token should preserve original, got %d: %v", tokenCount, err)
+	}
+	unchangedForm.Set("_addanother", "Save and add another")
+	if got := request(http.MethodPost, change, unchangedForm, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("change and add another: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	continueForm := url.Values{"key": {"feed continue"}, "user": {strconv.FormatInt(bob.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_continue": {"Save and continue editing"}}
+	if got := request(http.MethodPost, base+"add/", continueForm, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"feed%20continue/change/" {
+		t.Fatalf("add and continue: %d %q", got.Code, got.Header().Get("Location"))
 	}
 	viewer, err := users.CreateUser(ctx, auth.NewUser{Username: "viewer", Password: "password", IsStaff: true})
 	if err != nil {

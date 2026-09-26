@@ -178,7 +178,13 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + strconv.FormatInt(id, 10) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}

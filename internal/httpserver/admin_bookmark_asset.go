@@ -202,7 +202,13 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + strconv.FormatInt(id, 10) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}
@@ -225,7 +231,7 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		http.Error(w, "Server error", 500)
 		return
 	}
-	rows, err := db.QueryContext(r.Context(), `SELECT id,title,url FROM bookmarks_bookmark ORDER BY id`)
+	rows, err := db.QueryContext(r.Context(), `SELECT id,title,url FROM bookmarks_bookmark ORDER BY date_added DESC, id DESC`)
 	if err != nil {
 		http.Error(w, "Server error", 500)
 		return

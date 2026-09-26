@@ -116,7 +116,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 				http.Error(w, "Server error", 500)
 				return
 			}
-			entry.Date = happened.In(location).Format("Jan. 2, 2006, 3:04 p.m.")
+			entry.Date = adminHistoryDate(happened.In(location))
 			entry.Action = adminTagHistoryMessage(flag, message)
 			data.HistoryRows = append(data.HistoryRows, entry)
 		}

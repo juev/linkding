@@ -124,6 +124,9 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	if addPage.Code != http.StatusOK || !strings.Contains(addPage.Body.String(), `name="tags" multiple`) || !strings.Contains(addPage.Body.String(), `name="latest_snapshot"`) {
 		t.Fatalf("add form: %d %s", addPage.Code, addPage.Body.String())
 	}
+	if !strings.Contains(addPage.Body.String(), `value="Save and add another"`) || !strings.Contains(addPage.Body.String(), `value="Save and continue editing"`) || !strings.Contains(addPage.Body.String(), `class="vDateField"`) {
+		t.Fatalf("add form controls: %d %s", addPage.Code, addPage.Body.String())
+	}
 	if got := request(http.MethodPost, base+"add/", adminSession, form, false); got.Code != http.StatusForbidden {
 		t.Fatalf("add without CSRF: %d", got.Code)
 	}
@@ -205,6 +208,13 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM bookmarks_bookmark_tags WHERE bookmark_id=? AND tag_id=?`, bookmarkID, tagTwo).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("new tag missing: %d %v", count, err)
 	}
+	historyPath := base + strconv.FormatInt(bookmarkID, 10) + "/history/"
+	if got := request(http.MethodGet, historyPath, adminSession, nil, true); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "Change history: Admin title") || !strings.Contains(got.Body.String(), "Added.") || !strings.Contains(got.Body.String(), "Changed Url") {
+		t.Fatalf("bookmark history: %d %s", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodPost, historyPath, adminSession, form, true); got.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("history accepted POST: %d", got.Code)
+	}
 	deletePath := base + strconv.FormatInt(bookmarkID, 10) + "/delete/"
 	if got := request(http.MethodGet, deletePath, viewerSession, nil, true); got.Code != http.StatusForbidden {
 		t.Fatalf("view-only delete: %d", got.Code)
@@ -245,6 +255,18 @@ func TestAdminBookmarkCreateChangeDelete(t *testing.T) {
 	}
 	if len(logFlags) != 3 || logFlags[0] != 1 || logFlags[1] != 2 || logFlags[2] != 3 || logMessages[0] != adminAdditionMessage || logMessages[1] != adminChangeMessage([]string{"Url", "Url normalized", "Preview image file", "Is archived", "Tags", "Latest snapshot"}) || logMessages[2] != "" || logReprs[0] != adminBookmarkRepr("Admin title", "https://example.test/admin") || logReprs[1] != adminBookmarkRepr("Admin title", "https://example.test/changed") || logReprs[2] != logReprs[1] {
 		t.Fatalf("bookmark admin logs: flags=%v reprs=%v messages=%v", logFlags, logReprs, logMessages)
+	}
+	form.Set("url", "https://example.test/continue")
+	form.Del("latest_snapshot")
+	form.Set("_continue", "Save and continue editing")
+	if got := request(http.MethodPost, base+"add/", adminSession, form, true); got.Code != http.StatusFound || !strings.HasSuffix(got.Header().Get("Location"), "/change/") {
+		t.Fatalf("save and continue redirect: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	form.Del("_continue")
+	form.Set("_addanother", "Save and add another")
+	form.Set("url", "https://example.test/add-another")
+	if got := request(http.MethodPost, base+"add/", adminSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("save and add another redirect: %d %q", got.Code, got.Header().Get("Location"))
 	}
 }
 

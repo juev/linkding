@@ -70,6 +70,9 @@ func TestAdminAPITokenCRUDSearchAndPermissions(t *testing.T) {
 	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), `name="name"`) || !strings.Contains(got.Body.String(), `name="user"`) || strings.Contains(got.Body.String(), `name="key"`) {
 		t.Fatalf("add form: %d %s", got.Code, got.Body.String())
 	}
+	if got := request(http.MethodGet, base+"add/", adminSession, nil, false); !strings.Contains(got.Body.String(), "Add api token") || !strings.Contains(got.Body.String(), `id="add_id_user"`) || !strings.Contains(got.Body.String(), `aria-disabled="true"`) || !strings.Contains(got.Body.String(), `name="_addanother"`) || !strings.Contains(got.Body.String(), `name="_continue"`) {
+		t.Fatalf("add form controls: %d %s", got.Code, got.Body.String())
+	}
 	form := url.Values{"name": {"Alice API"}, "user": {strconv.FormatInt(alice.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
 	if got := request(http.MethodPost, base+"add/", adminSession, form, false); got.Code != 403 {
 		t.Fatalf("add without CSRF: %d", got.Code)
@@ -88,6 +91,17 @@ func TestAdminAPITokenCRUDSearchAndPermissions(t *testing.T) {
 	change := base + strconv.FormatInt(id, 10) + "/change/"
 	if got := request(http.MethodGet, change, adminSession, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), "Alice API") || strings.Contains(got.Body.String(), key) {
 		t.Fatalf("change form exposes key or omits name: %d %s", got.Code, got.Body.String())
+	}
+	if got := request(http.MethodGet, change, adminSession, nil, false); !strings.Contains(got.Body.String(), `id="change_id_user"`) || !strings.Contains(got.Body.String(), `href="/admin/auth/user/`+strconv.FormatInt(alice.ID, 10)+`/change/?_to_field=id&amp;_popup=1"`) {
+		t.Fatalf("change form related user links: %d %s", got.Code, got.Body.String())
+	}
+	continueForm := url.Values{"name": {"Continue API"}, "user": {strconv.FormatInt(bob.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_continue": {"Save and continue editing"}}
+	if got := request(http.MethodPost, base+"add/", adminSession, continueForm, true); got.Code != http.StatusFound || !strings.HasPrefix(got.Header().Get("Location"), base) || !strings.HasSuffix(got.Header().Get("Location"), "/change/") {
+		t.Fatalf("add and continue: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	addAnotherForm := url.Values{"name": {"Alice API"}, "user": {strconv.FormatInt(alice.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_addanother": {"Save and add another"}}
+	if got := request(http.MethodPost, change, adminSession, addAnotherForm, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("change and add another: %d %q", got.Code, got.Header().Get("Location"))
 	}
 	bobForm := url.Values{"name": {"Service token"}, "user": {strconv.FormatInt(bob.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
 	if got := request(http.MethodPost, base+"add/", adminSession, bobForm, true); got.Code != 302 {

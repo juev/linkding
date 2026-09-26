@@ -28,6 +28,19 @@ type adminUserProfileData struct {
 	Form              url.Values
 }
 
+// Django's stacked UserProfile inline uses model field order and verbose names,
+// which differ from the order and labels in linkding's account settings form.
+var adminUserProfileFieldOrder = []string{
+	"theme", "bookmark_date_display", "bookmark_description_display", "bookmark_description_max_lines",
+	"bookmark_link_target", "web_archive_integration", "tag_search", "tag_grouping",
+	"enable_sharing", "enable_public_sharing", "enable_favicons", "enable_preview_images",
+	"display_url", "display_view_bookmark_action", "display_edit_bookmark_action",
+	"display_archive_bookmark_action", "display_remove_bookmark_action", "permanent_notes",
+	"custom_css", "custom_css_hash", "auto_tagging_rules", "enable_automatic_html_snapshots",
+	"default_mark_unread", "default_mark_shared", "items_per_page", "sticky_pagination",
+	"collapse_side_panel", "hide_bundles", "legacy_search", "search_preferences",
+}
+
 func loadAdminUserProfile(ctx context.Context, db *sql.DB, engine string, userID int64) (adminUserProfileData, error) {
 	form, err := settings.LoadProfileForm(ctx, db, engine, userID)
 	if err != nil {
@@ -60,14 +73,23 @@ func (profile *adminUserProfileData) buildFields() {
 	for _, field := range settings.ProfileFields {
 		byName[field.Name] = field
 	}
-	for _, name := range profileFieldOrder {
+	for _, name := range adminUserProfileFieldOrder {
+		label := strings.ReplaceAll(name, "_", " ")
+		label = strings.ToUpper(label[:1]) + label[1:]
+		if name == "custom_css_hash" {
+			profile.Fields = append(profile.Fields, adminUserProfileField{Name: "profile-0-" + name, Label: label, Kind: "textinput", Value: profile.CustomCSSHash})
+			continue
+		}
+		if name == "search_preferences" {
+			value := profile.SearchPreferences
+			if value == "" || value == "{}" {
+				value = "-"
+			}
+			profile.Fields = append(profile.Fields, adminUserProfileField{Name: "profile-0-" + name, Label: label, Kind: "readonly", Value: value})
+			continue
+		}
 		definition := byName[name]
 		value := profile.Form.Get(name)
-		label := profileLabels[name]
-		if label == "" {
-			label = strings.ReplaceAll(name, "_", " ")
-			label = strings.ToUpper(label[:1]) + label[1:]
-		}
 		field := adminUserProfileField{Name: "profile-0-" + name, Label: label, Kind: definition.Kind, Value: value, Checked: value != "" && value != "0" && !strings.EqualFold(value, "false"), Required: definition.Kind == "choice" || definition.Kind == "number"}
 		for _, choice := range definition.Choices {
 			field.Choices = append(field.Choices, adminUserProfileChoice{Value: choice, Label: choiceLabel(name, choice), Selected: value == choice})

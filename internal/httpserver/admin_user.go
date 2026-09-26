@@ -29,18 +29,19 @@ type adminUserOption struct {
 }
 
 type adminUserData struct {
-	Prefix, Title, Username, CSRFToken, Action, ListURL string
-	UserName, FirstName, LastName, Email, PasswordHash  string
-	Password1, Password2, Error                         string
-	LastLoginDate, LastLoginTime                        string
-	DateJoinedDate, DateJoinedTime                      string
-	ID                                                  int64
-	IsActive, IsStaff, IsSuperuser                      bool
-	UsablePassword, IsAdd, CanChange, CanDelete         bool
-	Groups, Permissions                                 []adminUserOption
-	GroupIDs, PermissionIDs                             map[int64]bool
-	Profile                                             adminUserProfileData
-	DashboardApps                                       []adminDashboardApp
+	Prefix, Title, Username, CSRFToken, Action, ListURL                               string
+	UserName, FirstName, LastName, Email, PasswordHash                                string
+	PasswordAlgorithm, PasswordIterations, PasswordSaltSummary, PasswordDigestSummary string
+	Password1, Password2, Error                                                       string
+	LastLoginDate, LastLoginTime                                                      string
+	DateJoinedDate, DateJoinedTime                                                    string
+	ID                                                                                int64
+	IsActive, IsStaff, IsSuperuser                                                    bool
+	UsablePassword, IsAdd, CanChange, CanDelete                                       bool
+	Groups, Permissions                                                               []adminUserOption
+	GroupIDs, PermissionIDs                                                           map[int64]bool
+	Profile                                                                           adminUserProfileData
+	DashboardApps                                                                     []adminDashboardApp
 }
 
 func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository, user auth.User, permissions adminPermissions) {
@@ -102,6 +103,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			http.Error(w, "Server error", 500)
 			return
 		}
+		data.PasswordAlgorithm, data.PasswordIterations, data.PasswordSaltSummary, data.PasswordDigestSummary = adminUserPasswordSummary(data.PasswordHash)
 		data.DateJoinedDate, data.DateJoinedTime = adminBookmarkDateParts(joined, location)
 		if lastLogin.Valid {
 			data.LastLoginDate, data.LastLoginTime = adminBookmarkDateParts(lastLogin.Time, location)
@@ -137,6 +139,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 		if data.Error == "" {
+			savedID := id
 			if action == "add" {
 				input := auth.NewUser{Username: data.UserName, Password: data.Password1}
 				tx, txErr := db.BeginTx(r.Context(), nil)
@@ -148,6 +151,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 				var created auth.User
 				created, err = users.CreateUserTx(r.Context(), tx, input, data.UsablePassword)
 				if err == nil {
+					savedID = created.ID
 					err = writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "auth", "user", strconv.FormatInt(created.ID, 10), created.Username, 1, adminAdditionMessage)
 				}
 				if err == nil {
@@ -165,7 +169,13 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 					return
 				}
 			} else {
-				http.Redirect(w, r, base, http.StatusFound)
+				redirect := base
+				if _, ok := r.PostForm["_addanother"]; ok {
+					redirect = base + "add/"
+				} else if _, ok := r.PostForm["_continue"]; ok {
+					redirect = base + strconv.FormatInt(savedID, 10) + "/change/"
+				}
+				http.Redirect(w, r, redirect, http.StatusFound)
 				return
 			}
 		}
@@ -204,6 +214,18 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 	if r.Method != http.MethodHead {
 		_ = adminUserTemplate.Execute(w, data)
 	}
+}
+
+func adminUserPasswordSummary(hash string) (algorithm, iterations, salt, digest string) {
+	parts := strings.Split(hash, "$")
+	if len(parts) != 4 {
+		return "", "", "", ""
+	}
+	mask := func(value string) string {
+		visible := min(6, len(value))
+		return value[:visible] + strings.Repeat("*", len(value)-visible)
+	}
+	return parts[0], parts[1], mask(parts[2]), mask(parts[3])
 }
 
 func (data *adminUserData) loadRelations(r *http.Request, cfg config.Config, db *sql.DB) error {
@@ -419,20 +441,43 @@ func (data *adminUserData) loadOptions(r *http.Request, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	permissions, err := db.QueryContext(r.Context(), `SELECT p.id,c.app_label || ' | ' || c.model || ' | ' || p.name FROM auth_permission AS p JOIN django_content_type AS c ON c.id=p.content_type_id ORDER BY c.app_label,c.model,p.name`)
+	permissions, err := db.QueryContext(r.Context(), `SELECT p.id,c.app_label,c.model,p.name FROM auth_permission AS p JOIN django_content_type AS c ON c.id=p.content_type_id ORDER BY c.app_label,c.model,p.name`)
 	if err != nil {
 		return err
 	}
 	for permissions.Next() {
 		var option adminUserOption
-		if err := permissions.Scan(&option.ID, &option.Label); err != nil {
+		var app, model, name string
+		if err := permissions.Scan(&option.ID, &app, &model, &name); err != nil {
 			permissions.Close()
 			return err
 		}
+		option.Label = adminUserPermissionLabel(app, model, name)
 		option.Selected = data.PermissionIDs[option.ID]
 		data.Permissions = append(data.Permissions, option)
 	}
 	err = permissions.Err()
 	permissions.Close()
 	return err
+}
+
+func adminUserPermissionLabel(app, model, name string) string {
+	appLabels := map[string]string{
+		"admin": "Administration", "auth": "Authentication and Authorization", "authtoken": "Auth Token",
+		"bookmarks": "Bookmarks", "contenttypes": "Content Types", "sessions": "Sessions",
+	}
+	modelLabels := map[string]string{
+		"logentry": "log entry", "bookmarkasset": "bookmark asset", "bookmarkbundle": "bookmark bundle",
+		"feedtoken": "feed token", "apitoken": "api token", "globalsettings": "global settings",
+		"userprofile": "user profile", "contenttype": "content type", "tokenproxy": "Token", "token": "Token",
+	}
+	appLabel := appLabels[app]
+	if appLabel == "" {
+		appLabel = app
+	}
+	modelLabel := modelLabels[model]
+	if modelLabel == "" {
+		modelLabel = model
+	}
+	return appLabel + " | " + modelLabel + " | " + name
 }

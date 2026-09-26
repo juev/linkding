@@ -67,7 +67,7 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 	if got := request(http.MethodGet, base+"add/", ownerKey, nil, false); got.Code != 403 {
 		t.Fatalf("non-staff add: %d", got.Code)
 	}
-	if got := request(http.MethodGet, base+"add/", adminKey, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), "name=\"message\"") {
+	if got := request(http.MethodGet, base+"add/", adminKey, nil, false); got.Code != 200 || !strings.Contains(got.Body.String(), "name=\"message\"") || !strings.Contains(got.Body.String(), `href="/admin/auth/user/add/?_to_field=id&amp;_popup=1"`) || !strings.Contains(got.Body.String(), `value="Save and add another" name="_addanother"`) || !strings.Contains(got.Body.String(), `value="Save and continue editing" name="_continue"`) {
 		t.Fatalf("add form: %d", got.Code)
 	}
 	form := url.Values{"key": {"notice"}, "message": {"Important"}, "owner": {strconv.FormatInt(owner.ID, 10)}, "csrfmiddlewaretoken": {csrf}}
@@ -80,6 +80,10 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 	var id int64
 	if err := db.QueryRowContext(ctx, `SELECT id FROM bookmarks_toast WHERE key=? AND owner_id=?`, "notice", owner.ID).Scan(&id); err != nil {
 		t.Fatal(err)
+	}
+	addAnother := url.Values{"key": {"notice-again"}, "message": {"Another message"}, "owner": {strconv.FormatInt(owner.ID, 10)}, "csrfmiddlewaretoken": {csrf}, "_addanother": {"Save and add another"}}
+	if got := request(http.MethodPost, base+"add/", adminKey, addAnother, true); got.Code != 302 || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("save and add another toast: %d %q", got.Code, got.Header().Get("Location"))
 	}
 	change := base + strconv.FormatInt(id, 10) + "/change/"
 	list := request(http.MethodGet, base, adminKey, nil, false)
@@ -124,8 +128,12 @@ func TestAdminToastCreateChangeDeletePermissionsAndCSRF(t *testing.T) {
 	}
 	form.Set("message", "Updated")
 	form.Set("acknowledged", "on")
-	if got := request(http.MethodPost, change, adminKey, form, true); got.Code != 302 {
+	if got := request(http.MethodPost, change, adminKey, form, true); got.Code != 302 || got.Header().Get("Location") != base {
 		t.Fatalf("change toast: %d", got.Code)
+	}
+	form.Set("_continue", "Save and continue editing")
+	if got := request(http.MethodPost, change, adminKey, form, true); got.Code != 302 || got.Header().Get("Location") != change {
+		t.Fatalf("save and continue editing toast: %d %q", got.Code, got.Header().Get("Location"))
 	}
 	var message string
 	var acknowledged bool

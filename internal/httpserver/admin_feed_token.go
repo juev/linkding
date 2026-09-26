@@ -65,14 +65,14 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	data := adminFeedTokenData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: actionURL, ListURL: base, Key: key, KeyPath: escapedKey, ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
 	switch action {
 	case "add":
-		data.Title = "Add Feed token"
+		data.Title = "Add feed token"
 	case "change":
-		data.Title = "Change Feed token"
+		data.Title = "Change feed token"
 		if !permissions.Change {
-			data.Title = "View Feed token"
+			data.Title = "View feed token"
 		}
 	case "delete":
-		data.Title = "Delete Feed token"
+		data.Title = "Delete feed token"
 	}
 	if action != "add" {
 		if err := db.QueryRowContext(r.Context(), `SELECT t.user_id,u.username FROM bookmarks_feedtoken AS t JOIN auth_user AS u ON u.id=t.user_id WHERE t.key = `+assetMarker(cfg.DBEngine, 1), key).Scan(&data.OwnerID, &data.OwnerName); errors.Is(err, sql.ErrNoRows) {
@@ -215,7 +215,13 @@ func serveAdminFeedToken(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + url.PathEscape(data.Key) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}

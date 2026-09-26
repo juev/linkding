@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="en-us" dir="ltr">
 <head>
-  <title>{{.Title}} | linkding Admin</title>
+  <title>{{if and .Key (not .ConfirmDelete)}}{{.Key}} | {{end}}{{.Title}} | linkding Admin</title>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/base.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/dark_mode.css">
   <script src="{{.Prefix}}static/admin/js/theme.js"></script>
@@ -9,6 +9,10 @@
   <script src="{{.Prefix}}static/admin/js/nav_sidebar.js" defer></script>
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/forms.css">
   <link rel="stylesheet" href="{{.Prefix}}static/admin/css/responsive.css">
+  <script src="{{.Prefix}}static/admin/js/linkding_i18n.js"></script>
+  <script src="{{.Prefix}}static/admin/js/vendor/jquery/jquery.min.js"></script>
+  <script src="{{.Prefix}}static/admin/js/jquery.init.js"></script>
+  <script src="{{.Prefix}}static/admin/js/admin/RelatedObjectLookups.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="NONE,NOARCHIVE">
 </head>
@@ -29,9 +33,11 @@
       <svg aria-hidden="true" class="theme-icon-when-light"><use xlink:href="#icon-sun" /></svg>
     </button>
   </div></header>
-  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Feed tokens</a> &rsaquo; {{.Title}}</div></nav>
+  <nav aria-label="Breadcrumbs"><div class="breadcrumbs"><a href="{{.Prefix}}admin/">Home</a> &rsaquo; <a href="{{.Prefix}}admin/bookmarks/">Bookmarks</a> &rsaquo; <a href="{{.ListURL}}">Feed tokens</a> &rsaquo; {{if .Key}}{{.Key}}{{else}}{{.Title}}{{end}}</div></nav>
   <div class="main" id="main">{{template "admin_sidebar" .}}<main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     <h1>{{.Title}}</h1>
+    {{if and .Key (not .ConfirmDelete)}}<h2>{{.Key}}</h2>{{end}}
+    <div id="content-main">
     {{if .Error}}<p class="errornote">{{.Error}}</p>{{end}}
     {{if .ConfirmDelete}}
       <p>Are you sure you want to delete the Feed token “{{.Key}} ({{.OwnerName}})”?</p>
@@ -41,11 +47,12 @@
         <input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
         <fieldset class="module aligned">
           <div class="form-row"><label class="required" for="id_key">Key:</label><input type="text" name="key" value="{{.Key}}" maxlength="40" required id="id_key"{{if not .CanChange}} readonly{{end}}></div>
-          <div class="form-row"><label class="required" for="id_user">User:</label><select name="user" required id="id_user"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Users}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Username}}</option>{{end}}</select></div>
+          <div class="form-row field-user"><div><div class="flex-container"><label class="required" for="id_user">User:</label><div class="related-widget-wrapper" data-model-ref="user"><select name="user" required id="id_user"{{if not .CanChange}} disabled{{end}}><option value="">---------</option>{{range .Users}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Username}}</option>{{end}}</select><a class="related-widget-wrapper-link change-related" id="change_id_user" data-href-template="{{.Prefix}}admin/auth/user/__fk__/change/?_to_field=id&amp;_popup=1" data-popup="yes"{{if .OwnerID}} href="{{.Prefix}}admin/auth/user/{{.OwnerID}}/change/?_to_field=id&amp;_popup=1"{{else}} aria-disabled="true"{{end}} title="Change selected user"><img src="{{.Prefix}}static/admin/img/icon-changelink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link add-related" id="add_id_user" data-popup="yes" href="{{.Prefix}}admin/auth/user/add/?_to_field=id&amp;_popup=1" title="Add another user"><img src="{{.Prefix}}static/admin/img/icon-addlink.svg" alt="" width="24" height="24"></a><a class="related-widget-wrapper-link view-related" id="view_id_user" data-href-template="{{.Prefix}}admin/auth/user/__fk__/change/?_to_field=id"{{if .OwnerID}} href="{{.Prefix}}admin/auth/user/{{.OwnerID}}/change/?_to_field=id"{{else}} aria-disabled="true"{{end}} title="View selected user"><img src="{{.Prefix}}static/admin/img/icon-viewlink.svg" alt="" width="24" height="24"></a></div></div></div></div>
         </fieldset>
-        {{if or .CanChange .CanDelete}}<div class="submit-row">{{if .CanChange}}<input type="submit" value="Save" class="default">{{end}}{{if and .Key .CanDelete}}<p class="deletelink-box"><a href="{{.ListURL}}{{.KeyPath}}/delete/" class="deletelink">Delete</a></p>{{end}}</div>{{end}}
+        {{if or .CanChange .CanDelete}}<div class="submit-row">{{if .CanChange}}<input type="submit" value="Save" class="default" name="_save"><input type="submit" value="Save and add another" name="_addanother"><input type="submit" value="Save and continue editing" name="_continue">{{end}}{{if and .Key .CanDelete}}<a href="{{.ListURL}}{{.KeyPath}}/delete/" class="deletelink" role="button">Delete</a>{{end}}</div>{{end}}
       </form>
     {{end}}
+    </div>
     <br class="clear">
   </div></main></div><footer id="footer"></footer>
 </div>

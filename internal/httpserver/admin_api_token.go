@@ -60,14 +60,14 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	data := adminAPITokenData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add API token", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
+	data := adminAPITokenData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add api token", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
 	if action == "change" {
-		data.Title = "Change API token"
+		data.Title = "Change api token"
 		if !permissions.Change {
-			data.Title = "View API token"
+			data.Title = "View api token"
 		}
 	} else if action == "delete" {
-		data.Title = "Delete API token"
+		data.Title = "Delete api token"
 	}
 	if id != 0 {
 		err := db.QueryRowContext(r.Context(), `SELECT t.name,t.user_id,u.username FROM bookmarks_apitoken AS t JOIN auth_user AS u ON u.id=t.user_id WHERE t.id = `+assetMarker(cfg.DBEngine, 1), id).Scan(&data.Name, &data.OwnerID, &data.OwnerName)
@@ -188,7 +188,13 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 				http.Error(w, "Server error", 500)
 				return
 			}
-			http.Redirect(w, r, base, http.StatusFound)
+			redirect := base
+			if _, ok := r.PostForm["_addanother"]; ok {
+				redirect = base + "add/"
+			} else if _, ok := r.PostForm["_continue"]; ok {
+				redirect = base + strconv.FormatInt(tokenID, 10) + "/change/"
+			}
+			http.Redirect(w, r, redirect, http.StatusFound)
 			return
 		}
 	}

@@ -96,6 +96,18 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	if addPage.Code != http.StatusOK || !strings.Contains(addPage.Body.String(), `name="usable_password"`) || strings.Contains(addPage.Body.String(), `profile-TOTAL_FORMS`) {
 		t.Fatalf("add page: %d %s", addPage.Code, addPage.Body.String())
 	}
+	for _, expected := range []string{
+		"After you’ve created a user, you’ll be able to edit more user options.",
+		"Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.",
+		"Whether the user will be able to authenticate using a password or not.",
+		"Your password must contain at least 8 characters.",
+		"Enter the same password as before, for verification.",
+		`name="_save"`, `name="_addanother"`, `name="_continue"`,
+	} {
+		if !strings.Contains(addPage.Body.String(), expected) {
+			t.Fatalf("add page missing %q", expected)
+		}
+	}
 	if got := request(http.MethodGet, base+"add/", viewerSession, nil, true); got.Code != http.StatusForbidden {
 		t.Fatalf("view-only add: %d", got.Code)
 	}
@@ -109,8 +121,8 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	addForm.Set("usable_password", "false")
 	addForm.Del("password1")
 	addForm.Del("password2")
-	if got := request(http.MethodPost, base+"add/", adminSession, addForm, true); got.Code != http.StatusFound {
-		t.Fatalf("add without password: %d %s", got.Code, got.Body.String())
+	if got := request(http.MethodPost, base+"add/", adminSession, addForm, true); got.Code != http.StatusFound || got.Header().Get("Location") != base {
+		t.Fatalf("add without password: %d location=%q", got.Code, got.Header().Get("Location"))
 	}
 	var id int64
 	var password string
@@ -125,8 +137,19 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	addForm.Set("usable_password", "true")
 	addForm.Set("password1", "StrongRandomPass-2026")
 	addForm.Set("password2", "StrongRandomPass-2026")
+	addForm.Set("_continue", "Save and continue editing")
+	passwordUserChangePath := ""
 	if got := request(http.MethodPost, base+"add/", adminSession, addForm, true); got.Code != http.StatusFound {
 		t.Fatalf("add with password: %d %s", got.Code, got.Body.String())
+	} else {
+		var passwordUserID int64
+		if err := db.QueryRowContext(ctx, `SELECT id FROM auth_user WHERE username='passworduser'`).Scan(&passwordUserID); err != nil {
+			t.Fatal(err)
+		}
+		passwordUserChangePath = base + strconv.FormatInt(passwordUserID, 10) + "/change/"
+		if got.Header().Get("Location") != passwordUserChangePath {
+			t.Fatalf("add and continue location: %q", got.Header().Get("Location"))
+		}
 	}
 	if err := db.QueryRowContext(ctx, `SELECT password FROM auth_user WHERE username='passworduser'`).Scan(&password); err != nil {
 		t.Fatal(err)
@@ -135,6 +158,23 @@ func TestAdminUserAddAndChange(t *testing.T) {
 		t.Fatalf("password hash unusable: correct=%t err=%v", correct, err)
 	}
 	changePath := base + strconv.FormatInt(id, 10) + "/change/"
+	changePage := request(http.MethodGet, changePath, adminSession, nil, true)
+	if changePage.Code != http.StatusOK {
+		t.Fatalf("change page: %d", changePage.Code)
+	}
+	for _, expected := range []string{
+		"<h2>newuser</h2>",
+		"Raw passwords are not stored, so there is no way to see the user’s password.",
+		"Designates whether the user can log into this admin site.",
+		`class="selectfilter" data-field-name="groups"`,
+		`class="vDateField" name="date_joined_0"`,
+		`id="profile-heading"`,
+		`name="_addanother"`, `name="_continue"`,
+	} {
+		if !strings.Contains(changePage.Body.String(), expected) {
+			t.Fatalf("change page missing %q", expected)
+		}
+	}
 	view := request(http.MethodGet, changePath, viewerSession, nil, true)
 	if view.Code != http.StatusOK || strings.Contains(view.Body.String(), `value="Save"`) || !strings.Contains(view.Body.String(), `profile-0-theme`) {
 		t.Fatalf("view-only change page: %d %s", view.Code, view.Body.String())
@@ -159,8 +199,9 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	if got := request(http.MethodPost, changePath, viewerSession, changeForm, true); got.Code != http.StatusForbidden {
 		t.Fatalf("view-only POST: %d", got.Code)
 	}
-	if got := request(http.MethodPost, changePath, adminSession, changeForm, true); got.Code != http.StatusFound {
-		t.Fatalf("change: %d %s", got.Code, got.Body.String())
+	changeForm.Set("_addanother", "Save and add another")
+	if got := request(http.MethodPost, changePath, adminSession, changeForm, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("change and add another: %d location=%q", got.Code, got.Header().Get("Location"))
 	}
 	var username, email, firstName, lastName, theme, cssHash string
 	var staff bool
@@ -211,6 +252,40 @@ func TestAdminUserAddAndChange(t *testing.T) {
 	}
 	if len(flags) != 3 || flags[0] != 1 || flags[1] != 1 || flags[2] != 2 || reprs[0] != "newuser" || reprs[1] != "passworduser" || reprs[2] != "renameduser" || messages[0] != adminAdditionMessage || messages[1] != adminAdditionMessage || !strings.Contains(messages[2], `"fields": ["Username", "First name", "Last name", "Email address", "Staff status", "Groups", "User permissions", "Date joined"]`) || !strings.Contains(messages[2], `"name": "user profile"`) || !strings.Contains(messages[2], `"Custom css hash"`) {
 		t.Fatalf("user admin logs: flags=%v reprs=%v messages=%v", flags, reprs, messages)
+	}
+}
+
+func TestAdminUserPasswordSummary(t *testing.T) {
+	algorithm, iterations, salt, digest := adminUserPasswordSummary("pbkdf2_sha256$1200000$abcdefghijkl$0123456789")
+	if algorithm != "pbkdf2_sha256" || iterations != "1200000" || salt != "abcdef******" || digest != "012345****" {
+		t.Fatalf("password summary: %q %q %q %q", algorithm, iterations, salt, digest)
+	}
+	if algorithm, iterations, salt, digest = adminUserPasswordSummary("!unusable"); algorithm != "" || iterations != "" || salt != "" || digest != "" {
+		t.Fatal("unusable password exposed a hash summary")
+	}
+}
+
+func TestAdminUserProfileInlineFieldOrder(t *testing.T) {
+	profile := adminUserProfileData{Form: url.Values{}}
+	profile.buildFields()
+	if len(profile.Fields) != 30 {
+		t.Fatalf("profile inline has %d fields, want 30", len(profile.Fields))
+	}
+	for index, expected := range map[int]struct{ name, label string }{
+		0:  {"profile-0-theme", "Theme"},
+		1:  {"profile-0-bookmark_date_display", "Bookmark date display"},
+		4:  {"profile-0-bookmark_link_target", "Bookmark link target"},
+		8:  {"profile-0-enable_sharing", "Enable sharing"},
+		18: {"profile-0-custom_css", "Custom css"},
+		19: {"profile-0-custom_css_hash", "Custom css hash"},
+		21: {"profile-0-enable_automatic_html_snapshots", "Enable automatic html snapshots"},
+		28: {"profile-0-legacy_search", "Legacy search"},
+		29: {"profile-0-search_preferences", "Search preferences"},
+	} {
+		field := profile.Fields[index]
+		if field.Name != expected.name || field.Label != expected.label {
+			t.Fatalf("profile field %d: %q (%q), want %q (%q)", index, field.Name, field.Label, expected.name, expected.label)
+		}
 	}
 }
 

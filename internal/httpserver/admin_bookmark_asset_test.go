@@ -70,6 +70,9 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO bookmarks_bookmark(url,url_normalized,title,description,notes,website_title,website_description,unread,is_archived,shared,date_added,date_modified,owner_id,web_archive_snapshot_url,favicon_file,preview_image_file) VALUES ('https://example.test/b','https://example.test/b','AAA','','',NULL,NULL,0,0,0,?,?,?,'','','')`, added.Add(time.Hour), added.Add(time.Hour), owner.ID); err != nil {
+		t.Fatal(err)
+	}
 	assetDir := filepath.Join(cfg.DataDir, "assets")
 	if err := os.MkdirAll(assetDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -103,6 +106,15 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	if addPage.Code != http.StatusOK || !strings.Contains(addPage.Body.String(), `name="file"`) || !strings.Contains(addPage.Body.String(), `name="bookmark"`) || strings.Contains(addPage.Body.String(), `name="date_created"`) {
 		t.Fatalf("asset add form: %d %s", addPage.Code, addPage.Body.String())
 	}
+	addHTML := addPage.Body.String()
+	if first, second := strings.Index(addHTML, `AAA (https://example.test/b...)`), strings.Index(addHTML, `Example (https://example.test/a...)`); first < 0 || second <= first {
+		t.Fatalf("bookmark options are not ordered by date_added descending: %d %d", first, second)
+	}
+	for _, want := range []string{`title="Change selected bookmark"`, `aria-disabled="true" title="Change selected bookmark"`, `title="Add another bookmark"`, `href="/admin/bookmarks/bookmark/add/?_to_field=id&amp;_popup=1"`, `title="View selected bookmark"`, `class="vCheckboxLabel" for="id_gzip">Gzip</label>`, `name="_save"`, `name="_addanother"`, `name="_continue"`} {
+		if !strings.Contains(addHTML, want) {
+			t.Errorf("asset add form missing %q", want)
+		}
+	}
 	if got := request(http.MethodPost, base+"add/", adminSession, form, false); got.Code != http.StatusForbidden {
 		t.Fatalf("create without CSRF: %d", got.Code)
 	}
@@ -132,6 +144,10 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 		t.Fatalf("stored asset: bookmark=%d file=%q size=%d type=%q content=%q name=%q status=%q gzip=%t date=%v", storedBookmark, storedFile, storedSize, storedType, storedContentType, storedName, storedStatus, storedGzip, created)
 	}
 	changePath := base + strconv.FormatInt(assetID, 10) + "/change/"
+	changePage := request(http.MethodGet, changePath, adminSession, nil, false)
+	if changePage.Code != http.StatusOK || !strings.Contains(changePage.Body.String(), `href="/admin/bookmarks/bookmark/`+strconv.FormatInt(bookmarkID, 10)+`/change/?_to_field=id&amp;_popup=1"`) {
+		t.Fatalf("asset change form missing selected bookmark link: %d", changePage.Code)
+	}
 	if got := request(http.MethodGet, changePath, viewerSession, nil, false); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "View bookmark asset") {
 		t.Fatalf("viewer form: %d %s", got.Code, got.Body.String())
 	}
@@ -198,6 +214,28 @@ func TestAdminBookmarkAssetCreateChangeDelete(t *testing.T) {
 	}
 	if len(gotLogs) != 3 || gotLogs[0].flag != 1 || gotLogs[0].repr != "Snapshot" || gotLogs[0].message != adminAdditionMessage || gotLogs[1].flag != 2 || gotLogs[1].repr != "Renamed" || gotLogs[1].message != adminChangeMessage([]string{"File size", "Display name", "Status", "Gzip"}) || gotLogs[2].flag != 3 || gotLogs[2].repr != "Renamed" || gotLogs[2].message != "" {
 		t.Fatalf("asset admin logs: %+v", gotLogs)
+	}
+	rows.Close()
+	form.Set("file", "another.html")
+	form.Set("display_name", "Another")
+	form.Set("_addanother", "Save and add another")
+	if got := request(http.MethodPost, base+"add/", adminSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("save and add another redirect: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	form.Del("_addanother")
+	form.Set("_continue", "Save and continue editing")
+	continueResult := request(http.MethodPost, base+"add/", adminSession, form, true)
+	continuePath := continueResult.Header().Get("Location")
+	if continueResult.Code != http.StatusFound || !strings.HasPrefix(continuePath, base) || !strings.HasSuffix(continuePath, "/change/") {
+		t.Fatalf("save and continue redirect: %d %q", continueResult.Code, continuePath)
+	}
+	if got := request(http.MethodPost, continuePath, adminSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != continuePath {
+		t.Fatalf("change and continue redirect: %d %q", got.Code, got.Header().Get("Location"))
+	}
+	form.Del("_continue")
+	form.Set("_addanother", "Save and add another")
+	if got := request(http.MethodPost, continuePath, adminSession, form, true); got.Code != http.StatusFound || got.Header().Get("Location") != base+"add/" {
+		t.Fatalf("change and add another redirect: %d %q", got.Code, got.Header().Get("Location"))
 	}
 }
 
