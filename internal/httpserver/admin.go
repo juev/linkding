@@ -44,6 +44,7 @@ func adminSidebarTemplate(files embed.FS, name string) *template.Template {
 		"passwordPrompt":        adminPasswordPrompt,
 		"passwordEnableMessage": adminPasswordEnableMessage,
 		"singleDeletePrompt":    adminSingleDeletePrompt,
+		"bulkDeletePrompt":      adminBulkDeletePrompt,
 		"deletionLabel":         adminDeletionLabel,
 	}).ParseFS(files, name, "admin_sidebar.html"))
 }

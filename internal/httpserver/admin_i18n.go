@@ -318,6 +318,11 @@ func adminSingleDeletePrompt(language, model, repr string) string {
 	return strings.ReplaceAll(message, "%(escaped_object)s", repr)
 }
 
+func adminBulkDeletePrompt(language, model string) string {
+	message := adminTranslate(language, "Are you sure you want to delete the selected %(objects_name)s? All of the following objects and their related items will be deleted:")
+	return strings.ReplaceAll(message, "%(objects_name)s", model)
+}
+
 func adminDeletionLabel(language, label string) string {
 	switch label {
 	case "User":

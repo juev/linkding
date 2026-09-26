@@ -68,6 +68,9 @@ func TestAdminLanguageNegotiationAndCatalog(t *testing.T) {
 	if got := adminFormTitle("ru", "Change history: Tag"); got != "История изменений: Tag" {
 		t.Fatalf("Russian history title: %q", got)
 	}
+	if got := adminBulkDeletePrompt("ru", "пользователь"); got != "Вы уверены, что хотите удалить пользователь? Все следующие объекты и связанные с ними элементы будут удалены:" {
+		t.Fatalf("Russian bulk deletion prompt: %q", got)
+	}
 	nodes := []adminDeletionNode{{Label: "User", Children: []adminDeletionNode{{Label: "Log entry", Repr: "Added “Toast object (1)”."}}}}
 	localizeAdminDeletionGraph("ru", nil, nodes)
 	if got := nodes[0].Children[0].Repr; got != "Добавлено “Toast object (1)“." {
