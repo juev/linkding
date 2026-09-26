@@ -68,6 +68,31 @@ func TestSQLiteDatabaseOptionsApplyPerConnection(t *testing.T) {
 	}
 }
 
+func TestSQLiteTransactionModeDefaultsToImmediate(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		options map[string]json.RawMessage
+		want    string
+	}{
+		{name: "default", want: "immediate"},
+		{name: "explicit deferred", options: map[string]json.RawMessage{"transaction_mode": json.RawMessage(`"DEFERRED"`)}, want: "deferred"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, dsn, err := databaseDSN(config.Config{DBEngine: "sqlite", DataDir: t.TempDir(), DBOptions: tc.options})
+			if err != nil {
+				t.Fatal(err)
+			}
+			u, err := url.Parse(dsn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := u.Query().Get("_txlock"); got != tc.want {
+				t.Fatalf("SQLite transaction mode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPostgresDatabaseOptionsEnterConnectionString(t *testing.T) {
 	cfg := config.Config{
 		DBEngine:   "postgres",

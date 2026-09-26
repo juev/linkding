@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -21,6 +22,36 @@ import (
 	"github.com/juev/linkding/internal/config"
 	"github.com/juev/linkding/internal/store"
 )
+
+func TestOIDCRedirectURLBehindTrustedProxy(t *testing.T) {
+	cases := []struct {
+		name    string
+		trusted bool
+		proto   string
+		tls     bool
+		want    string
+	}{
+		{"ignore untrusted headers", false, "https", false, "http://internal.test/oidc/callback/"},
+		{"use trusted HTTPS", true, "https", false, "https://links.test/oidc/callback/"},
+		{"use trusted HTTP", true, "http", false, "http://links.test/oidc/callback/"},
+		{"ignore invalid scheme", true, "javascript", false, "http://links.test/oidc/callback/"},
+		{"keep direct TLS", true, "http", true, "https://links.test/oidc/callback/"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, "http://internal.test/oidc/authenticate/", nil)
+			r.Header.Set("X-Forwarded-Host", "links.test")
+			r.Header.Set("X-Forwarded-Proto", tc.proto)
+			if tc.tls {
+				r.TLS = &tls.ConnectionState{}
+			}
+			got := oidcRedirectURL(r, config.Config{UseXForwardedHost: tc.trusted})
+			if got != tc.want {
+				t.Fatalf("callback URL = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestOIDCMethodAndCSRFResponses(t *testing.T) {
 	ctx := context.Background()

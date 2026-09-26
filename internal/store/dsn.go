@@ -28,6 +28,9 @@ func databaseDSN(cfg config.Config) (driver, dsn string, err error) {
 		u := &url.URL{Scheme: "file", Path: path}
 		query := u.Query()
 		query.Add("_pragma", "foreign_keys(1)")
+		// Acquire the write lock at transaction start so concurrent writes wait
+		// for busy_timeout instead of failing when a deferred transaction upgrades.
+		query.Set("_txlock", "immediate")
 		if _, customTimeout := cfg.DBOptions["timeout"]; !customTimeout {
 			query.Add("_pragma", "busy_timeout(5000)")
 		}

@@ -95,6 +95,11 @@ func oidcRedirectURL(r *http.Request, cfg config.Config) string {
 		if forwarded := r.Header.Get("X-Forwarded-Host"); forwarded != "" {
 			host = forwarded
 		}
+		if r.TLS == nil {
+			if forwarded := r.Header.Get("X-Forwarded-Proto"); forwarded == "http" || forwarded == "https" {
+				scheme = forwarded
+			}
+		}
 	}
 	return (&url.URL{Scheme: scheme, Host: host, Path: cfg.URLPrefix() + "oidc/callback/"}).String()
 }
