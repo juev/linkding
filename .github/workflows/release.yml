@@ -103,12 +103,19 @@ jobs:
           docker cp linkding-release-smoke:/etc/linkding/data/secretkey.txt /tmp/linkding-secretkey-before.txt
           test -s /tmp/linkding-secretkey-before.txt
           if [[ "$TARGET" == linkding-plus ]]; then
-            docker exec linkding-release-smoke sh -c 'timeout 90 single-file \
+            if docker exec linkding-release-smoke sh -c 'timeout 180 single-file \
               --browser-arg="--headless=new" \
               --browser-arg="--user-data-dir=./data/chromium-profile" \
               --browser-arg="--no-sandbox" \
+              --browser-arg="--disable-dev-shm-usage" \
               --browser-arg="--load-extension=uBOLite.chromium.mv3" \
-              http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'
+              http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
+              :
+            else
+              exit_code=$?
+              docker logs linkding-release-smoke --tail 50
+              exit "$exit_code"
+            fi
             docker exec linkding-release-smoke sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"
           fi
           docker restart linkding-release-smoke

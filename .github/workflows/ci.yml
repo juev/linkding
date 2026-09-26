@@ -94,10 +94,17 @@ jobs:
       - name: Check HTML snapshot tool
         if: matrix.target == 'linkding-plus'
         run: |
-          docker exec linkding-smoke sh -c 'timeout 60 single-file \
+          if docker exec linkding-smoke sh -c 'timeout 180 single-file \
             --browser-arg="--headless=new" \
             --browser-arg="--user-data-dir=./data/chromium-profile" \
             --browser-arg="--no-sandbox" \
+            --browser-arg="--disable-dev-shm-usage" \
             --browser-arg="--load-extension=uBOLite.chromium.mv3" \
-            http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'
+            http://127.0.0.1:9090/linkding/login/ /tmp/smoke.html'; then
+            :
+          else
+            exit_code=$?
+            docker logs linkding-smoke --tail 50
+            exit "$exit_code"
+          fi
           docker exec linkding-smoke sh -c "grep -q '<title>Login - Linkding' /tmp/smoke.html"

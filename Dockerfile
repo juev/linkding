@@ -66,8 +66,8 @@ RUN npm install -g single-file-cli@2.0.75 \
     && npm install --prefix "$(npm root -g)/single-file-cli" simple-cdp@1.8.6 \
     && mkdir -p data \
     && chmod 1777 data
-ENV LD_ENABLE_SNAPSHOTS=True HOME=/tmp \
-    LD_SINGLEFILE_UBLOCK_OPTIONS="'--browser-arg=\"--headless=new\"' '--browser-arg=\"--user-data-dir=./data/chromium-profile\"' '--browser-arg=\"--no-sandbox\"' '--browser-arg=\"--load-extension=uBOLite.chromium.mv3\"'"
+ENV LD_ENABLE_SNAPSHOTS=True HOME=/tmp XDG_CONFIG_HOME=/tmp/.chromium XDG_CACHE_HOME=/tmp/.chromium \
+    LD_SINGLEFILE_UBLOCK_OPTIONS="'--browser-arg=\"--headless=new\"' '--browser-arg=\"--user-data-dir=./data/chromium-profile\"' '--browser-arg=\"--no-sandbox\"' '--browser-arg=\"--disable-dev-shm-usage\"' '--browser-arg=\"--load-extension=uBOLite.chromium.mv3\"'"
 USER 65532:65532
 EXPOSE 9090
 HEALTHCHECK --interval=30s --retries=3 --timeout=3s \
