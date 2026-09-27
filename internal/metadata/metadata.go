@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
+	"golang.org/x/text/encoding"
 )
 
 const maxPageBytes = 5_000 * 1024
@@ -51,10 +54,29 @@ func Load(ctx context.Context, client Doer, pageURL string) Metadata {
 	if end := bytes.Index(content, []byte("</head>")); end >= 0 {
 		content = content[:end+len("</head>")]
 	}
-	encoding, _, _ := charset.DetermineEncoding(content, "")
-	decoded, err := io.ReadAll(encoding.NewDecoder().Reader(bytes.NewReader(content)))
-	if err != nil {
-		return result
+	// Valid multibyte UTF-8 takes precedence over a mislabeled charset. Pure
+	// ASCII can still contain stateful encodings such as ISO-2022-JP.
+	hasNonASCII := false
+	for _, b := range content {
+		if b >= utf8.RuneSelf {
+			hasNonASCII = true
+			break
+		}
+	}
+	decoded := content
+	if !utf8.Valid(content) || !hasNonASCII {
+		selected, _, bom := charset.DetermineEncoding(content, "")
+		if !bom {
+			if declared := declaredHTMLEncoding(content); declared != nil {
+				selected = declared
+			} else {
+				selected, _, _ = charset.DetermineEncoding(content, response.Header.Get("Content-Type"))
+			}
+		}
+		decoded, err = io.ReadAll(selected.NewDecoder().Reader(bytes.NewReader(content)))
+		if err != nil {
+			return result
+		}
 	}
 	doc, err := html.Parse(bytes.NewReader(decoded))
 	if err != nil {
@@ -100,6 +122,49 @@ func Load(ctx context.Context, client Doer, pageURL string) Metadata {
 		}
 	}
 	return result
+}
+
+// DetermineEncoding scans only 1024 bytes, so inspect the full head for late declarations.
+func declaredHTMLEncoding(content []byte) encoding.Encoding {
+	tokenizer := html.NewTokenizer(bytes.NewReader(content))
+	for {
+		switch tokenizer.Next() {
+		case html.ErrorToken:
+			return nil
+		case html.EndTagToken:
+			name, _ := tokenizer.TagName()
+			if bytes.EqualFold(name, []byte("head")) {
+				return nil
+			}
+		case html.StartTagToken, html.SelfClosingTagToken:
+			name, hasAttr := tokenizer.TagName()
+			if !bytes.EqualFold(name, []byte("meta")) {
+				continue
+			}
+			var label, httpEquiv, contentType string
+			for hasAttr {
+				key, value, more := tokenizer.TagAttr()
+				hasAttr = more
+				switch string(key) {
+				case "charset":
+					label = string(value)
+				case "http-equiv":
+					httpEquiv = string(value)
+				case "content":
+					contentType = string(value)
+				}
+			}
+			if label == "" && strings.EqualFold(httpEquiv, "content-type") {
+				_, params, err := mime.ParseMediaType(contentType)
+				if err == nil {
+					label = params["charset"]
+				}
+			}
+			if selected, _ := charset.Lookup(strings.TrimSpace(label)); selected != nil {
+				return selected
+			}
+		}
+	}
 }
 
 func attribute(node *html.Node, key string) string {
