@@ -6,12 +6,22 @@ smoke_dir=$(mktemp -d /tmp/linkding-release-smoke.XXXXXX)
 run_id=${smoke_dir##*.}
 name=
 volume=
+remove_volume() {
+  local target=$1
+  for _ in $(seq 1 30); do
+    if docker volume rm "$target" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  docker volume rm "$target" >/dev/null
+}
 cleanup() {
   if [ -n "$name" ] && docker inspect "$name" >/dev/null 2>&1; then
     docker stop "$name" >/dev/null || true
   fi
   if [ -n "$volume" ] && docker volume inspect "$volume" >/dev/null 2>&1; then
-    docker volume rm "$volume" >/dev/null || true
+    remove_volume "$volume" || true
   fi
   for file in "$smoke_dir"/*; do
     if [ -f "$file" ]; then unlink "$file"; fi
@@ -35,7 +45,7 @@ for variant in linkding linkding-plus; do
       "ghcr.io/juev/${variant}:${tag}-${arch}" >/dev/null
     port=$(docker port "$name" 9090/tcp | sed -n 's/.*://p')
     ready=0
-    for attempt in $(seq 1 60); do
+    for _ in $(seq 1 60); do
       if curl -fsS "http://127.0.0.1:${port}/linkding/health" >/dev/null 2>&1; then
         ready=1
         break
@@ -78,7 +88,7 @@ for variant in linkding linkding-plus; do
     cmp "$smoke_dir/${name}-secret-before.txt" "$smoke_dir/${name}-secret-after.txt"
     printf '%s/%s: runtime and restart passed\n' "$variant" "$arch"
     docker stop "$name" >/dev/null
-    docker volume rm "$volume" >/dev/null
+    remove_volume "$volume"
     name=
     volume=
   done
