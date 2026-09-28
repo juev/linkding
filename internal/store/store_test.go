@@ -3,13 +3,17 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/juev/linkding/internal/config"
+	"github.com/pressly/goose/v3"
 )
 
 func openTestSQLite(t *testing.T) *sql.DB {
@@ -43,6 +47,7 @@ func TestSQLiteMigrationCreatesPinnedSchemaAndIsRepeatable(t *testing.T) {
 			t.Fatalf("migration run %d: %v", i+1, err)
 		}
 	}
+	assertSQLiteURLIndexes(t, db, true)
 	var tables int
 	err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'goose_db_version'").Scan(&tables)
 	if err != nil {
@@ -66,6 +71,15 @@ func TestMigrateImportedSkipsExistingUpstreamSchema(t *testing.T) {
 	if err := Migrate(ctx, db, "sqlite"); err != nil {
 		t.Fatal(err)
 	}
+	// The source fixture must have the pinned Python index, not the Go upgrade.
+	for _, statement := range []string{
+		`DROP INDEX bm_norm_owner_idx`,
+		`CREATE INDEX bookmarks_bookmark_url_normalized_8b3c53e4 ON bookmarks_bookmark(url_normalized)`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, table := range []string{"linkding_lock", "linkding_job", "goose_db_version"} {
 		if _, err := db.ExecContext(ctx, "DROP TABLE "+table); err != nil {
 			t.Fatal(err)
@@ -82,6 +96,126 @@ func TestMigrateImportedSkipsExistingUpstreamSchema(t *testing.T) {
 		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("imported table %s: count=%d err=%v", table, count, err)
 		}
+	}
+	assertSQLiteURLIndexes(t, db, true)
+}
+
+func TestSQLiteURLIndexMigrationPreservesPopulatedBookmarkTable(t *testing.T) {
+	ctx := context.Background()
+	db := openTestSQLite(t)
+	folder, err := fs.Sub(migrationFiles, "migrations/sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, db, folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 3); err != nil {
+		t.Fatal(err)
+	}
+	assertSQLiteURLIndexes(t, db, false)
+	now := time.Now().UTC()
+	result, err := db.ExecContext(ctx, `INSERT INTO auth_user
+		(password,last_login,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined)
+		VALUES ('',NULL,0,'migration','','','',0,1,?)`, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100; i++ {
+		url := fmt.Sprintf("https://example.test/%d", i)
+		if _, err := db.ExecContext(ctx, `INSERT INTO bookmarks_bookmark
+			(url,url_normalized,title,description,notes,website_title,website_description,unread,is_archived,
+			 shared,date_added,date_modified,owner_id,web_archive_snapshot_url,favicon_file,preview_image_file)
+			VALUES (?,?,?,?,?,NULL,NULL,0,0,0,?,?,?,'','','')`,
+			url, url, "", "", "", now, now, ownerID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var originalRoot int
+	if err := db.QueryRowContext(ctx, `SELECT rootpage FROM sqlite_master WHERE type='table' AND name='bookmarks_bookmark'`).Scan(&originalRoot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertSQLiteURLIndexes(t, db, true)
+	assertSQLiteBookmarkTableUnchanged(t, db, originalRoot, 100)
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertSQLiteURLIndexes(t, db, false)
+	assertSQLiteBookmarkTableUnchanged(t, db, originalRoot, 100)
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertSQLiteURLIndexes(t, db, true)
+	assertSQLiteBookmarkTableUnchanged(t, db, originalRoot, 100)
+}
+
+func assertSQLiteURLIndexes(t *testing.T, db *sql.DB, upgraded bool) {
+	t.Helper()
+	for _, item := range []struct {
+		name    string
+		columns []string
+		want    bool
+	}{
+		{"bookmarks_bookmark_url_normalized_8b3c53e4", []string{"url_normalized"}, !upgraded},
+		{"bm_norm_owner_idx", []string{"url_normalized", "owner_id"}, upgraded},
+	} {
+		var count int
+		if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='index' AND name=?`, item.name).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if (count == 1) != item.want {
+			t.Fatalf("index %s count=%d, want present=%t", item.name, count, item.want)
+		}
+		if !item.want {
+			continue
+		}
+		rows, err := db.Query(`SELECT name FROM pragma_index_info(?) ORDER BY seqno`, item.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for rows.Next() {
+			var column string
+			if err := rows.Scan(&column); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, column)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		if err := rows.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(got, item.columns) {
+			t.Fatalf("index %s columns=%v, want %v", item.name, got, item.columns)
+		}
+	}
+}
+
+func assertSQLiteBookmarkTableUnchanged(t *testing.T, db *sql.DB, originalRoot, originalCount int) {
+	t.Helper()
+	var root, count int
+	if err := db.QueryRow(`SELECT rootpage FROM sqlite_master WHERE type='table' AND name='bookmarks_bookmark'`).Scan(&root); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM bookmarks_bookmark`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if root != originalRoot || count != originalCount {
+		t.Fatalf("bookmark table changed: root=%d/%d count=%d/%d", root, originalRoot, count, originalCount)
+	}
+	var integrity string
+	if err := db.QueryRow(`PRAGMA integrity_check`).Scan(&integrity); err != nil || integrity != "ok" {
+		t.Fatalf("integrity_check=%q err=%v", integrity, err)
 	}
 }
 

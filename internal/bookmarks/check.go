@@ -8,10 +8,10 @@ import (
 )
 
 func (r *Repository) FindExisting(ctx context.Context, ownerID int64, url string) (Bookmark, error) {
-	query := `SELECT id FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
-		` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) + `)) ORDER BY id LIMIT 1`
+	query, args := r.existingURLLookup(ownerID, url)
 	var id int64
-	if err := r.db.QueryRowContext(ctx, query, ownerID, NormalizeURL(url), url).Scan(&id); err != nil {
+	var storedURL string
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&id, &storedURL); err != nil {
 		return Bookmark{}, err
 	}
 	return r.GetByID(ctx, ownerID, id)

@@ -62,6 +62,38 @@ func (r *Repository) marker(n int) string {
 	return "?"
 }
 
+func (r *Repository) existingURLLookup(ownerID int64, url string) (string, []any) {
+	normalized := NormalizeURL(url)
+	if r.engine == "sqlite" {
+		// Keep the oldest matching ID across normalized and legacy exact-URL
+		// records. Each branch can seek by URL and owner without scanning rows
+		// belonging to other owners.
+		return `SELECT id, url FROM (
+			SELECT id, url FROM bookmarks_bookmark WHERE url_normalized = ? AND owner_id = ?
+			UNION ALL
+			SELECT id, url FROM bookmarks_bookmark WHERE url_normalized = '' AND owner_id = ? AND url = ?
+		) ORDER BY id LIMIT 1`, []any{normalized, ownerID, ownerID, url}
+	}
+	query := `SELECT id, url FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
+		` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) + `)) ORDER BY id LIMIT 1`
+	return query, []any{ownerID, normalized, url}
+}
+
+func (r *Repository) normalizedURLDuplicateExists(ownerID, excludedID int64, url string) (string, []any) {
+	normalized := NormalizeURL(url)
+	if r.engine == "sqlite" {
+		return `SELECT EXISTS(
+			SELECT 1 FROM bookmarks_bookmark WHERE url_normalized = ? AND owner_id = ? AND id <> ?
+			UNION ALL
+			SELECT 1 FROM bookmarks_bookmark WHERE url_normalized = '' AND owner_id = ? AND url = ? AND id <> ?
+		)`, []any{normalized, ownerID, excludedID, ownerID, url, excludedID}
+	}
+	query := `SELECT EXISTS(SELECT 1 FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
+		` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) +
+		`)) AND id <> ` + r.marker(4) + `)`
+	return query, []any{ownerID, normalized, url, excludedID}
+}
+
 // CreateOrUpdateData persists the bookmark and tags using the v1.47.0 duplicate
 // rule. Callers must validate the URL. A task-aware repository enqueues effects
 // in the same transaction as the bookmark and its tags.
@@ -74,17 +106,10 @@ func (r *Repository) CreateOrUpdateData(ctx context.Context, ownerID int64, inpu
 		return Bookmark{}, false, fmt.Errorf("begin bookmark write: %w", err)
 	}
 	defer tx.Rollback()
-	bookmarkTable := "bookmarks_bookmark"
-	if r.engine == "sqlite" {
-		// Without statistics SQLite picks the owner index and scans every
-		// bookmark on a duplicate miss. The upstream schema has this index.
-		bookmarkTable += " INDEXED BY bookmarks_bookmark_url_normalized_8b3c53e4"
-	}
-	query := `SELECT id, url FROM ` + bookmarkTable + ` WHERE owner_id = ` + r.marker(1) +
-		` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) + `)) ORDER BY id LIMIT 1`
+	query, args := r.existingURLLookup(ownerID, input.URL)
 	var id int64
 	bookmarkURL := input.URL
-	err = tx.QueryRowContext(ctx, query, ownerID, NormalizeURL(input.URL), input.URL).Scan(&id, &bookmarkURL)
+	err = tx.QueryRowContext(ctx, query, args...).Scan(&id, &bookmarkURL)
 	created := errors.Is(err, sql.ErrNoRows)
 	if err != nil && !created {
 		return Bookmark{}, false, fmt.Errorf("find existing bookmark: %w", err)
