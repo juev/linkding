@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,15 @@ func TestCreateDuplicateUsesPinnedMergeRuleAndOwnerScope(t *testing.T) {
 	if err != nil || !created || bobsBookmark.ID == first.ID {
 		t.Fatalf("same URL for another owner: bookmark=%+v created=%v err=%v", bobsBookmark, created, err)
 	}
+	for _, check := range []struct {
+		ownerID int64
+		wantID  int64
+	}{{alice.ID, first.ID}, {bob.ID, bobsBookmark.ID}} {
+		found, err := r.FindExisting(ctx, check.ownerID, second.URL)
+		if err != nil || found.ID != check.wantID {
+			t.Fatalf("owner %d URL lookup: bookmark=%+v err=%v", check.ownerID, found, err)
+		}
+	}
 	var count int
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM bookmarks_bookmark`).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("bookmark count=%d err=%v", count, err)
@@ -120,6 +130,71 @@ func TestCreateDuplicateKeepsOldestLegacyURLMatch(t *testing.T) {
 	if err != nil || other.Title != "Normalized" {
 		t.Fatalf("normalized bookmark changed: bookmark=%+v err=%v", other, err)
 	}
+	firstNormalized, _, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "https://example.com/new", Title: "First normalized"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterLegacy, _, err := repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "https://example.com/placeholder", Title: "Later legacy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE bookmarks_bookmark SET url=?, url_normalized='' WHERE id=?`, firstNormalized.URL, laterLegacy.ID); err != nil {
+		t.Fatal(err)
+	}
+	updated, created, err = repo.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: firstNormalized.URL, Title: "Updated normalized"})
+	if err != nil || created || updated.ID != firstNormalized.ID || updated.Title != "Updated normalized" {
+		t.Fatalf("normalized match must precede later legacy match: bookmark=%+v created=%t err=%v", updated, created, err)
+	}
+}
+
+func TestSQLiteURLLookupsUseOwnerScopedCompositeIndex(t *testing.T) {
+	ctx := context.Background()
+	db, err := store.Open(ctx, config.Config{DBEngine: "sqlite", DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := store.Migrate(ctx, db, "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	repo := NewRepository(db, "sqlite")
+	lookupQuery, lookupArgs := repo.existingURLLookup(42, "https://example.test/shared")
+	updateQuery, updateArgs := repo.normalizedURLDuplicateExists(42, 7, "https://example.test/shared")
+	for _, item := range []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{"create and check", lookupQuery, lookupArgs},
+		{"update", updateQuery, updateArgs},
+	} {
+		t.Run(item.name, func(t *testing.T) {
+			rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+item.query, item.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var details []string
+			for rows.Next() {
+				var id, parent, unused int
+				var detail string
+				if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+					t.Fatal(err)
+				}
+				details = append(details, detail)
+			}
+			if err := rows.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if err := rows.Close(); err != nil {
+				t.Fatal(err)
+			}
+			plan := strings.Join(details, "\n")
+			if strings.Count(plan, "SEARCH bookmarks_bookmark USING") != 2 ||
+				strings.Count(plan, "bm_norm_owner_idx (url_normalized=? AND owner_id=?)") != 2 {
+				t.Fatalf("both lookup branches must use the owner-scoped index:\n%s", plan)
+			}
+		})
+	}
 }
 
 func TestCreateDuplicatePostgres(t *testing.T) {
@@ -164,6 +239,18 @@ func TestCreateDuplicatePostgres(t *testing.T) {
 	second, created, err := r.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "https://example.com", Title: "Updated", TagNames: []string{"New"}})
 	if err != nil || created || second.ID != first.ID || second.Title != "Updated" || !slices.Equal(second.TagNames, []string{"New"}) {
 		t.Fatalf("PostgreSQL duplicate: bookmark=%+v created=%v err=%v", second, created, err)
+	}
+	found, err := r.FindExisting(ctx, user.ID, "https://example.com")
+	if err != nil || found.ID != first.ID {
+		t.Fatalf("PostgreSQL URL check: bookmark=%+v err=%v", found, err)
+	}
+	other, created, err := r.CreateOrUpdateData(ctx, user.ID, CreateInput{URL: "https://example.org/other"})
+	if err != nil || !created {
+		t.Fatalf("PostgreSQL second bookmark: bookmark=%+v created=%t err=%v", other, created, err)
+	}
+	variant := "HTTPS://EXAMPLE.COM/"
+	if _, err := r.UpdateData(ctx, user.ID, other.ID, UpdateInput{URL: &variant}); !errors.Is(err, ErrDuplicateURL) {
+		t.Fatalf("PostgreSQL normalized duplicate edit: %v", err)
 	}
 }
 
@@ -239,5 +326,15 @@ func TestUpdateDataPreservesOmittedFieldsAndChecksNormalizedDuplicate(t *testing
 	variant := "HTTPS://EXAMPLE.COM/second/"
 	if _, err := repo.UpdateData(ctx, alice.ID, first.ID, UpdateInput{URL: &variant}); !errors.Is(err, ErrDuplicateURL) {
 		t.Fatalf("normalized duplicate edit: %v", err)
+	}
+	later, _, err := repo.CreateOrUpdateData(ctx, alice.ID, CreateInput{URL: "https://example.com/temporary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE bookmarks_bookmark SET url=?, url_normalized='' WHERE id=?`, first.URL, later.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.UpdateData(ctx, alice.ID, first.ID, UpdateInput{URL: &first.URL}); !errors.Is(err, ErrDuplicateURL) {
+		t.Fatalf("legacy duplicate after excluding the edited bookmark: %v", err)
 	}
 }

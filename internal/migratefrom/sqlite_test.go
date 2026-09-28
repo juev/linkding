@@ -58,6 +58,15 @@ func TestInspectSQLiteRequiresPinnedMigrationAndCountsData(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(sourceDir, "assets", "sample.txt"), []byte("original asset"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// Recreate the pinned Python index before removing Go migration metadata.
+	for _, statement := range []string{
+		`DROP INDEX bm_norm_owner_idx`,
+		`CREATE INDEX bookmarks_bookmark_url_normalized_8b3c53e4 ON bookmarks_bookmark(url_normalized)`,
+	} {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, table := range []string{"linkding_lock", "linkding_job", "goose_db_version"} {
 		if _, err := db.ExecContext(ctx, "DROP TABLE "+table); err != nil {
 			t.Fatal(err)
@@ -77,6 +86,10 @@ func TestInspectSQLiteRequiresPinnedMigrationAndCountsData(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer copyDB.Close()
+	var migratedIndex int
+	if err := copyDB.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='index' AND name='bm_norm_owner_idx'`).Scan(&migratedIndex); err != nil || migratedIndex != 1 {
+		t.Fatalf("migrated URL index count=%d err=%v", migratedIndex, err)
+	}
 	if _, err := auth.NewRepository(copyDB, "sqlite").AuthenticatePassword(ctx, "migration", "password"); err != nil {
 		t.Fatalf("migrated password: %v", err)
 	}

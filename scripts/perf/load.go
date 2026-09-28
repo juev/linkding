@@ -44,7 +44,7 @@ type result struct {
 func main() {
 	base := flag.String("base-url", "", "server origin, including scheme and port")
 	tokenPath := flag.String("token-file", "", "path to a disposable fixture API token")
-	caseName := flag.String("case", "list", "list, search, compound, ui, or create")
+	caseName := flag.String("case", "list", "list, search, compound, ui, create, or create-shared")
 	cookiePath := flag.String("cookie-file", "", "file containing an authenticated Cookie header for the ui case")
 	concurrency := flag.Int("concurrency", 1, "number of concurrent clients")
 	requests := flag.Int("requests", 1000, "number of completed requests")
@@ -55,8 +55,8 @@ func main() {
 	if *base == "" || *tokenPath == "" || *concurrency < 1 || *requests < 1 || *rate < 0 {
 		fail("base-url, token-file, positive concurrency and requests, and non-negative rate are required")
 	}
-	if *caseName == "create" && *runID == "" {
-		fail("create requires a unique run-id")
+	if (*caseName == "create" || *caseName == "create-shared") && *runID == "" {
+		fail("create workloads require a run-id")
 	}
 	baseURL, err := url.Parse(*base)
 	if err != nil || (baseURL.Scheme != "http" && baseURL.Scheme != "https") || baseURL.Host == "" || baseURL.Path != "" {
@@ -92,7 +92,7 @@ func main() {
 		endpoint += "?q=systems&limit=100"
 	case "compound":
 		endpoint += "?q=systems%20and%20%23tag-008&limit=100"
-	case "create":
+	case "create", "create-shared":
 		endpoint += "?disable_scraping=1&disable_html_snapshot=1"
 	case "ui":
 		endpoint = strings.TrimRight(*base, "/") + "/bookmarks"
@@ -109,7 +109,7 @@ func main() {
 	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
 	if *caseName == "ui" {
 		checkUI(client, endpoint, cookie)
-	} else if *caseName != "create" {
+	} else if *caseName != "create" && *caseName != "create-shared" {
 		checkRead(client, endpoint, token, *expectedCount)
 	}
 	results := make(chan sample, *requests)
@@ -184,9 +184,13 @@ func main() {
 func perform(client *http.Client, endpoint, token, cookie, caseName, runID string, index int) sample {
 	method := http.MethodGet
 	var body io.Reader
-	if caseName == "create" {
+	if caseName == "create" || caseName == "create-shared" {
 		method = http.MethodPost
-		body = strings.NewReader(fmt.Sprintf(`{"url":"https://example.org/bench/%s/%d","title":"Benchmark %d"}`, runID, index, index))
+		bookmarkURL := fmt.Sprintf("https://example.org/bench/%s/%d", runID, index)
+		if caseName == "create-shared" {
+			bookmarkURL = "https://example.org/bench/shared/" + runID
+		}
+		body = strings.NewReader(fmt.Sprintf(`{"url":%q,"title":"Benchmark %d"}`, bookmarkURL, index))
 	}
 	request, err := http.NewRequest(method, endpoint, body)
 	if err != nil {

@@ -50,10 +50,7 @@ func (r *Repository) UpdateData(ctx context.Context, ownerID, id int64, input Up
 				` AND url = ` + r.marker(2) + ` AND id <> ` + r.marker(3) + `)`
 			args = []any{ownerID, url, id}
 		} else {
-			query = `SELECT EXISTS(SELECT 1 FROM bookmarks_bookmark WHERE owner_id = ` + r.marker(1) +
-				` AND (url_normalized = ` + r.marker(2) + ` OR (url_normalized = '' AND url = ` + r.marker(3) +
-				`)) AND id <> ` + r.marker(4) + `)`
-			args = []any{ownerID, NormalizeURL(url), url, id}
+			query, args = r.normalizedURLDuplicateExists(ownerID, id, url)
 		}
 		if err := tx.QueryRowContext(ctx, query, args...).Scan(&duplicate); err != nil {
 			return Bookmark{}, err

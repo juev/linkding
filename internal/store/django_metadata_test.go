@@ -73,6 +73,7 @@ func TestPrepareImportTargetLeavesDjangoMetadataEmpty(t *testing.T) {
 	if err := PrepareImportTarget(ctx, db, "sqlite"); err != nil {
 		t.Fatal(err)
 	}
+	assertSQLiteURLIndexes(t, db, true)
 	var contentTypes, permissions int
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM django_content_type`).Scan(&contentTypes); err != nil {
 		t.Fatal(err)
