@@ -26,6 +26,23 @@ func TestLoadExtractsPinnedHeadFieldsAndResolvesImage(t *testing.T) {
 	}
 }
 
+func TestLoadNormalizesTitleWithoutChangingDescription(t *testing.T) {
+	for _, tc := range []struct{ title, want string }{
+		{" \t👩‍💻\x01\r\n\u00a0 title \u2003", "👩‍💻 title"},
+		{" \n" + strings.Repeat("界", 513) + "\t ", strings.Repeat("界", 512)},
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<head><title>` + tc.title + `</title><meta name="description" content="First  second"></head>`))
+		}))
+		result := Load(context.Background(), httpclient.New("127.0.0.1", time.Second), server.URL)
+		server.Close()
+		if result.Title != tc.want || result.Description != "First  second" {
+			t.Fatalf("metadata: title=%q, description=%q", result.Title, result.Description)
+		}
+	}
+}
+
 func TestLoadFallsBackToOpenGraphAndSwallowsBlockedAddress(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`<head><meta property="og:description" content="OpenGraph"></head>`))

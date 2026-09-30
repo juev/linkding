@@ -7,6 +7,7 @@ import (
 )
 
 func (r *Repository) EnhanceMetadata(ctx context.Context, ownerID, id int64, title, description string) (Bookmark, error) {
+	title = NormalizeTitle(title)
 	query := `UPDATE bookmarks_bookmark SET title = CASE WHEN title = '' THEN ` + r.marker(1) + ` ELSE title END,
 		description = CASE WHEN description = '' THEN ` + r.marker(2) + ` ELSE description END
 		WHERE owner_id = ` + r.marker(3) + ` AND id = ` + r.marker(4)

@@ -160,6 +160,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 		return
 	}
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
@@ -200,6 +201,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 		default:
 			exists, lookupErr := ownedBookmarkExists(r, db, cfg.DBEngine, user.ID, id)
 			if lookupErr != nil {
+				logServerError(r, lookupErr)
 				writeDetail(w, http.StatusInternalServerError, "Server error")
 				return
 			}
@@ -238,6 +240,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 			return
 		}
 		if err != nil {
+			logServerError(r, err)
 			writeDetail(w, http.StatusInternalServerError, "Server error")
 			return
 		}
@@ -291,6 +294,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 			items, count, err = repo.ListFiltered(r.Context(), user.ID, options)
 		}
 		if err != nil {
+			logServerError(r, err)
 			writeDetail(w, http.StatusInternalServerError, "Server error")
 			return
 		}
@@ -325,6 +329,7 @@ func serveBookmarksAPI(w http.ResponseWriter, r *http.Request, root string, cfg 
 		return
 	}
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}

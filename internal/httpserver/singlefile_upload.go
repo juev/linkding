@@ -54,10 +54,12 @@ func serveSingleFileUpload(w http.ResponseWriter, r *http.Request, cfg config.Co
 		}
 	}
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
 	if err := storeSnapshotUpload(r.Context(), cfg, db, bookmark.ID, bookmark.URL, file); err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}

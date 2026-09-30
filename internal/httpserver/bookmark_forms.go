@@ -53,6 +53,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 	}
 	form, err := settings.LoadProfileForm(r.Context(), db, cfg.DBEngine, user.ID)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
@@ -86,6 +87,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 			return
 		}
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -113,7 +115,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 			return
 		}
 		data.URL = r.PostForm.Get("url")
-		data.Title = r.PostForm.Get("title")
+		data.Title = bookmarks.NormalizeTitle(r.PostForm.Get("title"))
 		data.Description = r.PostForm.Get("description")
 		data.Notes = r.PostForm.Get("notes")
 		data.Tags = r.PostForm.Get("tag_string")
@@ -127,9 +129,6 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 		} else if !cfg.DisableURLValidation && !validBookmarkURL(data.URL) {
 			data.URLError = "Enter a valid URL."
 		}
-		if len([]rune(data.Title)) > 512 {
-			data.URLError = "Title is too long."
-		}
 		if data.URLError == "" {
 			tags := bookmarks.ParseTagString(strings.ReplaceAll(data.Tags, " ", ","), ",")
 			if data.BookmarkID == 0 {
@@ -140,6 +139,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 			if errors.Is(err, bookmarks.ErrDuplicateURL) {
 				data.URLError = "A bookmark with this URL already exists."
 			} else if err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			} else {
@@ -161,6 +161,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 	if secret == "" {
 		secret, err = auth.NewCSRFSecret()
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -168,11 +169,13 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 	}
 	data.CSRFToken, err = auth.MaskCSRF(secret)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
 	data.ToastHTML, err = renderPageToasts(r.Context(), db, cfg, user.ID, data.CSRFToken, r.URL.Path)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}

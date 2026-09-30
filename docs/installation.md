@@ -94,8 +94,14 @@ Environment variable names follow Python linkding v1.47.0. Boolean values accept
 | `LD_CORS_ALLOWED_ORIGINS` | empty | Comma-separated origins allowed for cross-origin API requests. |
 | `LD_ENABLE_OIDC`, `LD_ENABLE_AUTH_PROXY` | false | Enable OIDC or trusted authentication proxy integration. |
 | `LD_AUTH_PROXY_USERNAME_HEADER`, `LD_AUTH_PROXY_LOGOUT_URL` | `REMOTE_USER`, empty | Select the proxy username header and optional logout redirect. |
+| `LD_DISABLE_REQUEST_LOGS` | false | With the exact value `true`, suppress HTTP request logs below status 400. Error responses remain logged. |
+| `LD_LOG_X_FORWARDED_FOR` | false | Use `X-Forwarded-For` as the client address in request logs. Enable behind a proxy that replaces this header. |
 
-The configuration also accepts `LD_ALLOWED_INTERNAL_HOSTS`, `LD_DISABLE_URL_VALIDATION`, `LD_ENABLE_REFRESH_FAVICONS`, `LD_FAVICON_PROVIDER`, `LD_PREVIEW_MAX_SIZE`, `LD_SNAPSHOT_PDF_MAX_SIZE`, `LD_SINGLEFILE_PATH`, `LD_SINGLEFILE_OPTIONS`, `LD_SINGLEFILE_UBLOCK_OPTIONS`, `LD_SINGLEFILE_TIMEOUT_SEC`, `LD_DISABLE_ASSET_UPLOAD`, `LD_DISABLE_LOGIN_FORM`, `LD_SESSION_COOKIE_AGE`, `LD_REQUEST_TIMEOUT`, `LD_REQUEST_MAX_CONTENT_LENGTH`, and logging options. OIDC uses `OIDC_OP_*`, `OIDC_RP_*`, `OIDC_USE_PKCE`, `OIDC_VERIFY_SSL`, and `OIDC_USERNAME_CLAIM`. Keep secrets out of committed Compose files.
+The configuration also accepts `LD_ALLOWED_INTERNAL_HOSTS`, `LD_DISABLE_URL_VALIDATION`, `LD_ENABLE_REFRESH_FAVICONS`, `LD_FAVICON_PROVIDER`, `LD_PREVIEW_MAX_SIZE`, `LD_SNAPSHOT_PDF_MAX_SIZE`, `LD_SINGLEFILE_PATH`, `LD_SINGLEFILE_OPTIONS`, `LD_SINGLEFILE_UBLOCK_OPTIONS`, `LD_SINGLEFILE_TIMEOUT_SEC`, `LD_DISABLE_ASSET_UPLOAD`, `LD_DISABLE_LOGIN_FORM`, `LD_SESSION_COOKIE_AGE`, `LD_REQUEST_TIMEOUT`, and `LD_REQUEST_MAX_CONTENT_LENGTH`. OIDC uses `OIDC_OP_*`, `OIDC_RP_*`, `OIDC_USE_PKCE`, `OIDC_VERIFY_SSL`, and `OIDC_USERNAME_CLAIM`. Keep secrets out of committed Compose files.
+
+The server writes startup, shutdown, HTTP requests, and background job errors to stderr. View container output with `docker logs linkding`. HTTP logs include method, path, status, duration, and client address. They omit query strings, request bodies, cookies, and authorization headers, and redact feed tokens in paths. Bookmark save and import errors also log their internal cause while clients receive the existing public error messages.
+
+Titles are normalized before saving through the API, ordinary and admin forms, import, and website metadata updates. Whitespace collapses to single spaces, control characters disappear, and the title is truncated to 512 Unicode code points. Long titles therefore save successfully rather than causing a validation error; existing bookmarks are not rewritten in bulk.
 
 When serving under a proxy path, set `LD_CONTEXT_PATH=linkding/`, forward requests for `/linkding/`, and use `/linkding/health` for monitoring. Keep the external URL and context path when [migrating from Python linkding](migration.md). See [backups](backups.md) for SQLite backup and restore commands; PostgreSQL needs a database backup plus a copy of the data volume.
 

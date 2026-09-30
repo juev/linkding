@@ -22,6 +22,7 @@ func settingsSession(w http.ResponseWriter, r *http.Request, path string, users 
 			return user, true
 		}
 		if err != auth.ErrInvalidCredentials {
+			logServerError(r, err)
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return auth.User{}, false
 		}
@@ -67,6 +68,9 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 	defer file.Close()
 	content, err := io.ReadAll(file)
 	if err != nil || !utf8.Valid(content) {
+		if err != nil {
+			logServerError(r, err)
+		}
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "An error occurred during bookmark import.")
 		writeRedirect(w, r, redirect)
 		return
@@ -75,6 +79,7 @@ func serveBookmarkImport(w http.ResponseWriter, r *http.Request, path string, cf
 		MapPrivateFlag: r.PostForm.Get("map_private_flag") == "on",
 	})
 	if err != nil {
+		logServerError(r, err)
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_error", "An error occurred during bookmark import.")
 	} else {
 		settingsFlash(w, cfg.URLPrefix(), "ld_settings_success", fmt.Sprintf("%d bookmarks were successfully imported.", result.Success))
@@ -96,6 +101,7 @@ func serveBookmarkExport(w http.ResponseWriter, r *http.Request, path string, cf
 	}
 	items, err := importexport.LoadForExport(r.Context(), db, cfg.DBEngine, user.ID)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}

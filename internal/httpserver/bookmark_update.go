@@ -58,10 +58,6 @@ func serveBookmarkUpdate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			return
 		}
 	}
-	if input.Title != nil && len([]rune(*input.Title)) > 512 {
-		writeFieldError(w, "title", "Ensure this field has no more than 512 characters.")
-		return
-	}
 	item, err := repo.UpdateData(r.Context(), user.ID, id, bookmarks.UpdateInput{
 		URL: input.URL, Title: input.Title, Description: input.Description, Notes: input.Notes,
 		Unread: input.Unread, Shared: input.Shared, IsArchived: input.IsArchived,
@@ -76,6 +72,7 @@ func serveBookmarkUpdate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		return
 	}
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}

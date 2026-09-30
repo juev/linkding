@@ -39,6 +39,7 @@ func serveBookmarkCheck(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			serialized := serializeBookmark(r, cfg, item)
 			bookmark = &serialized
 		} else if !errors.Is(err, sql.ErrNoRows) {
+			logServerError(r, err)
 			writeDetail(w, http.StatusInternalServerError, "Server error")
 			return
 		}
@@ -60,6 +61,7 @@ func serveBookmarkCheck(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	}
 	tags, err := repo.AutoTagsForURL(r.Context(), user.ID, requestedURL)
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}

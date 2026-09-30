@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juev/linkding/internal/bookmarks"
 	"github.com/juev/linkding/internal/config"
 	"github.com/juev/linkding/internal/jobs"
 	"golang.org/x/text/cases"
@@ -88,7 +89,7 @@ func ImportNetscape(ctx context.Context, db *sql.DB, cfg config.Config, ownerID 
 }
 
 func validImportedBookmark(item NetscapeBookmark, disableURLValidation bool) bool {
-	if item.Href == "" || len([]rune(item.Href)) > 2048 || len([]rune(item.Title)) > 512 {
+	if item.Href == "" || len([]rune(item.Href)) > 2048 {
 		return false
 	}
 	if disableURLValidation {
@@ -168,6 +169,7 @@ func preloadImportTags(ctx context.Context, db *sql.DB, engine string, ownerID i
 }
 
 func importBookmark(ctx context.Context, db *sql.DB, engine string, ownerID int64, item NetscapeBookmark, added, modified time.Time, tags map[string]int64, options ImportOptions) error {
+	item.Title = bookmarks.NormalizeTitle(item.Title)
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

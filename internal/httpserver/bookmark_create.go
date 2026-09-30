@@ -55,10 +55,6 @@ func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		writeFieldError(w, "url", "Ensure this field has no more than 2048 characters.")
 		return
 	}
-	if len([]rune(input.Title)) > 512 {
-		writeFieldError(w, "title", "Ensure this field has no more than 512 characters.")
-		return
-	}
 	if !cfg.DisableURLValidation && !validBookmarkURL(*input.URL) {
 		writeFieldError(w, "url", "Enter a valid URL.")
 		return
@@ -70,6 +66,7 @@ func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		DisableHTMLSnapshot: r.URL.Query().Has("disable_html_snapshot"),
 	})
 	if err != nil {
+		logServerError(r, err)
 		writeDetail(w, http.StatusInternalServerError, "Server error")
 		return
 	}
@@ -78,6 +75,7 @@ func serveBookmarkCreate(w http.ResponseWriter, r *http.Request, cfg config.Conf
 		meta := metadataCache.Load(r.Context(), client, bookmark.URL, false)
 		bookmark, err = repo.EnhanceMetadata(r.Context(), user.ID, bookmark.ID, meta.Title, meta.Description)
 		if err != nil {
+			logServerError(r, err)
 			writeDetail(w, http.StatusInternalServerError, "Server error")
 			return
 		}

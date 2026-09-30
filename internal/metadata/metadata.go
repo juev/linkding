@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/juev/linkding/internal/bookmarks"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding"
@@ -89,7 +90,7 @@ func Load(ctx context.Context, client Doer, pageURL string) Metadata {
 			switch node.Data {
 			case "title":
 				if result.Title == "" {
-					result.Title = strings.TrimSpace(textContent(node))
+					result.Title = bookmarks.NormalizeTitle(textContent(node))
 				}
 			case "meta":
 				name := attribute(node, "name")

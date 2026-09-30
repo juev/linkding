@@ -33,20 +33,23 @@ func TestDefaults(t *testing.T) {
 
 func TestBooleanGrammarAndRuntimeQuirks(t *testing.T) {
 	for _, value := range []string{"True", "true", "1"} {
-		c, err := LoadFrom(environment(map[string]string{"LD_ENABLE_OIDC": value, "LD_DISABLE_BACKGROUND_TASKS": value}))
+		c, err := LoadFrom(environment(map[string]string{"LD_ENABLE_OIDC": value, "LD_DISABLE_BACKGROUND_TASKS": value, "LD_DISABLE_REQUEST_LOGS": value, "LD_LOG_X_FORWARDED_FOR": value}))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !c.EnableOIDC || !c.DisableBackgroundTasks || !c.OIDC.UsePKCE || !c.OIDC.VerifySSL {
+		if !c.EnableOIDC || !c.DisableBackgroundTasks || !c.OIDC.UsePKCE || !c.OIDC.VerifySSL || !c.LogXForwardedFor {
 			t.Fatalf("%q did not enable flags: %+v", value, c)
+		}
+		if c.DisableRequestLogs != (value == "true") {
+			t.Fatalf("%q changed the request log flag grammar", value)
 		}
 	}
 	for _, value := range []string{"TRUE", "yes", "false", "0", ""} {
-		c, err := LoadFrom(environment(map[string]string{"LD_ENABLE_OIDC": value, "LD_ENABLE_REFRESH_FAVICONS": value, "LD_SUPERVISOR_MANAGED": value, "LD_DISABLE_REQUEST_LOGS": value}))
+		c, err := LoadFrom(environment(map[string]string{"LD_ENABLE_OIDC": value, "LD_ENABLE_REFRESH_FAVICONS": value, "LD_SUPERVISOR_MANAGED": value, "LD_DISABLE_REQUEST_LOGS": value, "LD_LOG_X_FORWARDED_FOR": value}))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c.EnableOIDC || c.EnableRefreshFavicons || c.SupervisorManaged || c.DisableRequestLogs {
+		if c.EnableOIDC || c.EnableRefreshFavicons || c.SupervisorManaged || c.DisableRequestLogs || c.LogXForwardedFor {
 			t.Fatalf("%q unexpectedly enabled flag: %+v", value, c)
 		}
 	}
@@ -59,7 +62,7 @@ func TestBooleanGrammarAndRuntimeQuirks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.SupervisorManaged || !c.DisableRequestLogs || !c.LogXForwardedFor || len(c.CSRFTrustedOrigins) != 2 {
+	if !c.SupervisorManaged || !c.DisableRequestLogs || c.LogXForwardedFor || len(c.CSRFTrustedOrigins) != 2 {
 		t.Fatalf("runtime flags: %+v", c)
 	}
 }

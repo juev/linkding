@@ -84,6 +84,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	}
 	location, err := adminTagLocation(cfg.TimeZone)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
@@ -107,6 +108,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			return
 		}
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -120,6 +122,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		}
 		rows, err := db.QueryContext(r.Context(), `SELECT tag_id FROM bookmarks_bookmark_tags WHERE bookmark_id = `+assetMarker(cfg.DBEngine, 1), id)
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -127,6 +130,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			var tagID int64
 			if err := rows.Scan(&tagID); err != nil {
 				rows.Close()
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -135,6 +139,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		err = rows.Err()
 		rows.Close()
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -143,6 +148,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		data.Title = "Change history: " + data.ObjectName
 		rows, err := db.QueryContext(r.Context(), `SELECT l.action_time,u.username,l.action_flag,l.change_message FROM django_admin_log AS l JOIN django_content_type AS c ON c.id=l.content_type_id JOIN auth_user AS u ON u.id=l.user_id WHERE c.app_label = `+assetMarker(cfg.DBEngine, 1)+` AND c.model = `+assetMarker(cfg.DBEngine, 2)+` AND l.object_id = `+assetMarker(cfg.DBEngine, 3)+` ORDER BY l.action_time DESC,l.id DESC LIMIT 100`, "bookmarks", "bookmark", strconv.FormatInt(id, 10))
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -153,6 +159,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			var message string
 			if err := rows.Scan(&happened, &entry.Username, &flag, &message); err != nil {
 				rows.Close()
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -162,6 +169,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		}
 		if err := rows.Err(); err != nil {
 			rows.Close()
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -184,21 +192,25 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			}
 			tx, err := db.BeginTx(r.Context(), nil)
 			if err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
 			defer tx.Rollback()
 			if err := writeAdminLog(r.Context(), tx, cfg.DBEngine, user.ID, "bookmarks", "bookmark", strconv.FormatInt(id, 10), adminBookmarkRepr(data.BookmarkTitle, data.URL), 3, ""); err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
 			repo := bookmarks.NewRepository(db, cfg.DBEngine)
 			files, err := repo.DeleteDataTx(r.Context(), tx, data.OwnerID, id)
 			if err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
 			if err := tx.Commit(); err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -217,11 +229,13 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		data.readPost(r)
 		added, modified, accessed, validationErr := data.validate(r, cfg, db, location)
 		if validationErr != nil {
+			logServerError(r, validationErr)
 			http.Error(w, "Server error", 500)
 			return
 		}
 		if data.Error == "" {
 			if err := saveAdminBookmark(r, cfg, db, user.ID, &data, &previous, action, added, modified, accessed); err != nil {
+				logServerError(r, err)
 				http.Error(w, "Server error", 500)
 				return
 			}
@@ -242,6 +256,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	if secret == "" {
 		secret, err = auth.NewCSRFSecret()
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -249,15 +264,18 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	}
 	data.CSRFToken, err = auth.MaskCSRF(secret)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
 	if err := data.loadOptions(r, db); err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
 	models, err := loadAdminModels(r, db, cfg, user)
 	if err != nil {
+		logServerError(r, err)
 		http.Error(w, "Server error", 500)
 		return
 	}
@@ -265,6 +283,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 	if data.ConfirmDelete {
 		data.Deletion, err = adminSingleDeletionGraph(r.Context(), db, cfg.DBEngine, cfg.URLPrefix(), "bookmark", strconv.FormatInt(id, 10), data.ObjectName)
 		if err != nil {
+			logServerError(r, err)
 			http.Error(w, "Server error", 500)
 			return
 		}
@@ -286,10 +305,10 @@ func adminBookmarkDateParts(value time.Time, location *time.Location) (string, s
 func (data *adminBookmarkData) readPost(r *http.Request) {
 	data.URL = strings.TrimSpace(r.PostForm.Get("url"))
 	data.URLNormalized = strings.TrimSpace(r.PostForm.Get("url_normalized"))
-	data.BookmarkTitle = strings.TrimSpace(r.PostForm.Get("title"))
+	data.BookmarkTitle = bookmarks.NormalizeTitle(r.PostForm.Get("title"))
 	data.Description = strings.TrimSpace(r.PostForm.Get("description"))
 	data.Notes = strings.TrimSpace(r.PostForm.Get("notes"))
-	data.WebsiteTitle = strings.TrimSpace(r.PostForm.Get("website_title"))
+	data.WebsiteTitle = bookmarks.NormalizeTitle(r.PostForm.Get("website_title"))
 	data.WebsiteDescription = strings.TrimSpace(r.PostForm.Get("website_description"))
 	data.WebArchiveURL = strings.TrimSpace(r.PostForm.Get("web_archive_snapshot_url"))
 	data.FaviconFile = strings.TrimSpace(r.PostForm.Get("favicon_file"))
@@ -328,7 +347,7 @@ func (data *adminBookmarkData) validate(r *http.Request, cfg config.Config, db *
 	case data.Error != "":
 	case data.URL == "" || len([]rune(data.URL)) > 2048 || (!cfg.DisableURLValidation && !validBookmarkURL(data.URL)):
 		data.Error = "Enter a valid URL of at most 2048 characters."
-	case len([]rune(data.BookmarkTitle)) > 512 || len([]rune(data.WebsiteTitle)) > 512 || len([]rune(data.WebArchiveURL)) > 2048 || len([]rune(data.FaviconFile)) > 512 || len([]rune(data.PreviewImageFile)) > 512:
+	case len([]rune(data.WebArchiveURL)) > 2048 || len([]rune(data.FaviconFile)) > 512 || len([]rune(data.PreviewImageFile)) > 512:
 		data.Error = "One or more fields exceed their maximum length."
 	case data.OwnerID <= 0:
 		data.Error = "Select a valid owner."

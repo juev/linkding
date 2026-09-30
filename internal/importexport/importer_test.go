@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +33,52 @@ func importFixture(t *testing.T) (context.Context, *sql.DB, config.Config, int64
 		t.Fatal(err)
 	}
 	return ctx, db, cfg, user.ID
+}
+
+func TestImportNormalizesLongTitles(t *testing.T) {
+	for _, engine := range []string{"sqlite", "postgres"} {
+		t.Run(engine, func(t *testing.T) {
+			ctx := context.Background()
+			cfg := config.Config{DBEngine: engine, DataDir: t.TempDir(), DisableBackgroundTasks: true}
+			var db *sql.DB
+			var err error
+			if engine == "postgres" {
+				dsn := os.Getenv("LINKDING_TEST_POSTGRES_DSN")
+				if dsn == "" {
+					t.Skip("set LINKDING_TEST_POSTGRES_DSN to a disposable database")
+				}
+				db, err = sql.Open("pgx", dsn)
+			} else {
+				db, err = store.Open(ctx, cfg)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = db.Close() })
+			if err := store.Migrate(ctx, db, engine); err != nil {
+				t.Fatal(err)
+			}
+			user, err := auth.NewRepository(db, engine).CreateUser(ctx, auth.NewUser{Username: fmt.Sprintf("title_import_%d", time.Now().UnixNano()), Password: "password"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, raw := range []string{" \t\x01" + strings.Repeat("界", 513), "\n👩‍💻\x01\t title "} {
+				source := `<DL><DT><A HREF="https://example.com/import-title">` + raw + `</A></DL>`
+				result, err := ImportNetscape(ctx, db, cfg, user.ID, source, ImportOptions{})
+				if err != nil || result != (ImportResult{Total: 1, Success: 1}) {
+					t.Fatalf("import result: %+v, err=%v", result, err)
+				}
+				item, err := bookmarks.NewRepository(db, engine).FindExisting(ctx, user.ID, "https://example.com/import-title")
+				want := strings.Repeat("界", 512)
+				if strings.Contains(raw, "👩") {
+					want = "👩‍💻 title"
+				}
+				if err != nil || item.Title != want {
+					t.Fatalf("import title: %q, err=%v", item.Title, err)
+				}
+			}
+		})
+	}
 }
 
 func TestImportNetscapeMergesExistingAndSkipsBadRows(t *testing.T) {

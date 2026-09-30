@@ -53,10 +53,10 @@
         <fieldset class="module aligned">
           <div class="form-row"><label class="required" for="id_url">Url:</label><input type="text" name="url" value="{{.URL}}" maxlength="2048" required id="id_url"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label for="id_url_normalized">Url normalized:</label><input type="text" name="url_normalized" value="{{.URLNormalized}}" maxlength="2048" id="id_url_normalized"{{if not .CanChange}} readonly{{end}}></div>
-          <div class="form-row"><label for="id_title">Title:</label><input type="text" name="title" value="{{.BookmarkTitle}}" maxlength="512" id="id_title"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_title">Title:</label><input type="text" name="title" value="{{.BookmarkTitle}}" id="id_title"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label for="id_description">Description:</label><textarea name="description" id="id_description"{{if not .CanChange}} readonly{{end}}>{{.Description}}</textarea></div>
           <div class="form-row"><label for="id_notes">Notes:</label><textarea name="notes" id="id_notes"{{if not .CanChange}} readonly{{end}}>{{.Notes}}</textarea></div>
-          <div class="form-row"><label for="id_website_title">Website title:</label><input type="text" name="website_title" value="{{.WebsiteTitle}}" maxlength="512" id="id_website_title"{{if not .CanChange}} readonly{{end}}></div>
+          <div class="form-row"><label for="id_website_title">Website title:</label><input type="text" name="website_title" value="{{.WebsiteTitle}}" id="id_website_title"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label for="id_website_description">Website description:</label><textarea name="website_description" id="id_website_description"{{if not .CanChange}} readonly{{end}}>{{.WebsiteDescription}}</textarea></div>
           <div class="form-row"><label for="id_web_archive_snapshot_url">Web archive snapshot url:</label><input type="text" name="web_archive_snapshot_url" value="{{.WebArchiveURL}}" maxlength="2048" id="id_web_archive_snapshot_url"{{if not .CanChange}} readonly{{end}}></div>
           <div class="form-row"><label for="id_favicon_file">Favicon file:</label><input type="text" name="favicon_file" value="{{.FaviconFile}}" maxlength="512" id="id_favicon_file"{{if not .CanChange}} readonly{{end}}></div>

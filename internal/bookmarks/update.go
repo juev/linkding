@@ -60,7 +60,7 @@ func (r *Repository) UpdateData(ctx context.Context, ownerID, id int64, input Up
 		}
 	}
 	if input.Title != nil {
-		title = *input.Title
+		title = NormalizeTitle(*input.Title)
 	}
 	if input.Description != nil {
 		description = *input.Description

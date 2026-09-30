@@ -3,12 +3,15 @@ package media
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/juev/linkding/internal/auth"
 	"github.com/juev/linkding/internal/bookmarks"
@@ -87,6 +90,55 @@ func TestFaviconAndPreviewJobsPersistAndServeOriginalStaticPaths(t *testing.T) {
 		if response.Code != http.StatusOK || response.Body.String() != fixture.data || response.Header().Get("Content-Security-Policy") != "sandbox" {
 			t.Fatalf("%s static response: %d %q %q", fixture.directory, response.Code, response.Body.String(), response.Header().Get("Content-Security-Policy"))
 		}
+	}
+}
+
+func TestRefreshMetadataNormalizesLongTitle(t *testing.T) {
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte("<head><title> \t\x01" + strings.Repeat("界", 513) + " </title></head>"))
+	}))
+	defer page.Close()
+	for _, engine := range []string{"sqlite", "postgres"} {
+		t.Run(engine, func(t *testing.T) {
+			ctx := context.Background()
+			cfg := config.Config{DBEngine: engine, DataDir: t.TempDir(), AllowedInternalHosts: "127.0.0.1", DisableBackgroundTasks: true}
+			var db *sql.DB
+			var err error
+			if engine == "postgres" {
+				dsn := os.Getenv("LINKDING_TEST_POSTGRES_DSN")
+				if dsn == "" {
+					t.Skip("set LINKDING_TEST_POSTGRES_DSN to a disposable database")
+				}
+				db, err = sql.Open("pgx", dsn)
+			} else {
+				db, err = store.Open(ctx, cfg)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = db.Close() })
+			if err := store.Migrate(ctx, db, engine); err != nil {
+				t.Fatal(err)
+			}
+			user, err := auth.NewRepository(db, engine).CreateUser(ctx, auth.NewUser{Username: fmt.Sprintf("title_media_%d", time.Now().UnixNano()), Password: "password"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			repo := bookmarks.NewRepository(db, engine)
+			item, _, err := repo.CreateOrUpdateData(ctx, user.ID, bookmarks.CreateInput{URL: page.URL, Title: "Original"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			job := jobs.Job{Payload: []byte(fmt.Sprintf(`{"bookmark_id":%d}`, item.ID))}
+			if err := New(db, engine, cfg).RefreshMetadata(ctx, job); err != nil {
+				t.Fatal(err)
+			}
+			item, err = repo.GetByID(ctx, user.ID, item.ID)
+			if err != nil || item.Title != strings.Repeat("界", 512) {
+				t.Fatalf("refreshed title: %q, err=%v", item.Title, err)
+			}
+		})
 	}
 }
 

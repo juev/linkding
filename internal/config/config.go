@@ -154,9 +154,7 @@ func LoadFrom(getenv func(string) (string, bool)) (Config, error) {
 		SuperuserPassword:       get("LD_SUPERUSER_PASSWORD", ""),
 		SupervisorManaged:       get("LD_SUPERVISOR_MANAGED", "") == "True",
 		DisableRequestLogs:      get("LD_DISABLE_REQUEST_LOGS", "") == "true",
-	}
-	if _, present := getenv("LD_LOG_X_FORWARDED_FOR"); present {
-		c.LogXForwardedFor = true
+		LogXForwardedFor:        getBool("LD_LOG_X_FORWARDED_FOR", false),
 	}
 	if c.ContextPath != "" {
 		if strings.HasPrefix(c.ContextPath, "/") || !strings.HasSuffix(c.ContextPath, "/") || strings.Contains(c.ContextPath, "//") || strings.ContainsAny(c.ContextPath, "?#\\") {

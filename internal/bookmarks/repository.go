@@ -98,9 +98,10 @@ func (r *Repository) normalizedURLDuplicateExists(ownerID, excludedID int64, url
 // rule. Callers must validate the URL. A task-aware repository enqueues effects
 // in the same transaction as the bookmark and its tags.
 func (r *Repository) CreateOrUpdateData(ctx context.Context, ownerID int64, input CreateInput) (Bookmark, bool, error) {
-	if input.URL == "" || len([]rune(input.URL)) > 2048 || len([]rune(input.Title)) > 512 {
-		return Bookmark{}, false, fmt.Errorf("bookmark URL or title length is invalid")
+	if input.URL == "" || len([]rune(input.URL)) > 2048 {
+		return Bookmark{}, false, fmt.Errorf("bookmark URL length is invalid")
 	}
+	input.Title = NormalizeTitle(input.Title)
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Bookmark{}, false, fmt.Errorf("begin bookmark write: %w", err)

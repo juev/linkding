@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -141,7 +142,12 @@ func run() error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	serverErr := make(chan error, 1)
-	go func() { serverErr <- server.ListenAndServe() }()
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		return err
+	}
+	log.Printf("server started address=%q", listener.Addr().String())
+	go func() { serverErr <- server.Serve(listener) }()
 	select {
 	case err := <-serverErr:
 		if errors.Is(err, http.ErrServerClosed) {
@@ -149,11 +155,13 @@ func run() error {
 		}
 		return err
 	case <-ctx.Done():
+		log.Print("server shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			return err
 		}
+		log.Print("server stopped")
 		return nil
 	}
 }
