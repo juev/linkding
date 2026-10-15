@@ -281,11 +281,7 @@ func inspectHueyQueue(ctx context.Context, sourceDir string) (int64, int64, erro
 }
 
 func openSQLiteReadOnly(path string) (*sql.DB, error) {
-	uri := &url.URL{Scheme: "file", Path: path}
-	query := uri.Query()
-	query.Set("mode", "ro")
-	uri.RawQuery = query.Encode()
-	db, err := sql.Open("sqlite", uri.String())
+	db, err := sql.Open("sqlite", store.SQLiteFileURI(path, url.Values{"mode": {"ro"}}))
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite %s: %w", path, err)
 	}
