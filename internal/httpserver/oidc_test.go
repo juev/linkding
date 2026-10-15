@@ -127,7 +127,7 @@ func TestOIDCCodeFlowPKCEClaimsAndReplay(t *testing.T) {
 		case "/jwks":
 			e := big.NewInt(int64(key.PublicKey.E)).Bytes()
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]string{"kty": "RSA", "kid": "test-key", "alg": "RS256", "use": "sig", "n": base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(e)}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]string{"kty": "RSA", "kid": "test-key", "alg": "RS256", "use": "sig", "n": base64.RawURLEncoding.EncodeToString(key.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(e)}}})
 		case "/userinfo":
 			if r.Header.Get("Authorization") != "Bearer access" {
 				t.Errorf("userinfo auth: %q", r.Header.Get("Authorization"))
@@ -303,7 +303,7 @@ func TestOIDCHMACAndSignedUserInfo(t *testing.T) {
 		switch r.URL.Path {
 		case "/jwks":
 			e := big.NewInt(int64(key.PublicKey.E)).Bytes()
-			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]string{"kty": "RSA", "kid": "test-key", "alg": "RS256", "n": base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(e)}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]string{"kty": "RSA", "kid": "test-key", "alg": "RS256", "n": base64.RawURLEncoding.EncodeToString(key.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(e)}}})
 		case "/userinfo":
 			w.Header().Set("Content-Type", "application/jwt")
 			_, _ = w.Write([]byte(signedOIDCTestToken(t, key, map[string]any{"iss": issuer, "email": "jwt@example.com", "exp": time.Now().Add(time.Hour).Unix()})))

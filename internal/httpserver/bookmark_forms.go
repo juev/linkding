@@ -48,7 +48,7 @@ func serveBookmarkForm(w http.ResponseWriter, r *http.Request, root string, cfg 
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	form, err := settings.LoadProfileForm(r.Context(), db, cfg.DBEngine, user.ID)

@@ -181,9 +181,10 @@ func adminUserDeletionLogs(ctx context.Context, db *sql.DB, engine string, userI
 			return nil, err
 		}
 		verb := "Changed"
-		if flag == 1 {
+		switch flag {
+		case 1:
 			verb = "Added"
-		} else if flag == 3 {
+		case 3:
 			verb = "Deleted"
 		}
 		nodes = append(nodes, adminDeletionNode{Label: "Log entry", Repr: verb + " “" + repr + "”."})

@@ -89,12 +89,13 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		return
 	}
 	data := adminBookmarkData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add bookmark", ConfirmDelete: action == "delete", History: action == "history", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete, SelectedTagIDs: make(map[int64]bool)}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change bookmark"
 		if !permissions.Change {
 			data.Title = "View bookmark"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete bookmark"
 	}
 	if id != 0 {
@@ -222,7 +223,7 @@ func serveAdminBookmark(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		previous := data

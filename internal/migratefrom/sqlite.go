@@ -49,7 +49,7 @@ func MigrateSQLite(ctx context.Context, sourceDir, targetDir string) (SQLiteMigr
 		return SQLiteMigration{}, LegacyTasksError(report.LegacyTasks)
 	}
 	if report.PendingTasks != 0 || report.ScheduledTasks != 0 {
-		return SQLiteMigration{}, fmt.Errorf("Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)
+		return SQLiteMigration{}, fmt.Errorf("legacy Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)
 	}
 	target, err := filepath.Abs(targetDir)
 	if err != nil {

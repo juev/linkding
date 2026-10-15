@@ -49,7 +49,8 @@ type bundlePreviewData struct {
 func serveBundlesUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository, repo *bookmarks.Repository) {
 	root := cfg.URLPrefix() + "bundles"
 	path := r.URL.Path
-	if path != root && path != root+"/action" && path != root+"/new" && path != root+"/preview" && !(strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")) {
+	isEditPath := strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")
+	if path != root && path != root+"/action" && path != root+"/new" && path != root+"/preview" && !isEditPath {
 		writeNotFound(w, r)
 		return
 	}
@@ -125,7 +126,7 @@ func renderBundlesPage(w http.ResponseWriter, r *http.Request, data bundlePageDa
 
 func serveBundlesIndexUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	data, err := bundlePageBase(w, r, cfg, db, user)
@@ -269,7 +270,7 @@ func moveBundleUI(r *http.Request, cfg config.Config, db *sql.DB, ownerID, id in
 
 func serveBundleEditorUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, repo *bookmarks.Repository, user auth.User) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	root := cfg.URLPrefix() + "bundles"
@@ -382,7 +383,7 @@ func validateBundleFormUI(bundle apiBundle) string {
 
 func serveBundlesPreviewUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, repo *bookmarks.Repository, user auth.User) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	if r.Method == http.MethodPost {

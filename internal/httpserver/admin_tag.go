@@ -76,12 +76,13 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 		return
 	}
 	data := adminTagData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add tag", ConfirmDelete: action == "delete", History: action == "history", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change tag"
 		if !permissions.Change {
 			data.Title = "View tag"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete tag"
 	}
 	var previousAdded time.Time
@@ -168,7 +169,7 @@ func serveAdminTag(w http.ResponseWriter, r *http.Request, cfg config.Config, db
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		previousName, previousOwnerID := data.Name, data.OwnerID

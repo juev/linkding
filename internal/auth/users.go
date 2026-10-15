@@ -10,8 +10,10 @@ import (
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
-var ErrTokenHeaderMissingCredentials = errors.New("Invalid token header. No credentials provided.")
-var ErrTokenHeaderContainsSpaces = errors.New("Invalid token header. Token string should not contain spaces.")
+
+// The token header errors are returned verbatim as DRF API response details.
+var ErrTokenHeaderMissingCredentials = errors.New("Invalid token header. No credentials provided.")            //nolint:staticcheck // DRF response text
+var ErrTokenHeaderContainsSpaces = errors.New("Invalid token header. Token string should not contain spaces.") //nolint:staticcheck // DRF response text
 
 type User struct {
 	ID          int64

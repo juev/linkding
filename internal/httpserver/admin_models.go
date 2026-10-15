@@ -87,9 +87,10 @@ func loadAdminModels(r *http.Request, db *sql.DB, cfg config.Config, user auth.U
 			appLabel = adminTranslate(language, "Authentication and Authorization")
 		}
 		label := definition.Plural
-		if definition.Model == "apitoken" {
+		switch definition.Model {
+		case "apitoken":
 			label = "Api tokens"
-		} else if definition.Model == "user" {
+		case "user":
 			label = adminCapitalized(adminTranslate(language, "users"))
 		}
 		link := adminModelLink{Label: label, AppLabel: appLabel, App: definition.App, Model: definition.Model}
@@ -150,7 +151,8 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 	} else if adminEditableModel(definition.Model) {
 		data.IsSearchableList = true
 		data.SearchQuery = r.URL.Query().Get("q")
-		if definition.Model == "bookmarkasset" {
+		switch definition.Model {
+		case "bookmarkasset":
 			data.UserFilterParam = "status"
 			data.UserFilterTitle = "By status"
 			data.UserFilter = r.URL.Query().Get("status")
@@ -176,7 +178,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				return
 			}
 			statusRows.Close()
-		} else if definition.Model == "bookmark" {
+		case "bookmark":
 			data.IsBookmarkList = true
 			baseQuery, args = adminBookmarkListQuery(cfg.DBEngine, data.SearchQuery, r.URL.Query())
 			data.ListFilters = adminBookmarkListFilters(r.URL.Query())
@@ -184,7 +186,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 				http.Error(w, "Server error", 500)
 				return
 			}
-		} else {
+		default:
 			data.UserFilterParam = "owner__username"
 			data.UserFilterTitle = "By username"
 			if definition.Model == "apitoken" || definition.Model == "feedtoken" {
@@ -295,7 +297,7 @@ func serveAdminModelList(w http.ResponseWriter, r *http.Request, cfg config.Conf
 			label = adminCapTranslate(data.Language, strings.ToLower(label))
 		}
 		index := i + 1
-		header := adminListHeader{Label: label, Sortable: !((definition.Model == "bookmark" || definition.Model == "bookmarkasset") && index == 1), URL: adminListURL(r.URL.Query(), "o", strconv.Itoa(index))}
+		header := adminListHeader{Label: label, Sortable: (definition.Model != "bookmark" && definition.Model != "bookmarkasset") || index != 1, URL: adminListURL(r.URL.Query(), "o", strconv.Itoa(index))}
 		if order == index || order == -index {
 			header.Sorted, header.Ascending = true, order > 0
 			header.RemoveURL = adminListURL(r.URL.Query(), "o", "")

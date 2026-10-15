@@ -49,7 +49,8 @@ type tagModalData struct {
 func serveTagsUI(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, users *auth.Repository) {
 	root := cfg.URLPrefix() + "tags"
 	path := r.URL.Path
-	if path != root && path != root+"/new" && path != root+"/merge" && !(strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")) {
+	isEditPath := strings.HasPrefix(path, root+"/") && strings.HasSuffix(path, "/edit")
+	if path != root && path != root+"/new" && path != root+"/merge" && !isEditPath {
 		writeNotFound(w, r)
 		return
 	}
@@ -237,16 +238,16 @@ func serveTagsIndex(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 
 func serveTagModal(w http.ResponseWriter, r *http.Request, cfg config.Config, db *sql.DB, user auth.User) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	root := cfg.URLPrefix() + "tags"
 	data := tagModalData{Prefix: cfg.URLPrefix(), CloseURL: root, Action: r.URL.RequestURI(), Submit: "Save"}
 	var tagID int64
-	switch {
-	case r.URL.Path == root+"/new":
+	switch r.URL.Path {
+	case root + "/new":
 		data.Title = "Create Tag"
-	case r.URL.Path == root+"/merge":
+	case root + "/merge":
 		data.Title = "Merge Tags"
 		data.Submit = "Merge Tags"
 		data.MergeMode = true

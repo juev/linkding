@@ -67,12 +67,13 @@ func serveAdminBookmarkAsset(w http.ResponseWriter, r *http.Request, cfg config.
 		return
 	}
 	data := adminBookmarkAssetData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add bookmark asset", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change bookmark asset"
 		if !permissions.Change {
 			data.Title = "View bookmark asset"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete bookmark asset"
 	}
 	if id != 0 {

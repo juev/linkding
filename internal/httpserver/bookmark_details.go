@@ -159,13 +159,6 @@ func executeBookmarkDetails(data bookmarkDetailsData) (template.HTML, error) {
 	}
 	return template.HTML(buffer.String()), nil
 }
-func cloneQuery(values url.Values) url.Values {
-	result := url.Values{}
-	for key, list := range values {
-		result[key] = append([]string(nil), list...)
-	}
-	return result
-}
 func humanFileSize(size int64) string {
 	if size < 1024 {
 		return strconv.FormatInt(size, 10) + " bytes"
