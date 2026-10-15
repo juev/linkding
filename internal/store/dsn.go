@@ -126,3 +126,18 @@ func databaseDSN(cfg config.Config) (driver, dsn string, err error) {
 		return "", "", fmt.Errorf("unsupported database engine %q", cfg.DBEngine)
 	}
 }
+
+// SQLiteFileURI returns a SQLite "file:" URI for an absolute OS path.
+func SQLiteFileURI(path string, query url.Values) string {
+	return sqliteSlashURI(filepath.ToSlash(path), query)
+}
+
+// sqliteSlashURI keeps a Windows drive path such as "D:/data" out of the URI
+// authority: SQLite rejects "file://D:/..." but strips the slash in "/D:/...".
+func sqliteSlashURI(slashPath string, query url.Values) string {
+	if !strings.HasPrefix(slashPath, "/") {
+		slashPath = "/" + slashPath
+	}
+	u := &url.URL{Scheme: "file", Path: slashPath, RawQuery: query.Encode()}
+	return u.String()
+}
