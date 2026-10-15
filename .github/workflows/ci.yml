@@ -49,6 +49,9 @@ jobs:
       - run: CGO_ENABLED=0 go test -p 1 ./...
       - run: go vet ./...
       - run: CGO_ENABLED=0 go build ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
 
   windows:
     runs-on: windows-latest

@@ -1,0 +1,11 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+  exclusions:
+    presets:
+      - std-error-handling
