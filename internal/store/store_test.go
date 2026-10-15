@@ -29,6 +29,21 @@ func openTestSQLite(t *testing.T) *sql.DB {
 	return db
 }
 
+func TestSQLiteOpenAcceptsDataDirWithSpaces(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "Program Files", "data")
+	db, err := Open(context.Background(), config.Config{DBEngine: "sqlite", DataDir: dataDir})
+	if err != nil {
+		t.Fatalf("open SQLite: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec("CREATE TABLE marker (id integer)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "db.sqlite3")); err != nil {
+		t.Fatalf("database file: %v", err)
+	}
+}
+
 func TestSQLiteOpenCreatesFileAndEnablesForeignKeys(t *testing.T) {
 	db := openTestSQLite(t)
 	var enabled int
