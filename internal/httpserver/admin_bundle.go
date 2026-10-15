@@ -59,12 +59,13 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 		return
 	}
 	data := adminBundleData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add bookmark bundle", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete, FilterUnread: "off", FilterShared: "off", Order: "0"}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change bookmark bundle"
 		if !permissions.Change {
 			data.Title = "View bookmark bundle"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete bookmark bundle"
 	}
 	if id != 0 {
@@ -117,7 +118,7 @@ func serveAdminBundle(w http.ResponseWriter, r *http.Request, cfg config.Config,
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		previous := data

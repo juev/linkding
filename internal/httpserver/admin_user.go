@@ -129,7 +129,7 @@ func serveAdminUser(w http.ResponseWriter, r *http.Request, cfg config.Config, d
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		previous := data

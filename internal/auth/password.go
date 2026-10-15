@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"strconv"
 	"strings"
 
@@ -45,7 +44,7 @@ func VerifyPassword(password, encoded string) (bool, error) {
 		if err != nil || len(want) == 0 || len(want) > 64 {
 			return false, ErrInvalidPasswordHash
 		}
-		var digest func() hash.Hash = sha256.New
+		digest := sha256.New
 		if parts[0] == "pbkdf2_sha1" {
 			digest = sha1.New
 		}

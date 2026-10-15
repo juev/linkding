@@ -63,12 +63,13 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 		return
 	}
 	data := adminToastData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add toast", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change toast"
 		if !permissions.Change {
 			data.Title = "View toast"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete toast"
 	}
 	if id != 0 {
@@ -120,7 +121,7 @@ func serveAdminToast(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		previousKey, previousMessage, previousAcknowledged, previousOwnerID := data.Key, data.Message, data.Acknowledged, data.OwnerID

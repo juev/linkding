@@ -85,7 +85,7 @@ func MigratePostgres(ctx context.Context, sourceDSN, targetDSN, sourceDir, targe
 		return PostgresMigration{}, LegacyTasksError(report.LegacyTasks)
 	}
 	if report.PendingTasks != 0 || report.ScheduledTasks != 0 {
-		return PostgresMigration{}, fmt.Errorf("Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)
+		return PostgresMigration{}, fmt.Errorf("legacy Huey queue is not empty: %d tasks, %d scheduled; drain it before migration", report.PendingTasks, report.ScheduledTasks)
 	}
 	db, err := sql.Open("pgx", targetDSN)
 	if err != nil {

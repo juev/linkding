@@ -35,7 +35,7 @@ func TestRequestLogsStatusAndExcludeSecrets(t *testing.T) {
 	}{
 		{"implicit", 200, func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("ok")) }},
 		{"empty", 200, func(w http.ResponseWriter, r *http.Request) {}},
-		{"redirect", 302, func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/login/", 302) }},
+		{"redirect", 302, func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/login/", http.StatusFound) }},
 		{"error", 500, func(w http.ResponseWriter, r *http.Request) { http.Error(w, "failed", 500) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

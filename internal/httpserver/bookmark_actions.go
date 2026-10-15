@@ -42,7 +42,8 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 		parseErr = r.ParseMultipartForm(1 << 20)
 		if r.MultipartForm != nil {
-			defer r.MultipartForm.RemoveAll()
+			form := r.MultipartForm
+			defer func() { _ = form.RemoveAll() }()
 		}
 	} else {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -97,7 +98,7 @@ func serveBookmarkAction(w http.ResponseWriter, r *http.Request, path string, cf
 	}
 	if raw, ok := r.PostForm["upload_asset"]; ok && len(raw) > 0 {
 		if cfg.DisableAssetUpload {
-			http.Error(w, "Asset upload is disabled", 403)
+			http.Error(w, "Asset upload is disabled", http.StatusForbidden)
 			return
 		}
 		id, err := strconv.ParseInt(raw[0], 10, 64)

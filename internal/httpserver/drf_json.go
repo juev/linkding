@@ -93,9 +93,10 @@ func decodeDRFJSONObject(body io.Reader, target any, chars, choices, lists []str
 				return nil, err
 			}
 			label := fmt.Sprint(choice)
-			if label == "true" {
+			switch label {
+			case "true":
 				label = "True"
-			} else if label == "false" {
+			case "false":
 				label = "False"
 			}
 			return &drfFieldValidation{field, fmt.Sprintf("%q is not a valid choice.", label)}, nil

@@ -59,7 +59,7 @@ func (p *Processor) SaveWebArchive(ctx context.Context, job jobs.Job) error {
 		return nil
 	}
 	if response.StatusCode >= 500 {
-		return fmt.Errorf("Wayback response status %d", response.StatusCode)
+		return fmt.Errorf("unexpected Wayback response status %d", response.StatusCode)
 	}
 	archiveURL := ""
 	if path := response.Header.Get("Content-Location"); waybackPath.MatchString(path) {
@@ -73,7 +73,7 @@ func (p *Processor) SaveWebArchive(ctx context.Context, job jobs.Job) error {
 		}
 	}
 	if archiveURL == "" {
-		return fmt.Errorf("Wayback response has no archive URL")
+		return fmt.Errorf("no archive URL in Wayback response")
 	}
 	return p.updateFile(ctx, id, pageURL, "web_archive_snapshot_url", archiveURL)
 }

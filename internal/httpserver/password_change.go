@@ -33,7 +33,7 @@ func serveChangePassword(w http.ResponseWriter, r *http.Request, path string, cf
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	data := passwordPageData{Prefix: cfg.URLPrefix()}
@@ -101,7 +101,7 @@ func servePasswordChangeDone(w http.ResponseWriter, r *http.Request, path string
 		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.Error(w, "Method not allowed", 405)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	renderPasswordPage(w, r, cfg, db, user, passwordPageData{Prefix: cfg.URLPrefix(), Done: true})

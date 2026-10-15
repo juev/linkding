@@ -62,8 +62,9 @@ func serveAssetPage(w http.ResponseWriter, r *http.Request, prefix string, cfg c
 		WHERE b.id = ` + assetMarker(cfg.DBEngine, 1)
 	var ownerID int64
 	var shared, sharing, publicSharing bool
-	if err := db.QueryRowContext(r.Context(), query, asset.Bookmark).Scan(&ownerID, &shared, &sharing, &publicSharing); err != nil ||
-		!(user.ID != 0 && user.ID == ownerID || user.ID != 0 && shared && sharing || shared && publicSharing) {
+	err = db.QueryRowContext(r.Context(), query, asset.Bookmark).Scan(&ownerID, &shared, &sharing, &publicSharing)
+	canView := user.ID != 0 && user.ID == ownerID || user.ID != 0 && shared && sharing || shared && publicSharing
+	if err != nil || !canView {
 		writeNotFound(w, r)
 		return
 	}

@@ -62,12 +62,13 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 		return
 	}
 	data := adminAPITokenData{Prefix: cfg.URLPrefix(), Username: user.Username, Action: r.URL.Path, ListURL: base, ID: id, Title: "Add api token", ConfirmDelete: action == "delete", CanChange: action == "add" || permissions.Change, CanDelete: permissions.Delete}
-	if action == "change" {
+	switch action {
+	case "change":
 		data.Title = "Change api token"
 		if !permissions.Change {
 			data.Title = "View api token"
 		}
-	} else if action == "delete" {
+	case "delete":
 		data.Title = "Delete api token"
 	}
 	if id != 0 {
@@ -120,7 +121,7 @@ func serveAdminAPIToken(w http.ResponseWriter, r *http.Request, cfg config.Confi
 			return
 		}
 		if action == "change" && !permissions.Change {
-			http.Error(w, "Forbidden", 403)
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		data.Name = strings.TrimSpace(r.PostForm.Get("name"))

@@ -22,7 +22,7 @@ func serveBookmarkSearchPost(w http.ResponseWriter, r *http.Request, path string
 		return
 	}
 	if _, save := r.PostForm["save"]; save && user.ID == 0 {
-		http.Error(w, "Forbidden", 403)
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 	defaults := map[string]string{"q": "", "user": "", "bundle": "", "sort": "added_desc", "shared": "off", "unread": "off", "modified_since": "", "added_since": ""}
