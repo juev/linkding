@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -65,6 +66,31 @@ func TestSQLiteDatabaseOptionsApplyPerConnection(t *testing.T) {
 		if err := conn.QueryRowContext(ctx, "SELECT count(*) FROM init_marker").Scan(&count); err != nil {
 			t.Fatalf("init command missing on connection: %v", err)
 		}
+	}
+}
+
+func TestSQLiteSlashURIKeepsDrivePathOutOfAuthority(t *testing.T) {
+	query := url.Values{"mode": {"ro"}}
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{path: "D:/Program Files/Linkding/data/db.sqlite3", want: "file:///D:/Program%20Files/Linkding/data/db.sqlite3?mode=ro"},
+		{path: "/data/db.sqlite3", want: "file:///data/db.sqlite3?mode=ro"},
+	} {
+		if got := sqliteSlashURI(tc.path, query); got != tc.want {
+			t.Errorf("sqliteSlashURI(%q) = %q, want %q", tc.path, got, tc.want)
+		}
+	}
+}
+
+func TestSQLiteFileURIConvertsWindowsPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("backslash is a path separator only on Windows")
+	}
+	got := SQLiteFileURI(`D:\Program Files\Linkding\data\db.sqlite3`, url.Values{})
+	if want := "file:///D:/Program%20Files/Linkding/data/db.sqlite3"; got != want {
+		t.Fatalf("SQLiteFileURI = %q, want %q", got, want)
 	}
 }
 
