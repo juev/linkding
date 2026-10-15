@@ -25,8 +25,7 @@ func databaseDSN(cfg config.Config) (driver, dsn string, err error) {
 		if err != nil {
 			return "", "", fmt.Errorf("SQLite path: %w", err)
 		}
-		u := &url.URL{Scheme: "file", Path: path}
-		query := u.Query()
+		query := url.Values{}
 		query.Add("_pragma", "foreign_keys(1)")
 		// Acquire the write lock at transaction start so concurrent writes wait
 		// for busy_timeout instead of failing when a deferred transaction upgrades.
@@ -80,8 +79,7 @@ func databaseDSN(cfg config.Config) (driver, dsn string, err error) {
 				return "", "", fmt.Errorf("unsupported SQLite LD_DB_OPTIONS.%s", key)
 			}
 		}
-		u.RawQuery = query.Encode()
-		return "sqlite", u.String(), nil
+		return "sqlite", SQLiteFileURI(path, query), nil
 	case "postgres":
 		u := &url.URL{Scheme: "postgres", User: url.UserPassword(cfg.DBUser, cfg.DBPassword), Host: cfg.DBHost, Path: "/" + cfg.DBDatabase}
 		if cfg.DBPort != "" {
