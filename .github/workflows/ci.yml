@@ -50,6 +50,17 @@ jobs:
       - run: go vet ./...
       - run: CGO_ENABLED=0 go build ./...
 
+  windows:
+    runs-on: windows-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./internal/store/... ./internal/migratefrom/...
+
   images:
     needs: go
     runs-on: ubuntu-latest
