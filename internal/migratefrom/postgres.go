@@ -29,6 +29,17 @@ type PostgresMigration struct {
 	CopiedFiles int
 }
 
+// goSpecificTables exist only in the Go port and are absent from an upstream
+// linkding database.
+var goSpecificTables = map[string]bool{
+	"goose_db_version":            true,
+	"linkding_job":                true,
+	"linkding_lock":               true,
+	"linkding_passkey":            true,
+	"linkding_recovery_token":     true,
+	"linkding_webauthn_challenge": true,
+}
+
 func InspectPostgres(ctx context.Context, sourceDSN, sourceDir string) (PostgresPreflight, error) {
 	abs, err := filepath.Abs(sourceDir)
 	if err != nil {
@@ -154,7 +165,7 @@ func MigratePostgres(ctx context.Context, sourceDSN, targetDSN, sourceDir, targe
 	}
 	targetUpstream := make([]string, 0, len(targetTables))
 	for _, table := range targetTables {
-		if table != "goose_db_version" && table != "linkding_job" && table != "linkding_lock" {
+		if !goSpecificTables[table] {
 			targetUpstream = append(targetUpstream, table)
 		}
 	}
