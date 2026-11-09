@@ -89,11 +89,12 @@ Environment variable names follow Python linkding v1.47.0. Boolean values accept
 | `LD_DB_OPTIONS` | `{}` | JSON driver options, including PostgreSQL TLS settings or a SQLite database path. |
 | `LD_ENABLE_SNAPSHOTS` | false; true in plus image | Queue automatic HTML/PDF snapshots. |
 | `LD_DISABLE_BACKGROUND_TASKS` | false | Prevent the background workers from running. |
-| `LD_USE_X_FORWARDED_HOST` | false | Use `X-Forwarded-Host` and `X-Forwarded-Proto` for OIDC redirect construction. Set only behind a trusted proxy that replaces client-supplied forwarded headers. |
+| `LD_USE_X_FORWARDED_HOST` | false | Use `X-Forwarded-Host` and `X-Forwarded-Proto` for OIDC redirect construction, and `X-Forwarded-Host` as the passkey host name. Set only behind a trusted proxy that replaces client-supplied forwarded headers. |
 | `LD_CSRF_TRUSTED_ORIGINS` | empty | Comma-separated external origins allowed for session writes. |
 | `LD_CORS_ALLOWED_ORIGINS` | empty | Comma-separated origins allowed for cross-origin API requests. |
 | `LD_ENABLE_OIDC`, `LD_ENABLE_AUTH_PROXY` | false | Enable OIDC or trusted authentication proxy integration. |
 | `LD_AUTH_PROXY_USERNAME_HEADER`, `LD_AUTH_PROXY_LOGOUT_URL` | `REMOTE_USER`, empty | Select the proxy username header and optional logout redirect. |
+| `LD_DISABLE_PASSWORD_LOGIN` | false | Reject password sign-in on the server. Passkeys, OIDC, the auth proxy, API tokens, and feed tokens keep working. See [passkeys](#passkeys-and-password-sign-in). |
 | `LD_DISABLE_REQUEST_LOGS` | false | With the exact value `true`, suppress HTTP request logs below status 400. Error responses remain logged. |
 | `LD_LOG_X_FORWARDED_FOR` | false | Use `X-Forwarded-For` as the client address in request logs. Enable behind a proxy that replaces this header. |
 
@@ -106,6 +107,30 @@ Titles are normalized before saving through the API, ordinary and admin forms, i
 When serving under a proxy path, set `LD_CONTEXT_PATH=linkding/`, forward requests for `/linkding/`, and use `/linkding/health` for monitoring. Keep the external URL and context path when [migrating from Python linkding](migration.md). See [backups](backups.md) for SQLite backup and restore commands; PostgreSQL needs a database backup plus a copy of the data volume.
 
 For proxy authentication, set `LD_ENABLE_AUTH_PROXY=true` and `LD_AUTH_PROXY_USERNAME_HEADER=HTTP_X_REMOTE_USER`, then have the proxy set the HTTP `X-Remote-User` header. The Go server converts Django's `HTTP_` setting to the corresponding HTTP header. The proxy must replace any client-supplied username header and block direct access to the server; otherwise clients could choose their own account.
+
+## Passkeys and password sign-in
+
+Users add passkeys under **Settings → Passkeys** and sign in with **Sign in with a passkey** on the login page. Browsers allow passkeys only in a secure context, so serve linkding over HTTPS; plain HTTP works only on `localhost`. A passkey is bound to the host name in the address bar and does not work under another host name. Behind a proxy that changes the `Host` header, set `LD_USE_X_FORWARDED_HOST=true` so the server sees the host name the browser uses.
+
+`LD_DISABLE_PASSWORD_LOGIN=true` turns password sign-in off:
+
+- the login page hides the password form;
+- `POST /login/` and `POST /admin/login/` reject passwords and create no session;
+- `/admin/login/` redirects to `/login/`, and a passkey session opens the admin for staff users;
+- a user cannot delete their last passkey;
+- at startup the server logs a warning with the number of active users who have no passkey.
+
+Passkeys, OIDC, and the auth proxy keep working. REST API clients such as the browser extensions authenticate with `Authorization: Token <key>` or `Bearer <key>` and are not affected, and neither are RSS feed URLs. `LD_DISABLE_LOGIN_FORM` keeps its upstream behavior: it hides the form but the server still accepts passwords.
+
+When a user has lost every passkey, run the recovery command on the server:
+
+```sh
+linkding passkey_recovery --username alice --base-url https://links.example.com
+# in the Docker image
+docker exec linkding /usr/local/bin/linkding passkey_recovery --username alice --base-url https://links.example.com
+```
+
+The command prints a link that signs the user in once and expires after 15 minutes. The link opens a page with a **Sign in** button, so link previews in chat apps do not use it up. After signing in, the user adds a new passkey in the settings. `--base-url` takes the scheme and host without `LD_CONTEXT_PATH`; the command adds the context path itself. Without `--base-url` it prints only the path. The database stores only a SHA-256 hash of the token.
 
 ## Release workflow
 

@@ -25,7 +25,7 @@ The [CPU and memory comparison](docs/performance/2026-09-26-resource-comparison.
 - Save local HTML snapshots with the plus image or archive pages with the Internet Archive.
 - Import and export Netscape HTML bookmarks.
 - Install the interface as a Progressive Web App (PWA), use the bookmarklet, or connect the [Firefox](https://addons.mozilla.org/firefox/addon/linkding-extension/) and [Chrome](https://chrome.google.com/webstore/detail/linkding-extension/beakmhbijpdhipnjhnclmhgjlddhidpe) extensions.
-- Sign in locally or through OIDC or a trusted authentication proxy.
+- Sign in with a password or a passkey, through OIDC, or through a trusted authentication proxy. Password sign-in can be turned off without affecting API clients.
 - Use the REST API and admin panel for integrations and account management.
 
 The interface follows the pinned upstream release:

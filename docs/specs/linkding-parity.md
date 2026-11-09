@@ -56,6 +56,16 @@ The source models are defined in [models.py](https://github.com/sissbruecker/lin
 
 Upstream SQLite uses ICU for Unicode `lower()`, `LIKE`, and sorting. The pure Go implementation registers compatible functions and collation in `modernc.org/sqlite`, then compares results against upstream for Unicode, wildcard and escape behavior, `NULL`, and compound queries. Verify PostgreSQL independently. A known difference blocks release.
 
+### Passkeys and password sign-in
+
+The user approved this extension in [issue #10](https://github.com/juev/linkding/issues/10) on 2026-11-09. Upstream v1.47.0 has no passkeys.
+
+- Users register WebAuthn passkeys in the general settings and sign in with them on `/login/`. The sign-in is discoverable and needs no username. The relying party ID is the request host name, honoring `X-Forwarded-Host` when `LD_USE_X_FORWARDED_HOST` is set.
+- Passkeys, ceremony challenges, and recovery tokens live in the Go-only tables `linkding_passkey`, `linkding_webauthn_challenge`, and `linkding_recovery_token`. Migration from Python linkding ignores them.
+- `LD_DISABLE_PASSWORD_LOGIN` rejects passwords on `/login/` and `/admin/login/`. `LD_DISABLE_LOGIN_FORM` keeps the upstream behavior of hiding the form only.
+- Token and Bearer API authentication and feed tokens do not depend on either setting.
+- `linkding passkey_recovery` issues a single-use sign-in link valid for 15 minutes.
+
 ## Verification scenarios
 
 - R1–R2: create a bookmark, repeat its URL in another record, apply tags and auto-tagging, archive it, and find it with a compound query through UI, API, and RSS. Check database records, order, pagination, and access errors. Repeat on both databases with a Unicode corpus.
