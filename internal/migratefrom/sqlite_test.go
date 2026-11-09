@@ -67,7 +67,7 @@ func TestInspectSQLiteRequiresPinnedMigrationAndCountsData(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, table := range []string{"linkding_lock", "linkding_job", "goose_db_version"} {
+	for _, table := range []string{"linkding_recovery_token", "linkding_webauthn_challenge", "linkding_passkey", "linkding_lock", "linkding_job", "goose_db_version"} {
 		if _, err := db.ExecContext(ctx, "DROP TABLE "+table); err != nil {
 			t.Fatal(err)
 		}

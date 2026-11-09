@@ -68,8 +68,8 @@ func TestSQLiteMigrationCreatesPinnedSchemaAndIsRepeatable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tables != 23 {
-		t.Fatalf("got %d tables, want 21 upstream plus Go job queue and snapshot lock", tables)
+	if tables != 26 {
+		t.Fatalf("got %d tables, want 21 upstream plus Go job queue, snapshot lock, and three passkey tables", tables)
 	}
 	var integrity string
 	if err := db.QueryRow("PRAGMA integrity_check").Scan(&integrity); err != nil {
@@ -95,7 +95,7 @@ func TestMigrateImportedSkipsExistingUpstreamSchema(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, table := range []string{"linkding_lock", "linkding_job", "goose_db_version"} {
+	for _, table := range []string{"linkding_recovery_token", "linkding_webauthn_challenge", "linkding_passkey", "linkding_lock", "linkding_job", "goose_db_version"} {
 		if _, err := db.ExecContext(ctx, "DROP TABLE "+table); err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +106,7 @@ func TestMigrateImportedSkipsExistingUpstreamSchema(t *testing.T) {
 	if err := Migrate(ctx, db, "sqlite"); err != nil {
 		t.Fatalf("normal migrations after import: %v", err)
 	}
-	for _, table := range []string{"linkding_lock", "linkding_job"} {
+	for _, table := range []string{"linkding_lock", "linkding_job", "linkding_passkey", "linkding_webauthn_challenge", "linkding_recovery_token"} {
 		var count int
 		if err := db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("imported table %s: count=%d err=%v", table, count, err)
@@ -160,7 +160,9 @@ func TestSQLiteURLIndexMigrationPreservesPopulatedBookmarkTable(t *testing.T) {
 	}
 	assertSQLiteURLIndexes(t, db, true)
 	assertSQLiteBookmarkTableUnchanged(t, db, originalRoot, 100)
-	if _, err := provider.Down(ctx); err != nil {
+	// Roll back to the version before the URL index migration; later
+	// migrations are rolled back along with it.
+	if _, err := provider.DownTo(ctx, 3); err != nil {
 		t.Fatal(err)
 	}
 	assertSQLiteURLIndexes(t, db, false)
@@ -254,8 +256,8 @@ func TestPostgresMigrationCreatesPinnedSchemaAndIsRepeatable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tables != 23 {
-		t.Fatalf("got %d tables, want 21 upstream plus Go job queue and snapshot lock", tables)
+	if tables != 26 {
+		t.Fatalf("got %d tables, want 21 upstream plus Go job queue, snapshot lock, and three passkey tables", tables)
 	}
 }
 
