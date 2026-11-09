@@ -1,0 +1,6 @@
+self-hosted-runner:
+  # GitHub-hosted labels that actionlint v1.7.12 does not know yet. They are
+  # declared here only so the runner-label check accepts them; the runners
+  # are GitHub-hosted (see actions/runner-images).
+  labels:
+    - ubuntu-26.04
