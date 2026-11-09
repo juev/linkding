@@ -66,6 +66,10 @@ The user approved this extension in [issue #10](https://github.com/juev/linkding
 - Token and Bearer API authentication and feed tokens do not depend on either setting.
 - `linkding passkey_recovery` issues a single-use sign-in link valid for 15 minutes.
 
+### Static asset versions
+
+The user approved this change in [issue #14](https://github.com/juev/linkding/issues/14) on 2026-11-09. Upstream pages load `bundle.js`, the theme CSS, and `icons.svg` with `?v=1.47.0`, the application version. The Go port keeps that version for **Settings → About** and `/health`, but asset URLs use the first 12 hex digits of a SHA-256 hash over the content of those four files instead, so every build that changes them changes the URL. A request with the current version gets `Cache-Control: public, max-age=31536000, immutable`; other static files, stale versions, and favicons and previews from the data directory get `no-cache`.
+
 ## Verification scenarios
 
 - R1–R2: create a bookmark, repeat its URL in another record, apply tags and auto-tagging, archive it, and find it with a compound query through UI, API, and RSS. Check database records, order, pagination, and access errors. Repeat on both databases with a Unicode corpus.

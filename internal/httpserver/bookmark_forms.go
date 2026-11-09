@@ -19,7 +19,7 @@ import (
 
 //go:embed bookmark_form.html
 var bookmarkFormTemplateFile embed.FS
-var bookmarkFormTemplate = template.Must(template.ParseFS(bookmarkFormTemplateFile, "bookmark_form.html"))
+var bookmarkFormTemplate = parsePageTemplate(bookmarkFormTemplateFile, "bookmark_form.html")
 
 type bookmarkFormPage struct {
 	Prefix, CSRFToken, Theme, CustomCSSHash, PageTitle, Heading, Action, ReturnURL                  string

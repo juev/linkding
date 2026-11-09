@@ -36,7 +36,7 @@ func TestPinnedHTMLNotFoundResponses(t *testing.T) {
 			serveAssetPage(w, r, "/assets/", config.Config{DBEngine: "sqlite", DataDir: filepath.Join(dataDir, "data")}, db, nil)
 		}},
 		{"static", "/static/missing.css", func(w http.ResponseWriter, r *http.Request) {
-			serveStaticFile(w, r, "/static/", staticDir, "")
+			serveStaticFile(w, r, "/static/", staticDir, "", newAssetVersioner(staticDir))
 		}},
 		{"bookmark-invalid-id", "/bookmarks/abc/edit", func(w http.ResponseWriter, r *http.Request) {
 			serveBookmarkForm(w, r, "/bookmarks/", config.Config{}, nil, nil, nil)
@@ -112,7 +112,7 @@ func TestPinnedStaticRejectsUnsafeMethods(t *testing.T) {
 	}
 	for _, method := range []string{http.MethodPost, http.MethodOptions} {
 		response := httptest.NewRecorder()
-		serveStaticFile(response, httptest.NewRequest(method, "/static/bundle.js", nil), "/static/", staticDir, "")
+		serveStaticFile(response, httptest.NewRequest(method, "/static/bundle.js", nil), "/static/", staticDir, "", newAssetVersioner(staticDir))
 		if response.Code != http.StatusNotFound || response.Body.String() != notFoundHTML || response.Header().Get("Content-Security-Policy") != "sandbox" {
 			t.Errorf("%s static: status=%d body=%q", method, response.Code, response.Body.String())
 		}

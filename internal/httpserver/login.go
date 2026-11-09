@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,7 +10,7 @@ import (
 	"github.com/juev/linkding/internal/config"
 )
 
-var loginTemplate = template.Must(template.New("login").Parse(loginHTML))
+var loginTemplate = parsePageString("login", loginHTML)
 
 type loginData struct {
 	Prefix       string
@@ -205,13 +204,13 @@ const loginHTML = `<!DOCTYPE html>
   <meta name="robots" content="index,follow">
   <meta name="author" content="Sascha Ißbrücker">
   <title>Login - Linkding</title>
-  <link href="{{.Prefix}}static/theme-dark.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: dark)">
-  <link href="{{.Prefix}}static/theme-light.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: light)">
+  <link href="{{.Prefix}}static/theme-dark.css?v={{assetVersion}}" rel="stylesheet" type="text/css" media="(prefers-color-scheme: dark)">
+  <link href="{{.Prefix}}static/theme-light.css?v={{assetVersion}}" rel="stylesheet" type="text/css" media="(prefers-color-scheme: light)">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161822">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#5856e0">
   <meta name="turbo-cache-control" content="no-preview">
   <meta name="turbo-prefetch" content="false">
-  <script src="{{.Prefix}}static/bundle.js?v=1.47.0"></script>
+  <script src="{{.Prefix}}static/bundle.js?v={{assetVersion}}"></script>
 </head>
 <body>
   <header class="container">

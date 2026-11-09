@@ -22,7 +22,7 @@ import (
 
 //go:embed bookmark_list_page.html
 var bookmarkListTemplateFile embed.FS
-var bookmarkListTemplate = template.Must(template.ParseFS(bookmarkListTemplateFile, "bookmark_list_page.html"))
+var bookmarkListTemplate = parsePageTemplate(bookmarkListTemplateFile, "bookmark_list_page.html")
 
 type listTag struct {
 	Name, FirstChar, Remaining string

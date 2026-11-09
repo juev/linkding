@@ -20,7 +20,7 @@ import (
 
 //go:embed bundles_page.html bundles_preview.html
 var bundlesUIFiles embed.FS
-var bundlesPageTemplate = template.Must(template.ParseFS(bundlesUIFiles, "bundles_page.html"))
+var bundlesPageTemplate = parsePageTemplate(bundlesUIFiles, "bundles_page.html")
 var bundlesPreviewTemplate = template.Must(template.ParseFS(bundlesUIFiles, "bundles_preview.html"))
 
 type bundlePreviewRow struct {

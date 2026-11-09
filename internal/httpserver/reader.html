@@ -6,21 +6,21 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, minimal-ui">
     {{if eq .Theme "light"}}
-      <link href="{{.Prefix}}static/theme-light.css?v=1.47.0"
+      <link href="{{.Prefix}}static/theme-light.css?v={{assetVersion}}"
             rel="stylesheet"
             type="text/css" />
       <meta name="theme-color" content="#5856e0">
     {{else if eq .Theme "dark"}}
-      <link href="{{.Prefix}}static/theme-dark.css?v=1.47.0"
+      <link href="{{.Prefix}}static/theme-dark.css?v={{assetVersion}}"
             rel="stylesheet"
             type="text/css" />
       <meta name="theme-color" content="#161822">
     {{else}}
-      <link href="{{.Prefix}}static/theme-dark.css?v=1.47.0"
+      <link href="{{.Prefix}}static/theme-dark.css?v={{assetVersion}}"
             rel="stylesheet"
             type="text/css"
             media="(prefers-color-scheme: dark)" />
-      <link href="{{.Prefix}}static/theme-light.css?v=1.47.0"
+      <link href="{{.Prefix}}static/theme-light.css?v={{assetVersion}}"
             rel="stylesheet"
             type="text/css"
             media="(prefers-color-scheme: light)" />

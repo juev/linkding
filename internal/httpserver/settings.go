@@ -20,7 +20,7 @@ import (
 //go:embed settings_general.html
 var settingsTemplateFile embed.FS
 
-var settingsTemplate = template.Must(template.ParseFS(settingsTemplateFile, "settings_general.html"))
+var settingsTemplate = parsePageTemplate(settingsTemplateFile, "settings_general.html")
 
 type settingsOption struct {
 	Value, Label string

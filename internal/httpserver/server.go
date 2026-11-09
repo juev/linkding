@@ -19,6 +19,8 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	prefix := cfg.URLPrefix()
 	authRepo := auth.NewRepository(db, cfg.DBEngine)
 	metadataCache := metadata.NewCache(10)
+	assets := newAssetVersioner(staticDir)
+	activeAssets.Store(assets)
 	mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 		serveRoot(w, r, prefix, cfg, db, authRepo)
 	})
@@ -46,7 +48,7 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	})
 	staticPrefix := prefix + "static/"
 	mux.HandleFunc(staticPrefix, func(w http.ResponseWriter, r *http.Request) {
-		serveStaticFile(w, r, staticPrefix, staticDir, cfg.DataDir)
+		serveStaticFile(w, r, staticPrefix, staticDir, cfg.DataDir, assets)
 	})
 	assetPagePrefix := prefix + "assets/"
 	mux.HandleFunc(assetPagePrefix, func(w http.ResponseWriter, r *http.Request) {

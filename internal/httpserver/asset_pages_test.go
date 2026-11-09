@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -101,7 +102,7 @@ func TestAssetPageAccessAndReader(t *testing.T) {
 		t.Fatalf("shared authenticated asset: %d", got.Code)
 	}
 	reader := call(base+"/read", aliceKey)
-	if reader.Code != http.StatusOK || !strings.Contains(reader.Body.String(), "Readable fixture") || !strings.Contains(reader.Body.String(), "theme-dark.css?v=1.47.0") || !strings.Contains(reader.Body.String(), "vendor/Readability.js") || reader.Header().Get("Content-Security-Policy") != "sandbox allow-scripts" {
+	if reader.Code != http.StatusOK || !strings.Contains(reader.Body.String(), "Readable fixture") || !regexp.MustCompile(`theme-dark\.css\?v=[0-9a-f]{12}"`).MatchString(reader.Body.String()) || !strings.Contains(reader.Body.String(), "vendor/Readability.js") || reader.Header().Get("Content-Security-Policy") != "sandbox allow-scripts" {
 		t.Fatalf("reader page: %d %q", reader.Code, reader.Body.String())
 	}
 	if _, err := db.ExecContext(ctx, "UPDATE bookmarks_userprofile SET enable_public_sharing = 1 WHERE user_id = ?", alice.ID); err != nil {
