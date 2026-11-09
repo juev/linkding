@@ -45,6 +45,8 @@ type settingsPageData struct {
 	Global                                  settings.Global
 	Users                                   []settings.UserOption
 	ToastHTML                               template.HTML
+	Passkeys                                []passkeyListItem
+	PasswordDisabled                        bool
 }
 
 func serveSettingsGeneral(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, db *sql.DB, users *auth.Repository) {
@@ -109,6 +111,12 @@ func renderSettingsGeneral(w http.ResponseWriter, r *http.Request, cfg config.Co
 	data.ToastHTML, err = renderPageToasts(r.Context(), db, cfg, user.ID, masked, r.URL.Path)
 	if err != nil {
 		http.Error(w, "Server error", 500)
+		return err
+	}
+	data.PasswordDisabled = cfg.DisablePasswordLogin
+	data.Passkeys, err = listPasskeyItems(r, db, cfg, user.ID)
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
 		return err
 	}
 	if data.CustomCSS {

@@ -29,6 +29,7 @@ type Config struct {
 	DisableBackgroundTasks  bool
 	SessionCookieAge        int
 	DisableLoginForm        bool
+	DisablePasswordLogin    bool
 	EnableOIDC              bool
 	OIDC                    OIDCConfig
 	EnableAuthProxy         bool
@@ -130,6 +131,7 @@ func LoadFrom(getenv func(string) (string, bool)) (Config, error) {
 		AllowedInternalHosts:    get("LD_ALLOWED_INTERNAL_HOSTS", ""),
 		DisableBackgroundTasks:  getBool("LD_DISABLE_BACKGROUND_TASKS", false),
 		DisableLoginForm:        getBool("LD_DISABLE_LOGIN_FORM", false),
+		DisablePasswordLogin:    getBool("LD_DISABLE_PASSWORD_LOGIN", false),
 		EnableOIDC:              getBool("LD_ENABLE_OIDC", false),
 		EnableAuthProxy:         getBool("LD_ENABLE_AUTH_PROXY", false),
 		AuthProxyUsernameHeader: get("LD_AUTH_PROXY_USERNAME_HEADER", "REMOTE_USER"),

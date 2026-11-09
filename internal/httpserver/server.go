@@ -168,6 +168,30 @@ func New(db *sql.DB, cfg config.Config, staticDir string) http.Handler {
 	mux.HandleFunc(logoutPath, func(w http.ResponseWriter, r *http.Request) {
 		serveLogout(w, r, logoutPath, cfg, authRepo)
 	})
+	passkeyLoginBeginPath := prefix + "passkeys/login/begin"
+	mux.HandleFunc(passkeyLoginBeginPath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyLoginBegin(w, r, passkeyLoginBeginPath, cfg, authRepo)
+	})
+	passkeyLoginFinishPath := prefix + "passkeys/login/finish"
+	mux.HandleFunc(passkeyLoginFinishPath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyLoginFinish(w, r, passkeyLoginFinishPath, cfg, authRepo)
+	})
+	passkeyRecoveryPath := prefix + "passkeys/recover"
+	mux.HandleFunc(passkeyRecoveryPath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyRecovery(w, r, passkeyRecoveryPath, cfg, authRepo)
+	})
+	passkeyRegisterBeginPath := prefix + "settings/passkeys/register/begin"
+	mux.HandleFunc(passkeyRegisterBeginPath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyRegisterBegin(w, r, passkeyRegisterBeginPath, cfg, authRepo)
+	})
+	passkeyRegisterFinishPath := prefix + "settings/passkeys/register/finish"
+	mux.HandleFunc(passkeyRegisterFinishPath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyRegisterFinish(w, r, passkeyRegisterFinishPath, cfg, authRepo)
+	})
+	passkeyDeletePath := prefix + "settings/passkeys/delete"
+	mux.HandleFunc(passkeyDeletePath, func(w http.ResponseWriter, r *http.Request) {
+		servePasskeyDelete(w, r, passkeyDeletePath, cfg, authRepo)
+	})
 	changePasswordPath := prefix + "change-password/"
 	mux.HandleFunc(changePasswordPath, func(w http.ResponseWriter, r *http.Request) {
 		serveChangePassword(w, r, changePasswordPath, cfg, db, authRepo)

@@ -20,11 +20,11 @@
   <div class="main" id="main"><main id="content-start" class="content" tabindex="-1"><div id="content" class="colM">
     {{if .Error}}<p class="errornote">{{.Labels.InvalidLogin}}</p>{{end}}
     {{if .LoggedInMessage}}<p class="errornote">{{.LoggedInMessage}}</p>{{end}}
-    <div id="content-main"><form action="{{.Action}}" method="post" id="login-form"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
+    {{if not .PasswordDisabled}}<div id="content-main"><form action="{{.Action}}" method="post" id="login-form"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
       <div class="form-row"><label for="id_username" class="required">{{.Labels.Username}}</label> <input type="text" name="username"{{if .Username}} value="{{.Username}}"{{end}} autofocus autocapitalize="none" autocomplete="username" maxlength="150" required id="id_username"></div>
       <div class="form-row"><label for="id_password" class="required">{{.Labels.Password}}</label> <input type="password" name="password" autocomplete="current-password" required id="id_password"><input type="hidden" name="next" value="{{.Next}}"></div>
       <div class="submit-row"><input type="submit" value="{{.Labels.Login}}"></div>
-    </form></div><br class="clear">
+    </form></div>{{end}}<br class="clear">
   </div></main></div><footer id="footer"></footer>
 </div>
 <svg xmlns="http://www.w3.org/2000/svg" class="base-svgs">

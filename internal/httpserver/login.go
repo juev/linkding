@@ -21,6 +21,9 @@ type loginData struct {
 	Error        bool
 	DisableLogin bool
 	EnableOIDC   bool
+	// PasswordDisabled is set when LD_DISABLE_PASSWORD_LOGIN rejects
+	// passwords on the server, not only in the template.
+	PasswordDisabled bool
 }
 
 func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.Config, repo *auth.Repository) {
@@ -56,7 +59,7 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		}
 		setCSRFCookie(w, cfg.URLPrefix(), secret)
 	}
-	data := loginData{Prefix: cfg.URLPrefix(), Next: r.URL.Query().Get("next"), DisableLogin: cfg.DisableLoginForm, EnableOIDC: cfg.EnableOIDC}
+	data := loginData{Prefix: cfg.URLPrefix(), Next: r.URL.Query().Get("next"), DisableLogin: cfg.DisableLoginForm || cfg.DisablePasswordLogin, EnableOIDC: cfg.EnableOIDC, PasswordDisabled: cfg.DisablePasswordLogin}
 	if r.Method == http.MethodPost {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		if err := r.ParseForm(); err != nil {
@@ -70,6 +73,10 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		}
 		data.Username = r.PostForm.Get("username")
 		data.Next = r.PostForm.Get("next")
+		if cfg.DisablePasswordLogin {
+			renderLogin(w, r, data, secret, http.StatusForbidden)
+			return
+		}
 		user, err := repo.AuthenticatePassword(r.Context(), data.Username, r.PostForm.Get("password"))
 		if err == nil {
 			if err := establishLoginSession(w, r, cfg, repo, user); err != nil {
@@ -81,6 +88,14 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 		}
 		data.Error = true
 	}
+	status := http.StatusOK
+	if data.Error {
+		status = http.StatusUnauthorized
+	}
+	renderLogin(w, r, data, secret, status)
+}
+
+func renderLogin(w http.ResponseWriter, r *http.Request, data loginData, secret string, status int) {
 	masked, err := auth.MaskCSRF(secret)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -91,10 +106,6 @@ func serveLogin(w http.ResponseWriter, r *http.Request, path string, cfg config.
 	w.Header().Set("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate, private")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	status := http.StatusOK
-	if data.Error {
-		status = http.StatusUnauthorized
-	}
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {
 		_ = loginTemplate.Execute(w, data)
@@ -226,6 +237,9 @@ const loginHTML = `<!DOCTYPE html>
         <input type="hidden" name="next" value="{{.Next}}">
       </form>
       {{end}}
+      {{if .PasswordDisabled}}<p class="form-input-hint">Password sign-in is disabled on this server.</p>{{end}}
+      <button type="button" class="btn width-100 mt-4 d-hide" data-passkey-login data-csrf-token="{{.CSRFToken}}" data-begin-url="{{.Prefix}}passkeys/login/begin" data-finish-url="{{.Prefix}}passkeys/login/finish" data-next="{{.Next}}">Sign in with a passkey</button>
+      <p class="form-input-hint is-error d-hide" data-passkey-error></p>
       {{if .EnableOIDC}}<a class="btn width-100 mt-4" href="{{.Prefix}}oidc/authenticate/" data-turbo="false">Login with OIDC</a>{{end}}
     </main>
   </div>

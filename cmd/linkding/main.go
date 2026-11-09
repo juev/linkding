@@ -66,6 +66,8 @@ func run() error {
 				return err
 			}
 			return checkHealth(ctx, cfg)
+		case "passkey_recovery":
+			return runPasskeyRecovery(ctx, os.Args[2:], os.Stdout)
 		case "migrate_tasks":
 			return runMigrateTasks(ctx, os.Args[2:], os.Stdout)
 		default:
@@ -98,6 +100,9 @@ func run() error {
 		return err
 	}
 	if err := ensureInitialSuperuser(ctx, db, cfg); err != nil {
+		return err
+	}
+	if err := warnUsersWithoutPasskey(ctx, db, cfg, log.Printf); err != nil {
 		return err
 	}
 	if !cfg.DisableBackgroundTasks {

@@ -73,6 +73,14 @@
         <div class="form-group"><input type="submit" name="update_profile" value="Save" class="btn btn-primary btn-wide mt-2"></div>
       </form>
     </section>
+    <section aria-labelledby="passkeys-heading"><h2 id="passkeys-heading">Passkeys</h2>
+      <p>A passkey signs you in with the screen lock of your device or a security key instead of a password.{{if .PasswordDisabled}} Password sign-in is disabled on this server, so keep at least one passkey.{{end}}</p>
+      {{if .Passkeys}}<form method="post" action="{{.Prefix}}settings/passkeys/delete" data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}"><table class="table crud-table mb-6"><thead><tr><th>Name</th><th>Created</th><th>Last used</th><th class="actions"><span class="text-assistive">Actions</span></th></tr></thead><tbody>{{range .Passkeys}}<tr><td>{{.Name}}</td><td>{{.Created}}</td><td>{{if .LastUsed}}{{.LastUsed}}{{else}}Never{{end}}</td><td class="actions"><button data-confirm name="passkey_id" value="{{.ID}}" type="submit" class="btn btn-link">Delete</button></td></tr>{{end}}</tbody></table></form>{{end}}
+      <div class="form-group d-hide" data-passkey-register-form><label for="passkey-name" class="form-label">Passkey name</label><input type="text" class="form-input" id="passkey-name" maxlength="128" value="Passkey" data-passkey-name><div class="form-input-hint">A name that helps you recognize the device, for example "Laptop" or "Phone".</div></div>
+      <button type="button" class="btn d-hide" data-passkey-register data-csrf-token="{{.CSRFToken}}" data-begin-url="{{.Prefix}}settings/passkeys/register/begin" data-finish-url="{{.Prefix}}settings/passkeys/register/finish">Add passkey</button>
+      <p class="form-input-hint is-error d-hide" data-passkey-error></p>
+      <p class="form-input-hint d-hide" data-passkey-unsupported>This browser does not support passkeys.</p>
+    </section>
     {{if .IsSuperuser}}<section aria-labelledby="global-settings-heading"><h2 id="global-settings-heading">Global settings</h2>
       <form action="{{.Prefix}}settings/update" method="post" novalidate data-turbo="false"><input type="hidden" name="csrfmiddlewaretoken" value="{{.CSRFToken}}">
         <div class="form-group"><label for="id_landing_page" class="form-label">Landing page</label><select name="landing_page" id="id_landing_page" class="form-select width-25 width-sm-100"><option value="login"{{if eq .Global.LandingPage "login"}} selected{{end}}>Login</option><option value="shared_bookmarks"{{if eq .Global.LandingPage "shared_bookmarks"}} selected{{end}}>Shared Bookmarks</option></select><div class="form-input-hint">The page that unauthenticated users are redirected to when accessing the root URL.</div></div>

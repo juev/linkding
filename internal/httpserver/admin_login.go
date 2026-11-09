@@ -4,6 +4,7 @@ import (
 	"embed"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/juev/linkding/internal/auth"
@@ -19,7 +20,7 @@ type adminLoginData struct {
 	Language, Direction                       string
 	Labels                                    adminLoginLabels
 	LoggedInMessage                           string
-	Error                                     bool
+	Error, PasswordDisabled                   bool
 }
 
 type adminLoginLabels struct {
@@ -41,6 +42,20 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 	if r.Method == http.MethodGet && current.ID != 0 && current.IsActive && current.IsStaff {
 		writeRedirect(w, r, root)
 		return
+	}
+	if cfg.DisablePasswordLogin {
+		if r.Method == http.MethodPost {
+			http.Error(w, "Password sign-in is disabled.", http.StatusForbidden)
+			return
+		}
+		if current.ID == 0 {
+			next := r.URL.Query().Get("next")
+			if next == "" {
+				next = root
+			}
+			writeRedirect(w, r, cfg.URLPrefix()+"login/?next="+url.QueryEscape(next))
+			return
+		}
 	}
 	secret := ""
 	if cookie, err := r.Cookie(auth.CSRFCookieName); err == nil && auth.VerifyCSRF(cookie.Value, cookie.Value) {
@@ -68,7 +83,7 @@ func serveAdminLogin(w http.ResponseWriter, r *http.Request, cfg config.Config, 
 	}
 	labels.InvalidLogin = adminTranslate(language.Code, "Please enter the correct %(username)s and password for a staff account. Note that both fields may be case-sensitive.")
 	labels.InvalidLogin = strings.ReplaceAll(labels.InvalidLogin, "%(username)s", adminTranslate(language.Code, "username"))
-	data := adminLoginData{Prefix: cfg.URLPrefix(), Action: r.URL.RequestURI(), Next: r.URL.Query().Get("next"), Language: language.Code, Direction: language.Dir, Labels: labels}
+	data := adminLoginData{Prefix: cfg.URLPrefix(), Action: r.URL.RequestURI(), Next: r.URL.Query().Get("next"), Language: language.Code, Direction: language.Dir, Labels: labels, PasswordDisabled: cfg.DisablePasswordLogin}
 	if current.ID != 0 && !current.IsStaff {
 		data.LoggedInMessage = adminTranslate(language.Code, "You are authenticated as %(username)s, but are not authorized to access this page. Would you like to login to a different account?")
 		data.LoggedInMessage = strings.ReplaceAll(data.LoggedInMessage, "%(username)s", current.Username)
