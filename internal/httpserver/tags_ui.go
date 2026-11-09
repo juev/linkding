@@ -22,8 +22,8 @@ import (
 //go:embed tags_page.html tags_modal.html
 var tagsUIFiles embed.FS
 
-var tagsPageTemplate = template.Must(template.ParseFS(tagsUIFiles, "tags_page.html"))
-var tagsModalTemplate = template.Must(template.ParseFS(tagsUIFiles, "tags_modal.html"))
+var tagsPageTemplate = parsePageTemplate(tagsUIFiles, "tags_page.html")
+var tagsModalTemplate = parsePageTemplate(tagsUIFiles, "tags_modal.html")
 
 type tagUIRow struct {
 	ID           int64

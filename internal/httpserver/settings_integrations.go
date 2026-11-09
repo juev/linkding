@@ -18,7 +18,7 @@ import (
 //go:embed settings_integrations.html
 var integrationsTemplateFile embed.FS
 
-var integrationsTemplate = template.Must(template.ParseFS(integrationsTemplateFile, "settings_integrations.html"))
+var integrationsTemplate = parsePageTemplate(integrationsTemplateFile, "settings_integrations.html")
 
 type integrationsPageData struct {
 	Prefix, CSRFToken, Theme, CustomCSSHash string

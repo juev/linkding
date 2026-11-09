@@ -34,7 +34,7 @@ func TestLoginSessionProfileAndLogoutWithContextPath(t *testing.T) {
 	loginPath := "/linkding/login/"
 	get := httptest.NewRecorder()
 	handler.ServeHTTP(get, httptest.NewRequest(http.MethodGet, loginPath, nil))
-	if get.Code != http.StatusOK || !strings.Contains(get.Body.String(), `action="/linkding/login/"`) || !strings.Contains(get.Body.String(), `theme-light.css?v=1.47.0`) {
+	if get.Code != http.StatusOK || !strings.Contains(get.Body.String(), `action="/linkding/login/"`) || !regexp.MustCompile(`theme-light\.css\?v=[0-9a-f]{12}"`).MatchString(get.Body.String()) {
 		t.Fatalf("login GET: status=%d body=%s", get.Code, get.Body.String())
 	}
 	var csrfCookie *http.Cookie

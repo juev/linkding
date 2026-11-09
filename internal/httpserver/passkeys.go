@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -414,7 +413,7 @@ func servePasskeyDelete(w http.ResponseWriter, r *http.Request, path string, cfg
 	writeRedirect(w, r, redirect)
 }
 
-var passkeyRecoveryTemplate = template.Must(template.New("passkey-recovery").Parse(passkeyRecoveryHTML))
+var passkeyRecoveryTemplate = parsePageString("passkey-recovery", passkeyRecoveryHTML)
 
 type passkeyRecoveryData struct {
 	Prefix, CSRFToken, Token string
@@ -532,8 +531,8 @@ const passkeyRecoveryHTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimal-ui">
   <meta name="robots" content="noindex,nofollow">
   <title>Account recovery - Linkding</title>
-  <link href="{{.Prefix}}static/theme-dark.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: dark)">
-  <link href="{{.Prefix}}static/theme-light.css?v=1.47.0" rel="stylesheet" type="text/css" media="(prefers-color-scheme: light)">
+  <link href="{{.Prefix}}static/theme-dark.css?v={{assetVersion}}" rel="stylesheet" type="text/css" media="(prefers-color-scheme: dark)">
+  <link href="{{.Prefix}}static/theme-light.css?v={{assetVersion}}" rel="stylesheet" type="text/css" media="(prefers-color-scheme: light)">
   <meta name="turbo-cache-control" content="no-cache">
   <meta name="turbo-prefetch" content="false">
 </head>

@@ -21,7 +21,7 @@ import (
 //go:embed reader.html
 var readerTemplateFile embed.FS
 
-var readerTemplate = template.Must(template.ParseFS(readerTemplateFile, "reader.html"))
+var readerTemplate = parsePageTemplate(readerTemplateFile, "reader.html")
 
 type readerData struct {
 	Prefix       string
