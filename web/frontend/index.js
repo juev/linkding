@@ -11,3 +11,4 @@ import "./components/search-autocomplete.js";
 import "./components/tag-autocomplete.js";
 import "./components/upload-button.js";
 import "./shortcuts.js";
+import "./passkeys.js";
